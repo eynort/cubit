@@ -1,0 +1,16 @@
+# Lo de cada usuario: cuentas, contraseñas, lo aprendido de cada mundo
+bot.json
+bot.json.tmp
+datos/
+construccion.json
+
+# Logs y estado de la consola
+logs/
+*.log
+.historial
+.lang
+
+# Binarios
+/minecraft-bot
+/minecraft-bot.exe
+/dist/
