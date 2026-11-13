@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bot panel</title>
+<style>
+:root{color-scheme:light dark;--bg:#f4f4f1;--fg:#1b1b1b;--mut:#6b6b6b;--card:#fff;--line:#e2e2de;--acc:#2f7d4f;--bad:#b3261e;--log:#fafaf8}
+@media (prefers-color-scheme:dark){:root{--bg:#121212;--fg:#ececec;--mut:#9a9a9a;--card:#1c1c1c;--line:#2c2c2c;--acc:#5fbf86;--bad:#ef6b62;--log:#161616}}
+*{box-sizing:border-box}
+body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.4 system-ui,sans-serif;max-width:1100px;margin:auto}
+h1{font-size:18px;margin:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--bad)}.dot.on{background:var(--acc)}
+.sub{color:var(--mut);font-size:13px;margin:2px 0 14px}
+.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:12px}
+.c{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px;min-width:0}
+.k{color:var(--mut);font-size:12px}.v{font-size:17px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.cols{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+@media (max-width:760px){.cols{grid-template-columns:1fr}}
+h2{font-size:14px;margin:0 0 6px;color:var(--mut);font-weight:600}
+#log{background:var(--log);border:1px solid var(--line);border-radius:8px;height:360px;overflow:auto;padding:8px;font:12px/1.45 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
+form{display:flex;gap:6px;margin-top:8px}
+input{flex:1;min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font:inherit}
+button{padding:9px 14px;border:0;border-radius:8px;background:var(--acc);color:#fff;font:inherit;cursor:pointer}
+.quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.quick button{background:var(--card);color:var(--fg);border:1px solid var(--line);padding:5px 10px;font-size:13px}
+ul{margin:0;padding-left:18px}li{overflow-wrap:anywhere}
+table{width:100%;border-collapse:collapse;font-size:13px}td{padding:2px 0;border-bottom:1px solid var(--line)}td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.side>.c{margin-bottom:12px}
+a{color:var(--acc)}
+</style></head><body>
+<h1><span class="dot" id="dot"></span><span id="name">…</span></h1>
+<div class="sub" id="sub"></div>
+<div class="g">
+ <div class="c"><div class="k">Vida</div><div class="v" id="hp">—</div></div>
+ <div class="c"><div class="k">Comida</div><div class="v" id="food">—</div></div>
+ <div class="c"><div class="k">Posición</div><div class="v" id="pos">—</div></div>
+ <div class="c"><div class="k">Tarea</div><div class="v" id="task">—</div></div>
+ <div class="c"><div class="k">Combate</div><div class="v" id="combat">—</div></div>
+ <div class="c"><div class="k">RAM</div><div class="v" id="ram">—</div></div>
+</div>
+<div class="cols">
+ <div>
+  <h2>Log</h2>
+  <div id="log"></div>
+  <form id="f"><input id="line" placeholder="/chop oak 32, /goto 100 200, /stop… o un mensaje para el chat" autocomplete="off"><button>Enviar</button></form>
+  <div class="quick">
+   <button data-c="/status">status</button><button data-c="/stop">stop</button><button data-c="/inventory">inventory</button>
+   <button data-c="/queue">queue</button><button data-c="/limits">limits</button><button data-c="/help">help</button>
+  </div>
+ </div>
+ <div class="side">
+  <div class="c"><h2>Cola</h2><div id="queue" class="k">vacía</div></div>
+  <div class="c"><h2>Inventario</h2><table id="inv"></table></div>
+  <div class="c"><h2>Conectados</h2><div id="online" class="k">—</div></div>
+  <div class="c"><h2>Límites</h2><div id="limits" class="k">—</div></div>
+ </div>
+</div>
+<p class="sub"><a href="/json">JSON</a> · <a href="/debug/pprof/">pprof</a></p>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+let next=0;
+async function state(){
+ try{
+  const s=await (await fetch('/json')).json();
+  $('dot').className='dot'+(s.connected?' on':'');
+  $('name').textContent=s.name; document.title=s.name;
+  $('sub').textContent=(s.connected?'en ':'sin conexión con ')+s.server+' · '+s.uptime;
+  $('hp').textContent=s.health.toFixed(1); $('food').textContent=s.food;
+  $('pos').textContent=[s.x,s.y,s.z].map(Math.round).join(' ');
+  $('task').textContent=s.task||'—'; $('combat').textContent=s.combat||'—';
+  $('ram').textContent=s.rss_mb?s.rss_mb.toFixed(0)+' MB':s.heap_mb.toFixed(0)+' MB';
+  const q=[];if(s.current)q.push('<li><b>'+esc(s.current)+'</b></li>');(s.queue||[]).forEach(x=>q.push('<li>'+esc(x)+'</li>'));
+  $('queue').innerHTML=q.length?'<ul>'+q.join('')+'</ul>':'vacía';
+  const inv=Object.entries(s.inventory||{}).sort((a,b)=>b[1]-a[1]);
+  $('inv').innerHTML=inv.length?inv.map(([k,v])=>'<tr><td>'+esc(k)+'</td><td>'+v+'</td></tr>').join(''):'<tr><td class="k">vacío</td></tr>';
+  $('online').textContent=(s.online||[]).join(', ')||'—';
+  $('limits').textContent=s.limits;
+ }catch(e){$('dot').className='dot'}
+}
+async function logs(){
+ try{
+  const r=await (await fetch('/log?after='+next)).json();
+  if(r.lines.length){
+   const el=$('log'),stick=el.scrollTop+el.clientHeight>=el.scrollHeight-20;
+   el.insertAdjacentHTML('beforeend',r.lines.map(l=>esc(l)+'\n').join(''));
+   while(el.childNodes.length>800)el.removeChild(el.firstChild);
+   if(stick)el.scrollTop=el.scrollHeight;
+  }
+  next=r.next;
+ }catch(e){}
+}
+async function send(line){
+ await fetch('/cmd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({line})});
+ setTimeout(logs,300);
+}
+$('f').onsubmit=e=>{e.preventDefault();const v=$('line').value.trim();if(v){send(v);$('line').value=''}};
+document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>send(b.dataset.c));
+if(location.search.includes('t='))history.replaceState(null,'','/');
+state();logs();setInterval(state,2000);setInterval(logs,1000);
+</script>
+</body></html>
