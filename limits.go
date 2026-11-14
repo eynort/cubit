@@ -45,22 +45,12 @@ var (
 )
 
 func applyLimitFlags() {
-	switch a := strings.TrimSpace(*areaFlag); a {
-	case "":
-	case "-":
-		cfg.Limits.Area = nil
-	default:
-		f := strings.Fields(strings.ReplaceAll(a, ",", " "))
-		var v [4]int
-		ok := len(f) == 4
-		for i := 0; ok && i < 4; i++ {
-			n, err := strconv.Atoi(f[i])
-			v[i], ok = n, err == nil
+	if a := strings.TrimSpace(*areaFlag); a != "" {
+		v, err := parseArea(a)
+		if err != nil {
+			log.Fatalf("--area: %v", err)
 		}
-		if !ok {
-			log.Fatalf(`--area: "x1 z1 x2 z2" (cuatro números), no %q`, a)
-		}
-		cfg.Limits.Area = &v
+		cfg.Limits.Area = v
 	}
 	switch strings.ToLower(*pvpFlag) {
 	case "on", "true", "si", "sí", "yes":
@@ -68,21 +58,44 @@ func applyLimitFlags() {
 	case "off", "false", "no":
 		cfg.Limits.NoPvP = true
 	}
-	switch nb := strings.TrimSpace(*neverBreakFlag); nb {
-	case "":
-	case "default":
-		cfg.Limits.NeverBreak = nil
-	default:
-		cfg.Limits.NeverBreak = nil
-		for _, x := range strings.Split(nb, ",") {
-			if x = strings.TrimPrefix(strings.TrimSpace(x), "minecraft:"); x != "" {
-				cfg.Limits.NeverBreak = append(cfg.Limits.NeverBreak, x)
-			}
+	if nb := strings.TrimSpace(*neverBreakFlag); nb != "" {
+		cfg.Limits.NeverBreak = parseNeverBreak(nb)
+	}
+}
+
+// parseArea: "x1 z1 x2 z2" (o con comas); "" o "-" = sin límite (nil).
+func parseArea(a string) (*[4]int, error) {
+	if a = strings.TrimSpace(a); a == "" || a == "-" || strings.EqualFold(a, "off") {
+		return nil, nil
+	}
+	f := strings.Fields(strings.ReplaceAll(a, ",", " "))
+	if len(f) != 4 {
+		return nil, fmt.Errorf(`"x1 z1 x2 z2" (cuatro números), no %q`, a)
+	}
+	var v [4]int
+	for i := range 4 {
+		n, err := strconv.Atoi(f[i])
+		if err != nil {
+			return nil, fmt.Errorf(`"x1 z1 x2 z2" (cuatro números), no %q`, a)
 		}
-		if cfg.Limits.NeverBreak == nil {
-			cfg.Limits.NeverBreak = []string{} // (ninguno)
+		v[i] = n
+	}
+	return &v, nil
+}
+
+// parseNeverBreak: la lista separada por comas; "default" = nil (la de
+// siempre); vacía = ninguno.
+func parseNeverBreak(nb string) []string {
+	if strings.TrimSpace(nb) == "default" {
+		return nil
+	}
+	out := []string{}
+	for _, x := range strings.Split(nb, ",") {
+		if x = strings.TrimPrefix(strings.ToLower(strings.TrimSpace(x)), "minecraft:"); x != "" {
+			out = append(out, x)
 		}
 	}
+	return out
 }
 
 // ErrLimit: lo que el bot no hace por los límites.
