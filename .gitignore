@@ -15,3 +15,15 @@ logs/
 /minecraft-bot.exe
 /dist/
 testserver/
+bot-data/
+mc-data/
+.env
+/fakesrv
+/fakesrv.exe
+
+# El hub (--hub): sus bots, la lista y las cabezas descargadas
+bots/
+hub.json
+hub.json.tmp
+avatares/
+.microsoft/

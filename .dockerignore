@@ -1,0 +1,13 @@
+bot.json
+datos/
+logs/
+testserver/
+bot-data/
+mc-data/
+*.log
+.historial
+.lang
+/minecraft-bot
+/dist/
+.git/
+.env
