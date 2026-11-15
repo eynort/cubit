@@ -4,10 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/mj41/go-mc26/level/block"
 	"log"
 	"math"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -19,15 +17,12 @@ import (
 )
 
 // El trabajo largo (talar, escombros, granja, camas) sobrevive a una muerte:
-// al empezar se pone una home del servidor donde está (/sethome botwork); si
-// muere, al reaparecer vuelve con /home (o andando si no hay home), recoge lo
-// que tiró si fue cerca y retoma la misma tarea. Al terminar (o con /stop)
-// se borra la home. Si muere demasiadas veces seguidas, lo deja.
+// al empezar se apunta dónde está; si muere, al reaparecer vuelve andando,
+// recoge lo que tiró si fue cerca y retoma la misma tarea. Si muere
+// demasiadas veces seguidas, lo deja. (Sin comandos del servidor: vale en
+// cualquiera.)
 
-const (
-	workHome      = "botwork"
-	maxWorkDeaths = 4 // en workDeathWindow: más, y se para (algo lo mata una y otra vez)
-)
+const maxWorkDeaths = 4 // en workDeathWindow: más, y se para (algo lo mata una y otra vez)
 
 var workDeathWindow = 30 * time.Minute
 
@@ -35,11 +30,9 @@ type workState struct {
 	mu       sync.Mutex
 	name     string
 	task     func(*automation.Job) error
-	home     bool           // se puso la home
-	homeAt   time.Time      // cuándo se pidió (para atribuirle la respuesta del servidor)
-	hasPos   bool           // homePos vale
-	homePos  world.BlockPos // dónde empezó (para volver andando si no hay home)
-	resuming bool           // parada por una muerte: se retoma (no borrar la home)
+	hasPos   bool           // pos vale
+	pos      world.BlockPos // dónde empezó (para volver andando si muere)
+	resuming bool           // parada por una muerte: se retoma
 	deaths   []time.Time
 	by       string // quién lo mandó por /msg ("" desde la consola o la cola): a quién avisar
 }
@@ -112,7 +105,7 @@ var untilState struct {
 	used  bool
 }
 
-// startWork empieza una tarea larga con su home de vuelta.
+// startWork empieza una tarea larga (apuntando dónde, para volver si muere).
 func (b *Bot) startWork(name string, task func(*automation.Job) error) {
 	untilState.Lock()
 	if untilState.conds != nil {
@@ -132,25 +125,15 @@ func (b *Bot) startWork(name string, task func(*automation.Job) error) {
 	orderFrom.Lock()
 	b.work.by = orderFrom.who
 	orderFrom.Unlock()
-	setHome := !b.work.home && !b.Tasks.Store.IsProtected(here)
-	if !b.work.hasPos || setHome {
-		b.work.homePos, b.work.hasPos = here, true
-	}
-	if setHome {
-		b.work.home, b.work.homeAt = true, time.Now()
+	if !b.work.hasPos {
+		b.work.pos, b.work.hasPos = here, true
 	}
 	b.work.mu.Unlock()
-	if setHome {
-		log.Printf("trabajo: pongo la home \"%s\" aquí (%v) para volver si muero", workHome, here)
-		if err := b.Chat.SendCommand("sethome " + workHome); err != nil {
-			log.Print("sethome: ", err)
-		}
-	}
 	b.Tasks.Start(b.ctx, name, task)
 }
 
 // onTaskEnd: una tarea acabó. Si era el trabajo y no se va a retomar (una
-// muerte), se borra su home.
+// muerte), se olvida.
 func (b *Bot) onTaskEnd(name string, err error) {
 	// por qué paró, en el chat: si no, quien lo mandó no se entera
 	if err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, automation.ErrStopCondition) {
@@ -159,18 +142,10 @@ func (b *Bot) onTaskEnd(name string, err error) {
 		notify(fmt.Sprintf("[%s] terminado", name))
 	}
 	b.work.mu.Lock()
-	mine := b.work.name == name && !b.work.resuming
-	hadHome := b.work.home
-	if mine {
-		b.work.name, b.work.task, b.work.home, b.work.hasPos = "", nil, false, false
+	if b.work.name == name && !b.work.resuming {
+		b.work.name, b.work.task, b.work.hasPos = "", nil, false
 	}
 	b.work.mu.Unlock()
-	if mine && hadHome {
-		log.Printf("trabajo terminado: borro la home \"%s\"", workHome)
-		if err := b.Chat.SendCommand("delhome " + workHome); err != nil {
-			log.Print("delhome: ", err)
-		}
-	}
 }
 
 // workAtDeath: al morir, si había un trabajo en marcha, se marca para
@@ -185,11 +160,11 @@ func (b *Bot) workAtDeath() bool {
 	return true
 }
 
-// resumeWork: tras reaparecer, de vuelta al trabajo (con /home o andando),
+// resumeWork: tras reaparecer, de vuelta al trabajo (andando),
 // recoge lo que tiró si murió cerca y retoma la tarea.
 func (b *Bot) resumeWork(death *deathSpot) {
 	b.work.mu.Lock()
-	name, task, home, homePos, hasPos := b.work.name, b.work.task, b.work.home, b.work.homePos, b.work.hasPos
+	name, task, pos, hasPos := b.work.name, b.work.task, b.work.pos, b.work.hasPos
 	now := time.Now()
 	var recent []time.Time
 	for _, t := range b.work.deaths {
@@ -216,24 +191,9 @@ func (b *Bot) resumeWork(death *deathSpot) {
 	gen := setMoveKind("goto")
 	defer cancel()
 	defer clearMove(gen)
-	back := false
-	if home {
-		start := b.Player.Position()
-		log.Printf("trabajo: vuelvo con /home %s", workHome)
-		if err := b.Chat.SendCommand("home " + workHome); err == nil {
-			for i := 0; i < 60 && !back; i++ { // hasta 15 s (algunos servidores hacen esperar)
-				if b.Ctl.WaitTicks(ctx, 5) != nil {
-					b.abandonWork(name)
-					return
-				}
-				p := b.Player.Position()
-				back = math.Hypot(p.X-start.X, p.Z-start.Z) > 8
-			}
-		}
-	}
-	if !back && hasPos {
-		log.Printf("trabajo: vuelvo andando a donde trabajaba (%v)", homePos)
-		back = b.gotoCoords(ctx, float64(homePos.X)+0.5, float64(homePos.Z)+0.5, nil)
+	if hasPos {
+		log.Printf("trabajo: vuelvo andando a donde trabajaba (%v)", pos)
+		b.gotoCoords(ctx, float64(pos.X)+0.5, float64(pos.Z)+0.5, nil)
 	}
 	if ctx.Err() != nil {
 		b.abandonWork(name) // una orden del operador tomó el control
@@ -282,7 +242,7 @@ func (b *Bot) runAndWait(name string, task func(*automation.Job) error) {
 }
 
 // abandonWork: el operador mandó otra cosa mientras se volvía al trabajo: se
-// da por terminado (y se borra su home).
+// da por terminado.
 func (b *Bot) abandonWork(name string) {
 	b.work.mu.Lock()
 	b.work.resuming = false
@@ -295,58 +255,4 @@ func (b *Bot) workResuming() bool {
 	b.work.mu.Lock()
 	defer b.work.mu.Unlock()
 	return b.work.resuming
-}
-
-// homeReply: un mensaje del servidor justo tras el /sethome que dice que no se
-// pudo (sitio inseguro, sin permiso, límite de homes): no hay home; si muere,
-// volverá andando.
-var homeFailMsg = regexp.MustCompile(`(?i)(error|unsafe|insegur|no puedes|cannot|can't|not allowed|límite|limit|permiso)`)
-
-func (b *Bot) homeReply(text string) {
-	b.work.mu.Lock()
-	defer b.work.mu.Unlock()
-	if !b.work.home || time.Since(b.work.homeAt) > 3*time.Second || !homeFailMsg.MatchString(text) {
-		return
-	}
-	b.work.home = false
-	log.Printf("trabajo: el servidor no me deja poner la home (%s): si muero, vuelvo andando", text)
-}
-
-// retryHome: hay un trabajo sin home (el servidor dijo que el sitio era
-// inseguro: dentro de una mina, en el aire): cada 2 minutos, si está de pie
-// con el cielo encima, lo intenta otra vez.
-func (b *Bot) retryHome() {
-	b.work.mu.Lock()
-	try := b.work.name != "" && !b.work.home && !b.work.resuming && time.Since(b.work.homeAt) > 2*time.Minute
-	b.work.mu.Unlock()
-	if !try || !b.Ctl.State().OnGround || b.Combat.Fighting() {
-		return
-	}
-	p := b.Player.Position()
-	here := world.BlockPos{X: int(math.Floor(p.X)), Y: int(math.Floor(p.Y)), Z: int(math.Floor(p.Z))}
-	if b.Tasks.Store.IsProtected(here) || !b.skyAbove(here) {
-		return
-	}
-	b.work.mu.Lock()
-	b.work.home, b.work.homeAt, b.work.homePos, b.work.hasPos = true, time.Now(), here, true
-	b.work.mu.Unlock()
-	log.Printf("trabajo: pruebo otra vez a poner la home \"%s\" (%v)", workHome, here)
-	if err := b.Chat.SendCommand("sethome " + workHome); err != nil {
-		log.Print("sethome: ", err)
-	}
-}
-
-// skyAbove: nada macizo encima de p (hasta 40 bloques; las hojas no cuentan).
-func (b *Bot) skyAbove(p world.BlockPos) bool {
-	for y := p.Y + 2; y <= p.Y+40; y++ {
-		q := world.BlockPos{X: p.X, Y: y, Z: p.Z}
-		st, ok := b.World.BlockAt(q)
-		if !ok {
-			return false
-		}
-		if n := world.StateString(st); !block.IsAir(st) && !strings.Contains(n, "_leaves") && !strings.Contains(n, "_log") && len(block.CollisionShape(st)) > 0 {
-			return false
-		}
-	}
-	return true
 }

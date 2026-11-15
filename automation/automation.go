@@ -74,6 +74,7 @@ type Runner struct {
 	Build *BuildState // la construcción apuntada (/build)
 
 	wantGold atomic.Bool // la tarea va al Nether: el oro puesto no se quita
+	noChests atomic.Bool // no usar cofres: nada se guarda (SetChests)
 	// strips: el plan de galerías de cada mineral de /mine (el siguiente viaje sigue en él)
 	strips   map[string]*stripPlan
 	bred     map[string]time.Time     // cuándo crió cada oveja (por uuid)
@@ -81,7 +82,6 @@ type Runner struct {
 	resting  atomic.Bool              // la tarea espera quieta a propósito (Rest): no es un atasco
 	progress atomic.Pointer[Progress] // el de la tarea en curso con condiciones de parada (lo recogido)
 	job      atomic.Pointer[Job]      // la tarea en curso (para su progreso en Status)
-	denied   atomic.Int64             // el último aviso de "sin permiso" del servidor (UnixNano)
 	chats    atomic.Int64             // los mensajes de jugadores recibidos: una respuesta (NoteChat)
 
 	mu     sync.Mutex
@@ -409,6 +409,7 @@ type Job struct {
 	lootWarned    bool
 	noStore       bool
 	noStoreSig    string
+	storeTold     bool // ya se dijo por el chat que sigue sin guardar
 	// los problemas anotados (Problem): cuántos de cada clase y sus números
 	pmu        sync.Mutex
 	problems   map[string]int
@@ -557,3 +558,11 @@ func (j *Job) Block(p world.BlockPos) string {
 	}
 	return blockName(s)
 }
+
+// SetChests: con false, el bot no usa cofres para nada (ni el de minar, ni el
+// almacén, ni los de alrededor): trabaja con lo que le quepa encima y lo
+// demás se queda en el suelo. Lo dice una vez en cada tarea.
+func (r *Runner) SetChests(on bool) { r.noChests.Store(!on) }
+
+// Chests: si usa cofres.
+func (r *Runner) Chests() bool { return !r.noChests.Load() }

@@ -141,7 +141,7 @@ func (e *excavation) checkRevert(c world.BlockPos, n string) {
 // las zonas apuntadas son anchas y pueden tapar terreno libre, que sí hay
 // que cavar. Dice si dejó la columna.
 func (e *excavation) dropOldProtected(c world.BlockPos, err error) bool {
-	if !errors.Is(err, ErrProtected) && !e.j.deniedSince(time.Now().Add(-30*time.Second)) {
+	if !errors.Is(err, ErrProtected) {
 		return false
 	}
 	for y := e.box.Min.Y; y <= e.box.Max.Y; y++ {
@@ -660,7 +660,7 @@ func (e *excavation) loot() map[string]int {
 func (e *excavation) stash(restock bool) error {
 	j := e.j
 	if j.storingOff() {
-		return nil // nadie contestó a "no puedo guardar": se sigue cavando sin guardar
+		return nil // sin cofres (desactivados o no hay dónde): se sigue cavando sin guardar
 	}
 	// (sin recoger antes: lo del suelo, al acabar la pasada)
 	keep := j.filler() // un montón se queda: tapar lava, subir del hoyo
@@ -712,11 +712,9 @@ func (e *excavation) stash(restock bool) error {
 		}
 	}
 	if stuck != "" && j.FreeSlots() < 3 {
-		// una sola pregunta por el chat; con respuesta, otra vez; sin ella,
-		// se sigue cavando (lo cavado se queda en el suelo)
-		if j.storageStuck(stuck, denied) {
-			return e.stash(restock)
-		}
+		// se avisa por el chat (una vez) y se sigue cavando: lo que no quepa
+		// se queda en el suelo
+		j.storageStuck(stuck, denied)
 		return nil
 	}
 	if restock && j.bestPickSlot(pickReserve) < 0 {

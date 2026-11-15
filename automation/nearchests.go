@@ -2,14 +2,12 @@ package automation
 
 // Guardar en los cofres de alrededor: con el inventario lleno, el bot va
 // andando (con el pathfinding) al cofre más cercano y deja ahí lo que no le
-// hace falta. Si el servidor no le deja (un cofre protegido por un plugin:
-// no se abre, avisa con "no tienes permiso", o no deja meter nada), lo dice
-// por el chat y prueba el siguiente.
+// hace falta. Si el servidor no le deja (no se abre, o no deja meter nada),
+// prueba el siguiente.
 
 import (
 	"fmt"
 	"math"
-	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -25,10 +23,6 @@ const (
 	nearChestFull   = 5 * time.Minute  // ni uno lleno
 )
 
-// chestDeniedMsg reconoce los avisos de un cofre protegido (LWC, Bolt,
-// GriefPrevention, Lands, Towny…).
-var chestDeniedMsg = regexp.MustCompile(`(?i)(no tienes permiso|sin permiso|no puedes (abrir|usar|acceder)|est[aá] (bloquead|protegid)|protegid[oa] por|don't have permission|do not have permission|no permission|cannot (open|access|use)|can't (open|access|use)|is locked|locked by|this (chest|container) is protected|hey! sorry)`)
-
 // chestSkip: los cofres que no se usan un rato (sin permiso, o llenos) y si ya se dijo.
 type chestSkip struct {
 	until time.Time
@@ -39,17 +33,6 @@ var nearChests = struct {
 	sync.Mutex
 	skip map[world.BlockPos]*chestSkip
 }{skip: map[world.BlockPos]*chestSkip{}}
-
-// NoteServerMessage: un mensaje del sistema; si es de "sin permiso" se
-// apunta la hora (el cofre que se estaba abriendo era protegido).
-func (r *Runner) NoteServerMessage(text string) {
-	if chestDeniedMsg.MatchString(text) {
-		r.denied.Store(time.Now().UnixNano())
-	}
-}
-
-// deniedSince: llegó un aviso de "sin permiso" después de t.
-func (j *Job) deniedSince(t time.Time) bool { return j.r.denied.Load() >= t.UnixNano() }
 
 // say escribe en el chat (si el bot tiene con qué).
 func (j *Job) say(text string) {
@@ -185,13 +168,11 @@ func (j *Job) StoreNearby(store func(name string, s types.ItemStack) bool) (int,
 // storeIn abre el cofre c y mete lo que store dice. denied: el servidor no
 // deja (no se abre y avisa, o se abre pero no deja meter nada con huecos libres).
 func (j *Job) storeIn(c world.BlockPos, store func(string, types.ItemStack) bool) (n int, denied bool, err error) {
-	start := time.Now()
 	if err := j.Open(c); err != nil {
 		if j.Fatal() != nil {
 			return 0, false, j.Fatal()
 		}
-		_ = j.Wait(10) // el aviso del plugin puede llegar un poco después
-		if j.deniedSince(start) || strings.Contains(err.Error(), "no se abrió") {
+		if strings.Contains(err.Error(), "no se abrió") {
 			return 0, true, nil
 		}
 		return 0, false, err
@@ -230,9 +211,6 @@ func (j *Job) storeIn(c world.BlockPos, store func(string, types.ItemStack) bool
 			moved += int(sl.Count) - int(max(after.Count, 0))
 		}
 	}
-	if moved == 0 && free > 0 && j.deniedSince(start) {
-		return 0, true, nil
-	}
 	if moved == 0 && free > 0 {
 		// con huecos y sin meter nada: el servidor lo devuelve todo (protegido sin avisar)
 		return 0, true, nil
@@ -267,11 +245,11 @@ func (j *Job) storeSig() string {
 	return base + " " + strings.Join(keys, ",")
 }
 
-// storageStuck: no hay dónde guardar (why). La primera vez en la tarea lo
-// dice por el chat (un solo mensaje) y espera storeWait una respuesta (que
-// alguien escriba, o que se marque un cofre): con ella, retry (volver a
-// intentar). Sin ella (o ya preguntado), sigue sin guardar: noStore (ni se
-// recoge lo del suelo) hasta que cambie dónde se puede guardar.
+// storageStuck: no hay dónde guardar (why). No se espera a nadie: lo dice
+// por el chat (una vez en la tarea) y sigue trabajando sin guardar (noStore)
+// hasta que cambie dónde se puede guardar (se marca un cofre). Lo cavado
+// se recoge mientras quepa; lo demás se queda en el suelo. Devuelve si hay
+// que volver a intentar guardar (nunca: se sigue).
 func (j *Job) storageStuck(why string, denied []world.BlockPos) (retry bool) {
 	if j.storageAsked {
 		j.giveUpStoring()
@@ -290,37 +268,45 @@ func (j *Job) storageStuck(why string, denied []world.BlockPos) (retry bool) {
 		}
 		where = " (sin permiso en los cofres de " + strings.Join(cs, ", ") + ")"
 	}
-	secs := int(storeWait / time.Second)
 	if r := []rune(why); len(r) > 90 { // (el chat admite 256: el motivo, corto)
 		why = string(r[:89]) + "…"
 	}
-	j.say(fmt.Sprintf("No puedo guardar: %s%s. ¿Me das acceso o me marcas un cofre (/mine chest)? Si no me contestas en %d s, sigo sin recoger.", why, where, secs))
-	asked, sig := j.r.chats.Load(), j.storeSig()
-	for waited := 0; waited < secs; waited++ {
-		j.Status("esperando respuesta para guardar (%d s de %d)", waited, secs)
-		if err := j.Rest(20); err != nil {
-			return false
-		}
-		if j.r.chats.Load() > asked || j.storeSig() != sig {
-			j.Logf("me contestaron: vuelvo a intentar guardar")
-			return true
-		}
-	}
+	j.Problem("no puedo guardar: %s%s", why, where)
+	j.noStoreNotice(why + where)
 	j.giveUpStoring()
 	return false
 }
 
-// giveUpStoring: a seguir sin guardar ni recoger (hasta que cambie dónde guardar).
-func (j *Job) giveUpStoring() {
-	if !j.noStore {
-		j.Problem("nadie contestó: sigo sin guardar ni recoger lo del suelo (si me marcas un cofre con /mine chest o /base here, vuelvo a guardar)")
+// noStoreNotice: la aclaración por el chat (una vez en la tarea) de que sigue
+// sin guardar.
+func (j *Job) noStoreNotice(why string) {
+	if j.storeTold {
+		return
 	}
+	j.storeTold = true
+	const msg = "No puedo guardar (%s). Sigo trabajando: me quedo lo que quepa y lo demás queda en el suelo. Márcame un cofre (/mine chest) y vuelvo a guardar."
+	for r := []rune(why); len(fmt.Sprintf(msg, why)) > 250 && len(r) > 1; { // (el servidor rechaza más de 256)
+		r = r[:len(r)-2]
+		why = string(r) + "…"
+	}
+	j.say(fmt.Sprintf(msg, why))
+}
+
+// giveUpStoring: a seguir sin guardar (hasta que cambie dónde guardar).
+func (j *Job) giveUpStoring() {
 	j.noStore, j.noStoreSig = true, j.storeSig()
 }
 
-// storingAgain: sin guardar (noStore), si ya hay otro sitio donde guardar,
-// se vuelve a intentar. Dice si se sigue sin guardar.
+// storingOff: no se guarda (cofres desactivados, o no hay dónde: noStore);
+// si ya hay otro sitio donde guardar, se vuelve a intentar.
 func (j *Job) storingOff() bool {
+	if !j.r.Chests() {
+		if !j.storeTold {
+			j.storeTold = true
+			j.say("Cofres desactivados: no guardo nada; me quedo lo que me quepa y lo demás se queda en el suelo.")
+		}
+		return true
+	}
 	if j.noStore && j.storeSig() != j.noStoreSig {
 		j.Logf("hay otro sitio donde guardar: vuelvo a guardar y a recoger")
 		j.noStore, j.storageAsked = false, false
@@ -330,7 +316,7 @@ func (j *Job) storingOff() bool {
 
 // storeFar: un cofre (o la base del almacén) más lejos que esto, en
 // horizontal, no se usa: ir y volver es medio mundo (el bot se teletransporta
-// con /tpa a otra zona y el cofre se queda donde estaba: a 9000 bloques).
+// a otra zona y el cofre se queda donde estaba: a 9000 bloques).
 const storeFar = 128
 
 // tooFar: p está a más de storeFar bloques en horizontal del bot. La primera

@@ -168,6 +168,9 @@ func (j *Job) foodChestCandidates() []world.BlockPos {
 // hasta llevar want piezas; dice cuántas cogió. Sin cofres donde mirar, o
 // sin comida en ellos, 0 y sin error (se caza como siempre).
 func (j *Job) FoodFromChests(want int) (int, error) {
+	if !j.r.Chests() {
+		return 0, nil // (cofres desactivados: se caza)
+	}
 	got := 0
 	j.foodSeen = 0
 	cands := j.foodChestCandidates()

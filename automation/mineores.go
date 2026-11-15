@@ -282,6 +282,9 @@ func (j *Job) pickDesc(own bool) string {
 // stash guarda lo minado: en el cofre de /mine chest (y, con restock, coge
 // de ahí picos, comida y armadura) o, sin cofre, en el almacén.
 func (j *Job) stash(os []Ore, need int, restock bool) error {
+	if j.storingOff() && !j.r.Chests() {
+		return nil // (cofres desactivados: lo minado, encima)
+	}
 	dim := j.Dimension()
 	loot := j.CountWhere(oreItemOf(ores))
 	// con lo que hace falta encima (un pico que vale, comida) y nada que

@@ -11,8 +11,8 @@ import (
 )
 
 // TestStorageStuckOnce: sin dónde guardar, lo dice por el chat una sola vez
-// (aunque falle muchas veces) y, sin respuesta, sigue sin guardar ni recoger;
-// si alguien contesta, vuelve a intentarlo.
+// (aunque falle muchas veces) y sigue trabajando sin guardar, sin esperar a
+// que nadie conteste.
 func TestStorageStuckOnce(t *testing.T) {
 	simworld.Run(t, func(t *testing.T) {
 		defer automation.SetStoreWait(3 * time.Second)()
@@ -42,18 +42,33 @@ func TestStorageStuckOnce(t *testing.T) {
 			t.Fatalf("sin respuesta tiene que seguir sin guardar")
 		}
 
-		// con respuesta: vuelve a intentarlo
+		// sin esperar: la tarea sigue en el mismo tick
 		said = nil
 		var retry bool
+		took := 0
 		r.Start(context.Background(), "excavar", func(j *automation.Job) error {
 			retry = j.StorageStuckForTest("el inventario está lleno")
 			return nil
 		})
-		g.Step(20)
-		r.NoteChat() // alguien contesta
+		for took = 0; r.Status() != "" && took < 60*20; took++ {
+			g.Step(1)
+		}
+		if len(said) != 1 || retry || took > 20 {
+			t.Fatalf("sigue sin esperar: mensajes %d, reintentar %v, %d ticks", len(said), retry, took)
+		}
+
+		// cofres desactivados: lo dice una vez y no guarda
+		said = nil
+		r.SetChests(false)
+		defer r.SetChests(true)
+		var off bool
+		r.Start(context.Background(), "excavar", func(j *automation.Job) error {
+			off = j.StoringOffForTest() && j.StoringOffForTest()
+			return nil
+		})
 		g.Until(60*20, func() bool { return r.Status() == "" })
-		if len(said) != 1 || !retry {
-			t.Fatalf("con respuesta: mensajes %d, reintentar %v", len(said), retry)
+		if !off || len(said) != 1 {
+			t.Fatalf("cofres desactivados: sin guardar %v, mensajes %q", off, said)
 		}
 	})
 }

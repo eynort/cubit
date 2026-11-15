@@ -1114,8 +1114,8 @@ func (j *Job) coverPit(top world.BlockPos) {
 // tapada o sin camino andando; se cava hasta él. Si uno no se puede, a por
 // el siguiente: nada se queda atrás.
 func (j *Job) fetchDrops(ok func(string) bool, radius float64) error {
-	if j.storingOff() {
-		return nil // (sin dónde guardar: lo del suelo se queda)
+	if j.storingOff() && j.FreeSlots() == 0 {
+		return nil // (sin dónde guardar y lleno: lo del suelo se queda)
 	}
 	want := dropOf(ok)
 	tried := map[int32]bool{}

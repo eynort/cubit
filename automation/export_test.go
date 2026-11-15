@@ -36,6 +36,9 @@ func (j *Job) StorageStuckForTest(why string) bool { return j.storageStuck(why, 
 // NoStore dice si sigue sin guardar ni recoger.
 func (j *Job) NoStore() bool { return j.storingOff() }
 
+// StoringOffForTest es storingOff.
+func (j *Job) StoringOffForTest() bool { return j.storingOff() }
+
 // SetSay cambia cómo escribe en el chat.
 func (r *Runner) SetSay(f func(string)) { r.d.Say = f }
 

@@ -383,8 +383,8 @@ func (j *Job) Collect(radius float64) error {
 // troncos de la copa y de las ramas caen ahí) lo hace caer rompiéndolas. Al
 // acabar, deja en el log lo que no pudo coger.
 func (j *Job) CollectAround(x, y, z, radius float64) error {
-	if j.storingOff() {
-		return nil // (sin dónde guardar: lo del suelo se queda)
+	if j.storingOff() && j.FreeSlots() == 0 {
+		return nil // (sin dónde guardar y lleno: lo del suelo se queda)
 	}
 	tried := map[int32]int{}
 	leaves := map[int32]int{} // hojas rotas bajo cada objeto

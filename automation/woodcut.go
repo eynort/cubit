@@ -250,13 +250,16 @@ func Woodcut(kind string, target int) func(j *Job) error {
 			j.Logf("la base de %v está a %.0f bloques y no tiene cofres: la pongo aquí", *b, j.baseDist())
 			j.r.Store.SetBase(j.Feet())
 		}
-		if b := j.r.Store.Base; b != nil && j.baseDist() > baseNear {
+		if !j.r.Chests() {
+			j.storingOff() // (lo dice por el chat una vez)
+		} else if b := j.r.Store.Base; b != nil && j.baseDist() > baseNear {
 			j.Logf("la base está lejos (%v, a %.0f bloques, con cofres): talo aquí y llevo la madera al llenarme; /base here la pone donde estoy", *b, j.baseDist())
 		} else if err := j.SetupBase(); err != nil {
 			if j.Fatal() != nil {
 				return j.Fatal()
 			}
 			j.Logf("base: %v", err)
+			j.noStoreNotice("no pude montar la base con su cofre: " + err.Error())
 		}
 		// 3. ahora sí, a talar
 		j.Logf("a talar (%s)", j.best("axe"))
@@ -283,9 +286,10 @@ func Woodcut(kind string, target int) func(j *Job) error {
 			j.makeRoom() // la tierra de los andamios: se queda con un montón, la demás fuera
 			// a guardar: con el inventario casi lleno; con la base cerca, en
 			// cuanto lleva unos montones (el viaje es corto)
-			if j.FreeSlots() <= 3 || (j.baseDist() <= baseNear && j.CountWhere(isLog) >= depositNext) {
+			if j.r.Chests() && (j.FreeSlots() <= 3 || (j.baseDist() <= baseNear && j.CountWhere(isLog) >= depositNext)) {
 				if err := j.depositWood(); err != nil {
 					j.Logf("%v", err)
+					j.noStoreNotice("no pude guardar la madera: " + err.Error())
 					depositNext = j.CountWhere(isLog) + depositAt // no salió: otra vez con más, no en cada vuelta
 				} else {
 					depositNext = depositAt
@@ -340,7 +344,13 @@ func Woodcut(kind string, target int) func(j *Job) error {
 				return err
 			}
 		}
-		return j.depositWood()
+		if !j.r.Chests() {
+			return nil
+		}
+		if err := j.depositWood(); err != nil {
+			j.noStoreNotice("no pude guardar la madera: " + err.Error())
+		}
+		return nil
 	}
 }
 
