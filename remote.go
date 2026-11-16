@@ -17,25 +17,6 @@ import (
 	"github.com/mj41/go-mc26/protocol/play"
 )
 
-// whisperPatterns reconocen un privado que llega como mensaje del sistema (de
-// un plugin: Essentials, CMI…): el primer grupo es quién, el segundo el texto.
-var whisperPatterns = []*regexp.Regexp{
-	regexp.MustCompile(`^\[(\w{3,16}) ?(?:->|→|») ?[^\]]+\] ?(.+)$`),                    // [Alex -> yo] texto
-	regexp.MustCompile(`^(\w{3,16}) (?:te susurra|whispers to you|te dice)[:,]? (.+)$`), // Alex whispers to you: texto
-	regexp.MustCompile(`^\[?(?:MSG|Privado|PM)\]? ?(\w{3,16}) ?(?:->|→|») ?\S+:? (.+)$`),
-	regexp.MustCompile(`(?i)^\[(\w{3,16})\] ?\[(?:mi|m[ií]|me|yo|t[uú]|ti)\]:? ?(.+)$`), // [Alex] [mi] texto (el de play.example.net)
-}
-
-// systemWhisper saca quién y qué de un privado que llega como mensaje del sistema.
-func systemWhisper(text string) (from, msg string, ok bool) {
-	for _, re := range whisperPatterns {
-		if m := re.FindStringSubmatch(strings.TrimSpace(text)); m != nil {
-			return m[1], strings.TrimSpace(m[2]), true
-		}
-	}
-	return "", "", false
-}
-
 func allowedRemote(name string) bool {
 	for _, o := range remoteOwners {
 		if o == "*" || strings.EqualFold(o, name) {

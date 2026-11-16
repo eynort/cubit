@@ -89,8 +89,10 @@ func TestAINonOwnerHasNoTools(t *testing.T) {
 
 func TestAIAllowed(t *testing.T) {
 	for cmd, ok := range map[string]bool{
-		"/goto 1 2": true, "/chop oak 10": true, "/spawn": true, "/cmd home": true, "/tpa Alex": true,
-		"/quit": false, "/ai hola": false, "/login x": false, "/cmd plugins": false, "/minecraft:op x": false, "/gamemode creative": false,
+		"/goto 1 2": true, "/chop oak 10": true, "/time set day": true, "/cmd weather clear": true, "/msg Alex hola": true,
+		"/quit": false, "/ai hola": false, "/minecraft:op x": false, "/gamemode creative": false,
+		// no vanilla (plugins): nunca
+		"/spawn": false, "/cmd home": false, "/tpa Alex": false, "/login x": false, "/cmd plugins": false,
 	} {
 		if err := aiAllowed(cmd); (err == nil) != ok {
 			t.Errorf("aiAllowed(%q) = %v, quería permitida=%v", cmd, err, ok)

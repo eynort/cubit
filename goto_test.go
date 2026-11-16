@@ -8,7 +8,6 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/mj41/go-mc26-kit/bot/fakeserver"
 	"github.com/mj41/go-mc26-kit/bot/physics"
 	"github.com/mj41/go-mc26/data/packetid"
@@ -143,21 +142,4 @@ func TestGotoPlayerFar(t *testing.T) {
 			t.Fatalf("no fue a las coordenadas que le dio: está en %+v", fb.Player.Position())
 		}
 	})
-}
-
-func TestSystemCoords(t *testing.T) {
-	travel.Lock()
-	travel.coords = map[uuid.UUID]coordsMsg{}
-	id := uuid.New()
-	travel.asked = map[string]uuid.UUID{"alex": id}
-	travel.Unlock()
-	t0 := time.Now().Add(-time.Second)
-	noteSystemCoords("[Alex -> yo] 120 64 -450")
-	if c, ok := coordsSince(id, t0); !ok || c.x != 120 || c.z != -450 {
-		t.Fatalf("privado de un plugin: %+v %v", c, ok)
-	}
-	noteSystemCoords("[12:30] Otro: 1 2") // de otro: no cuenta
-	if c, _ := coordsSince(id, t0); c.x != 120 {
-		t.Fatalf("tomó las de otro: %+v", c)
-	}
 }

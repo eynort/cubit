@@ -68,14 +68,12 @@ const (
 // aiDenied son órdenes del bot que la IA no puede usar.
 var aiDenied = map[string]bool{"quit": true, "diag": true, "debug": true, "lang": true, "ai": true}
 
-// aiServerDenied son comandos del servidor que la IA no manda nunca: de
-// administración, de sondear el servidor (riesgo de ban) o del login.
+// aiServerDenied son comandos vanilla que la IA no manda nunca (de
+// administración). Los que no son vanilla (vanillaCommands), tampoco.
 var aiServerDenied = map[string]bool{
-	"login": true, "l": true, "register": true, "reg": true, "changepassword": true, "changepass": true, "unregister": true, "logout": true,
-	"plugins": true, "pl": true, "ver": true, "version": true, "about": true, "icanhasbukkit": true, "grim": true, "grimac": true,
-	"op": true, "deop": true, "ban": true, "ban-ip": true, "pardon": true, "kick": true, "stop": true, "restart": true, "reload": true, "rl": true,
-	"whitelist": true, "lp": true, "luckperms": true, "perm": true, "perms": true, "execute": true, "sudo": true, "gamemode": true, "gm": true,
-	"give": true, "kill": true, "suicide": true, "link": true, "unlink": true,
+	"op": true, "deop": true, "ban": true, "ban-ip": true, "pardon": true, "pardon-ip": true, "kick": true, "stop": true,
+	"reload": true, "whitelist": true, "execute": true, "gamemode": true, "defaultgamemode": true, "give": true, "kill": true,
+	"save-off": true, "datapack": true, "function": true, "debug": true, "jfr": true, "perf": true, "transfer": true,
 }
 
 // AI es el cliente del modelo y las conversaciones abiertas.
@@ -507,7 +505,8 @@ func (b *Bot) aiTool(who string, owner bool, f aiFunc) string {
 	return "error: herramienta desconocida " + f.Name
 }
 
-// aiAllowed: la IA no usa órdenes peligrosas (quit, admin, login…).
+// aiAllowed: la IA no usa órdenes peligrosas (quit, admin…) ni comandos del
+// servidor que no sean vanilla.
 func aiAllowed(cmd string) error {
 	f := strings.Fields(strings.TrimPrefix(cmd, "/"))
 	if len(f) == 0 {
@@ -531,6 +530,9 @@ func aiAllowed(cmd string) error {
 	}
 	if aiServerDenied[name] {
 		return fmt.Errorf("el comando del servidor /%s no está permitido para la IA", name)
+	}
+	if !vanillaCommands[name] {
+		return fmt.Errorf("/%s no es un comando de Minecraft (vanilla): no lo uso", name)
 	}
 	return nil
 }
@@ -750,8 +752,8 @@ func (b *Bot) watchServerCommands() {
 	})
 }
 
-// describeCommands: una línea por comando raíz ("/home <name>", "/tpa <player>"),
-// sin los del bot ni los de admin, con como mucho dos niveles.
+// describeCommands: una línea por comando raíz ("/time <set|add|query>"),
+// solo los vanilla, sin los del bot ni los de admin, con como mucho dos niveles.
 func describeCommands(nodes []types.CommandsEntry, root int) string {
 	if root < 0 || root >= len(nodes) {
 		return ""
@@ -774,7 +776,7 @@ func describeCommands(nodes []types.CommandsEntry, root int) string {
 		}
 		n := nodes[i]
 		cmd := name(n)
-		if cmd == "" || strings.Contains(cmd, ":") || seen[cmd] || aiServerDenied[strings.ToLower(cmd)] {
+		if cmd == "" || strings.Contains(cmd, ":") || seen[cmd] || aiServerDenied[strings.ToLower(cmd)] || !vanillaCommands[strings.ToLower(cmd)] {
 			continue
 		}
 		seen[cmd] = true

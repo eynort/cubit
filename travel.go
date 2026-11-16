@@ -115,28 +115,6 @@ func noteCoords(id uuid.UUID, text string) {
 	travel.Unlock()
 }
 
-// noteSystemCoords: un privado de un plugin (Essentials…) llega como mensaje del
-// sistema, "[Alex -> yo] 120 -450": si nombra a alguien a quien se le
-// preguntó, las coordenadas que vienen detrás de su nombre son suyas.
-func noteSystemCoords(text string) {
-	travel.Lock()
-	asked := make(map[string]uuid.UUID, len(travel.asked))
-	for k, v := range travel.asked {
-		asked[k] = v
-	}
-	travel.Unlock()
-	low := strings.ToLower(text)
-	for name, id := range asked {
-		if i := strings.Index(low, name); i >= 0 {
-			rest := text[i+len(name):]
-			if j := strings.IndexAny(rest, "]:»>"); j >= 0 && j < 20 {
-				rest = rest[j+1:] // lo que escribió, tras el "[a -> b]" o "a:"
-			}
-			noteCoords(id, rest)
-		}
-	}
-}
-
 func coordsSince(id uuid.UUID, t time.Time) (coordsMsg, bool) {
 	travel.Lock()
 	defer travel.Unlock()
@@ -186,7 +164,7 @@ func (b *Bot) gotoPlayer(ctx context.Context, name string, uid uuid.UUID) {
 			// no se sabe dónde está: preguntarle (una vez) y esperar
 			if askedAt.IsZero() || time.Since(askedAt) > 60*time.Second {
 				if !askedAt.IsZero() {
-					log.Printf("goto: %s no me dijo dónde está; usa /goto <x> <z> o /cmd tpa %s", name, name)
+					log.Printf("goto: %s no me dijo dónde está; usa /goto <x> <z>", name)
 					return
 				}
 				b.askWhere(name, uid)

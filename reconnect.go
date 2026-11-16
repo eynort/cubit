@@ -12,6 +12,7 @@ import (
 	"context"
 	"flag"
 	"log"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync/atomic"
@@ -72,6 +73,9 @@ func runForever(ctx context.Context, quit func()) error {
 		case <-ctx.Done():
 			return nil
 		case <-time.After(wait):
+		case <-reconnectNow: // (el servidor de pruebas acaba de encenderse)
+			wait = 5 * time.Second
+			continue
 		}
 		wait = min(wait*2, 5*time.Minute)
 	}
@@ -87,6 +91,7 @@ func (b *Bot) setAuth(ctx context.Context) error {
 	}
 	acc, err := microsoft.AuthenticateDeviceCode(ctx, microsoft.Options{
 		CacheKey: strings.ToLower(botName),
+		CacheDir: filepath.Join(filepath.Dir(cfgPath), ".microsoft"), // (junto a bot.json: sobrevive al contenedor)
 		OnDeviceCode: func(c microsoft.DeviceCode) {
 			log.Printf("\n\n  ===> CUENTA DE MICROSOFT: abre %s y escribe el código  %s  <===\n", c.VerificationURI, c.UserCode)
 		},
@@ -111,8 +116,7 @@ func (b *Bot) setAuth(ctx context.Context) error {
 type carryOver struct {
 	name    string
 	task    func(*automation.Job) error
-	home    bool
-	homePos [3]int
+	pos     [3]int
 	hasPos  bool
 	running bool // la tarea estaba en marcha (o volviendo a ella)
 	queue   []queueItem
@@ -127,8 +131,8 @@ func (b *Bot) inherit(prev *Bot) {
 	}
 	c := &carryOver{}
 	prev.work.mu.Lock()
-	c.name, c.task, c.home, c.hasPos = prev.work.name, prev.work.task, prev.work.home, prev.work.hasPos
-	c.homePos = [3]int{prev.work.homePos.X, prev.work.homePos.Y, prev.work.homePos.Z}
+	c.name, c.task, c.hasPos = prev.work.name, prev.work.task, prev.work.hasPos
+	c.pos = [3]int{prev.work.pos.X, prev.work.pos.Y, prev.work.pos.Z}
 	c.running = c.task != nil && prev.work.resuming // (markInterrupted)
 	prev.work.mu.Unlock()
 	if q := prev.Queue; q != nil {
@@ -139,8 +143,8 @@ func (b *Bot) inherit(prev *Bot) {
 	}
 
 	b.work.mu.Lock()
-	b.work.name, b.work.task, b.work.home, b.work.hasPos = c.name, c.task, c.home, c.hasPos
-	b.work.homePos.X, b.work.homePos.Y, b.work.homePos.Z = c.homePos[0], c.homePos[1], c.homePos[2]
+	b.work.name, b.work.task, b.work.hasPos = c.name, c.task, c.hasPos
+	b.work.pos.X, b.work.pos.Y, b.work.pos.Z = c.pos[0], c.pos[1], c.pos[2]
 	b.work.resuming = c.running
 	b.work.mu.Unlock()
 	b.Queue.mu.Lock()
@@ -166,16 +170,7 @@ func (b *Bot) resumeAfterReconnect() {
 		return
 	}
 	if c.running {
-		// esperar al login del servidor (hasta 1 min) antes de moverse
-		for i := 0; i < 120 && b.ctx.Err() == nil; i++ {
-			b.auth.mu.Lock()
-			done := b.auth.done
-			b.auth.mu.Unlock()
-			if done {
-				break
-			}
-			time.Sleep(500 * time.Millisecond)
-		}
+		time.Sleep(2 * time.Second) // (que cargue el mundo)
 		if b.ctx.Err() != nil {
 			return
 		}

@@ -145,7 +145,7 @@ func init() {
 		"stop":   {desc: text{"stop fighting and walking (and pause the queue)", "dejar de pelear y de caminar (y pausar la cola)"}, run: cmdStop},
 		"guard": {desc: text{"bodyguard: follows a player and attacks whoever hits them (until /stop, or for the given minutes)", "guardaespaldas: sigue a un jugador y ataca a quien le pegue (hasta /stop, o los minutos que se digan)"},
 			args: []arg{{name: "player", kind: argPlayer}, {name: "minutes", kind: argNumber, opt: true, desc: text{"for how many minutes (without it, until /stop)", "cuántos minutos (sin ello, hasta /stop)"}}}, run: cmdGuard},
-		"cmd": {desc: text{"run a server command as a player (even one named like a bot command: /cmd help, /cmd tpa Alex)", "ejecutar un comando del servidor como jugador (aunque se llame igual que una orden del bot: /cmd help, /cmd tpa Alex)"},
+		"cmd": {desc: text{"run a server command as a player (even one named like a bot command: /cmd help, /cmd time set day)", "ejecutar un comando del servidor como jugador (aunque se llame igual que una orden del bot: /cmd help, /cmd time set day)"},
 			args: []arg{{name: "command", rest: true, desc: text{"the server command, without /", "el comando del servidor, sin /"}}}, run: cmdServer},
 		"say": {desc: text{"write in the chat (or type without /)", "escribir en el chat (o escribe sin /)"},
 			args: []arg{{name: "text", rest: true, desc: text{"what to write", "lo que escribir"}}}, run: cmdSay},
@@ -155,6 +155,9 @@ func init() {
 				descs: map[string]text{"area": {"area <x1> <z1> <x2> <z2> | area off", "area <x1> <z1> <x2> <z2> | area off"}, "pvp": {"pvp on|off", "pvp on|off"},
 					"deny": {"deny <block>: never break it", "deny <bloque>: no romperlo nunca"}, "allow": {"allow <block>: it may break it", "allow <bloque>: puede romperlo"}, "reset": {"the default limits", "los límites de siempre"}}},
 				{name: "value", rest: true, opt: true}}, run: cmdLimits},
+		"chests": {desc: text{"use chests to store what it gathers (on by default); off: it works with what fits in its inventory (saved in bot.json)", "usar cofres para guardar lo que saca (sí por defecto); off: trabaja con lo que le quepa encima (se guarda en bot.json)"},
+			args: []arg{{name: "mode", kind: argChoice, opt: true, choices: []string{"on", "off"},
+				descs: map[string]text{"on": {"store in chests; with none nearby it says so and keeps working", "guardar en cofres; si no hay, lo dice y sigue"}, "off": {"never use chests", "no usar cofres nunca"}}}}, run: cmdChests},
 		"mem":    {desc: text{"memory, GC, loaded chunks and entities (the same as --monitor)", "memoria, GC, chunks cargados y entidades (lo mismo que --monitor)"}, run: cmdMem},
 		"sprint": {desc: text{"allow or forbid sprinting", "permitir o prohibir correr"},
 			args: []arg{{name: "mode", kind: argChoice, choices: []string{"on", "off"},
@@ -203,12 +206,17 @@ func init() {
 			desc: text{"dig out a whole box of blocks between two corners (/excavate 10 70 10 30 50 30), 4 blocks deep at a time: each 4-block pass through the whole box before going down to the next (the ground goes down evenly); in each pass it stands on the bottom and digs the 4 blocks high it reaches around it, then moves on, and picks up what fell when the pass is done. It uses the pickaxes it carries and the ones in the mining chest (/mine chest) or the storage, never breaking one, and when full it takes what it dug to the chests",
 				"vaciar una caja de bloques entre dos esquinas (/excavate 10 70 10 30 50 30), de 4 en 4 bloques de alto: cada pasada de 4 en toda la caja antes de bajar a la siguiente (el terreno baja parejo); en cada pasada se pone en el fondo y pica los 4 de alto que alcanza alrededor, y sigue, y al acabarla recoge lo que cayó. Usa los picos que lleve y los del cofre de minar (/mine chest) o del almacén, sin romper ninguno, y cuando se llena lleva lo cavado a los cofres"},
 			args: append(withDesc(xyz(false), text{"one corner (~ = where the bot is)", "una esquina (~ = donde está el bot)"}),
-				withDesc([]arg{{name: "x2", kind: argCoord, corner: true}, {name: "y2", kind: argCoord}, {name: "z2", kind: argCoord}}, text{"the opposite corner", "la esquina opuesta"})...),
+				append(withDesc([]arg{{name: "x2", kind: argCoord, corner: true}, {name: "y2", kind: argCoord}, {name: "z2", kind: argCoord}}, text{"the opposite corner", "la esquina opuesta"}),
+					arg{name: "exact", kind: argChoice, opt: true, choices: []string{"exact"},
+						descs: map[string]text{"exact": {"exactly those blocks (without it, a box of whole chunks written with the chunk edges is fitted to the chunks)", "justo esos bloques (sin ello, una caja de chunks enteros escrita con los bordes se ajusta a los chunks)"}}})...),
+			subs: []sub{{name: "chunk", desc: text{"the whole 16×16 chunk the bot is in (or the one with block x z), from y1 to y2: the chunk edges are worked out for you",
+				"el chunk entero de 16×16 donde está el bot (o el del bloque x z), de y1 a y2: los bordes del chunk los calcula él"},
+				args: []arg{{name: "y1", kind: argCoord, desc: text{"from this height", "desde esta altura"}}, {name: "y2", kind: argCoord, desc: text{"to this height", "hasta esta altura"}}}}},
 			run: cmdExcavate,
 		},
 		"protected": {
-			desc: text{"places the server said \"you don't have permission\" (claims, spawn): the bot does not dig, build or look for trees within 16 blocks of them. list shows them, here forgets the ones around the bot, clear forgets them all",
-				"sitios donde el servidor dijo \"no tienes permiso\" (terrenos reclamados, el spawn): a 16 bloques de ellos el bot no cava, no construye ni busca árboles. list los muestra, here olvida los de alrededor del bot, clear los olvida todos"},
+			desc: text{"places where the server put back what the bot broke (spawn protection): the bot does not dig, build or look for trees within 16 blocks of them. list shows them, here forgets the ones around the bot, clear forgets them all",
+				"sitios donde el servidor repuso lo que el bot rompió (la protección del spawn): a 16 bloques de ellos el bot no cava, no construye ni busca árboles. list los muestra, here olvida los de alrededor del bot, clear los olvida todos"},
 			subs: []sub{
 				{name: "list", desc: text{"show them", "enseñarlos"}},
 				{name: "here", desc: text{"forget the ones around the bot", "olvidar los de alrededor del bot"}},
@@ -308,12 +316,7 @@ func (b *Bot) run(line string) error {
 	}
 	c, ok := commands[strings.ToLower(fields[0])]
 	if !ok {
-		if secret(line) { // /login, /register…: la contraseña, ni en el log
-			log.Printf("→ servidor: /%s ***", fields[0])
-			b.noteManualAuth(line) // (y se recuerda para este servidor)
-		} else {
-			log.Printf("→ servidor: %s", line)
-		}
+		log.Printf("→ servidor: %s", line)
 		if err := b.Chat.SendCommand(strings.TrimPrefix(line, "/")); err != nil {
 			return fmt.Errorf("comando: %w", err)
 		}
@@ -426,7 +429,7 @@ func cmdHelp(*Bot, []string) error {
 		lines = append(lines, fmt.Sprintf("  %-26s %s", c.usage(name), c.desc))
 	}
 	sort.Strings(lines)
-	lines = append(lines, "  /<other command>           "+tr("is sent to the server (e.g. /spawn)", "se manda al servidor (ej: /spawn)"),
+	lines = append(lines, "  /<other command>           "+tr("is sent to the server (e.g. /time set day)", "se manda al servidor (ej: /time set day)"),
 		"  text without /             "+tr("is written in the chat", "se escribe en el chat"),
 		"",
 		"  "+tr("Any task (chop, mine, beds, farm) can end on its own with:", "Cualquier tarea (chop, mine, beds, farm) puede acabar sola con:"),

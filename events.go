@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/mj41/go-mc26-kit/bot/world"
 	"log"
 	"math"
 	"minecraft-bot/automation"
@@ -17,7 +16,7 @@ import (
 
 // Aquí van tus eventos. Desde cualquiera de ellos tienes:
 //   b.Chat.SendMessage("hola")    enviar un mensaje al chat
-//   b.Chat.SendCommand("spawn")   ejecutar un comando (sin "/")
+//   b.Chat.SendCommand("time set day")  ejecutar un comando (sin "/")
 //   b.Player.Position()           posición actual
 //   b.Player.Status()             vida, comida, experiencia
 //   b.Players                     lista de jugadores (tab)
@@ -27,7 +26,6 @@ import (
 // onJoin se llama cuando el bot ya está dentro del mundo.
 func (b *Bot) onJoin() error {
 	log.Print("dentro del servidor")
-	b.joinedGame()
 	return nil
 }
 
@@ -118,51 +116,15 @@ func toBot(text string) bool {
 
 var botWord = regexp.MustCompile(`\bbot\b`)
 
-// chatLine: "<Alex> hola", el chat de un jugador como lo escriben algunos servidores.
-var chatLine = regexp.MustCompile(`^<([A-Za-z0-9_]{1,16})> `)
-
 // onSystemChat recibe los mensajes del sistema (entradas, salidas, comandos...).
 func (b *Bot) onSystemChat(m chat.Message, overlay bool) error {
 	if overlay { // overlay = texto encima de la hotbar
-		b.onAuthText(m.ClearString()) // (algunos plugins de login avisan ahí)
 		return nil
 	}
 	text := m.ClearString()
 	log.Print("[sistema] ", text)
-	noteSystemCoords(text) // un privado de un plugin con coordenadas (para /goto)
-	b.homeReply(text)      // ¿se pudo poner la home del trabajo?
-	if b.Builder != nil && noBuildMsg.MatchString(text) {
-		b.Builder.Protected() // "No tienes permiso para construir aquí": a otro sitio
-		if b.Tasks != nil {
-			p := b.Player.Position()
-			b.Tasks.NoteProtected(world.BlockPos{X: int(math.Floor(p.X)), Y: int(math.Floor(p.Y)), Z: int(math.Floor(p.Z))})
-		}
-	}
-	if b.Tasks != nil {
-		b.Tasks.NoteServerMessage(text) // "no tienes permiso" al abrir un cofre
-		// el chat de un jugador que el servidor manda como del sistema ("<Alex> …"),
-		// o un privado: una respuesta a lo que preguntó el bot
-		if from, _, ok := systemWhisper(text); ok && !strings.EqualFold(from, botName) {
-			b.Tasks.NoteChat()
-		} else if m := chatLine.FindStringSubmatch(text); m != nil && !strings.EqualFold(m[1], botName) && toBot(text[len(m[0]):]) {
-			b.Tasks.NoteChat()
-		}
-	}
-	if from, msg, ok := systemWhisper(text); ok { // un privado de un plugin: una orden
-		go b.onWhisper(from, msg)
-	}
-	if c := linkCode.FindStringSubmatch(text); c != nil {
-		log.Printf("\n\n  ===> CÓDIGO DE DISCORD: escribe  /link %s  en el Discord del servidor <===\n", c[1])
-	}
-	b.onAuthText(text) // el plugin de login (auth.go)
 	return nil
 }
-
-// noBuildMsg reconoce los avisos de zona protegida al poner un bloque.
-var noBuildMsg = regexp.MustCompile(`(?i)(permiso.*constru|no puedes (constru|colocar|poner)|can't build|cannot build|not allowed to build|hey! sorry)`)
-
-// linkCode encuentra el código de vinculación con Discord en el aviso del servidor.
-var linkCode = regexp.MustCompile(`/link\s*([A-Za-z0-9]+)`)
 
 // onPlayerChat recibe los mensajes de los jugadores.
 func (b *Bot) onPlayerChat(m msg.PlayerChat) error {

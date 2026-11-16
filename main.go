@@ -1,5 +1,5 @@
 // minecraft-bot: bot para Minecraft Java 26.2 (protocolo 776) en un servidor offline
-// cualquiera (el servidor, el nombre y las cuentas: config.go; el login: auth.go).
+// cualquiera, solo con lo vanilla (el servidor, el nombre y los dueños: config.go).
 //
 // La conexión y el bucle de paquetes viven aquí; los eventos se implementan en events.go.
 //
@@ -74,12 +74,10 @@ type Bot struct {
 	lastCarry atomic.Int64              // la última vez (UnixNano) que llevaba algo en el inventario
 	work      workState                 // el trabajo largo en curso (para retomarlo tras morir)
 
-	auth     authState   // el plugin de login del servidor (auth.go)
 	noRetry  atomic.Bool // no volver a entrar (el login falló)
 	resume   *carryOver  // lo que había que retomar de la conexión anterior (reconnect.go)
 
 	connectedAt time.Time
-	skinSent atomic.Bool // ya pidió la skin (botSkin)
 
 	lastPos     atomic.Pointer[basic.Position] // posición al final del último tick
 	lastTick    atomic.Pointer[tickInfo]       // qué hacía el bot en el último tick
@@ -99,6 +97,10 @@ func main() {
 		}
 		return
 	}
+	if *hubFlag != "" {
+		runHub(*hubFlag) // (el panel para varios bots; no vuelve hasta Ctrl-C)
+		return
+	}
 	if *demoFlag {
 		runDemo() // (pone el servidor y la cuenta de la demo)
 	}
@@ -106,6 +108,7 @@ func main() {
 		log.Fatal(err)
 	}
 	applyMemLimit()
+	opOwners(remoteOwners) // (con RCON: los dueños, op en el servidor)
 	if *logsFlag {
 		s, err := openSession()
 		if err != nil {
@@ -127,6 +130,9 @@ func main() {
 	if session != nil {
 		log.Printf("--logs: sesión guardada en %s", session.path)
 		session.Close()
+	}
+	if restartRequested.Load() {
+		restartSelf() // (ajustes del panel)
 	}
 	if err != nil {
 		log.Fatal(err)
@@ -162,7 +168,6 @@ func run(ctx context.Context, quit func(), prev *Bot) (b *Bot, again bool, err e
 	})
 	b.setupModules()
 	b.watchPlayers()
-	b.watchAuthTitles() // (algunos plugins de login avisan con un título)
 	b.watchSeen()
 	b.watchThrown() // recoger lo que le tiran (y ponérselo, si es equipo mejor)
 	b.attachAI()
@@ -335,6 +340,7 @@ func (b *Bot) setupModules() {
 		Problem: noteProblem,
 	})
 
+	b.Tasks.SetChests(chestsOn())
 	b.Queue = b.newQueue()
 
 	b.Ctl.Act = b.Hands.Act
@@ -455,12 +461,11 @@ func (b *Bot) hungerWatch(ctx context.Context) {
 		if b.Player == nil || b.Tasks == nil {
 			continue
 		}
-		b.retryHome()
 		st := b.Player.Status()
 		// sin nada de comer aunque aún no tenga hambre: con cofres de comida
 		// (los marcados, el almacén, la base) y sin nada que hacer, a por ella
 		// ya, antes de que el hambre lo pille lejos o en una pelea
-		if st.Health > 0 && st.Food > 6 && !b.Combat.HasFood() && b.Tasks.Store.HasFoodSources() &&
+		if st.Health > 0 && st.Food > 6 && !b.Combat.HasFood() && b.Tasks.Chests() && b.Tasks.Store.HasFoodSources() &&
 			b.Tasks.Status() == "" && !b.Combat.Fighting() && currentMove() == "" && time.Since(lastRestock) > 5*time.Minute {
 			lastRestock = time.Now()
 			log.Printf("no llevo comida: voy a los cofres a por ella")

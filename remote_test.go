@@ -6,27 +6,6 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestSystemWhisper(t *testing.T) {
-	for _, c := range []struct {
-		in, from, msg string
-		ok            bool
-	}{
-		{"[Alex -> me] follow yo", "Alex", "follow yo", true},
-		{"[Alex -> Steve_Bot] /fight in ~ ~", "Alex", "/fight in ~ ~", true},
-		{"Alex whispers to you: stop", "Alex", "stop", true},
-		{"Alex te susurra: status", "Alex", "status", true},
-		{"[Alex] [mi] Hola", "Alex", "Hola", true},
-		{"[mi] [Alex] Hola", "", "", false}, // el eco de lo que manda el bot
-		{"[ + ] Alex se ha unido", "", "", false},
-		{"¡Bienvenido al servidor!", "", "", false},
-	} {
-		from, msg, ok := systemWhisper(c.in)
-		if ok != c.ok || from != c.from || msg != c.msg {
-			t.Errorf("%q → %q %q %v", c.in, from, msg, ok)
-		}
-	}
-}
-
 func TestRemoteLine(t *testing.T) {
 	for in, want := range map[string]string{
 		"follow yo":         "/follow Alex",
@@ -66,19 +45,6 @@ func TestCoordsReply(t *testing.T) {
 	}
 	if isCoordsReply("Otro", "goto 30 -10") {
 		t.Error("una orden con números no es una respuesta")
-	}
-}
-
-func TestNoBuildMsg(t *testing.T) {
-	for msg, want := range map[string]bool{
-		"No tienes permiso de un administrador para construir aquí.": true,
-		"Hey! Sorry, but you can't build here.":                      true,
-		"¡Bienvenido al servidor!":                                   false,
-		"<Alex> vamos a construir una casa":                         false,
-	} {
-		if got := noBuildMsg.MatchString(msg); got != want {
-			t.Errorf("%q: %v, se esperaba %v", msg, got, want)
-		}
 	}
 }
 

@@ -6,24 +6,18 @@ package main
 //	minecraft-bot --name Otro_Bot 1.2.3.4:25570
 //	minecraft-bot                                (el último servidor y nombre)
 //
-// Las contraseñas del plugin de login (AuthMe, nLogin, LibreLogin, VeloAuth…)
-// se guardan por servidor y nombre en bot.json; si un servidor pide
-// registrarse y no hay ninguna, el bot se inventa una, se registra y la
-// guarda. Lo que el bot aprende del mundo (almacén, caminos, la obra, las
-// notas para la IA) va en datos/<servidor>/: cada servidor, lo suyo.
+// Lo que el bot aprende del mundo (almacén, caminos, la obra, las notas para
+// la IA) va en datos/<servidor>/: cada servidor, lo suyo.
 
 import (
-	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"log"
-	"math/big"
 	"net"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 )
@@ -31,20 +25,18 @@ import (
 var (
 	serverFlag   = flag.String("server", "", "servidor: host o host:puerto (sin puerto, el del registro SRV o 25565); también vale como primer argumento. Vacío = el último")
 	nameFlag     = flag.String("name", "", "nombre del bot (3-16 letras, números o _). Vacío = el último usado")
-	passwordFlag = flag.String("password", "", "contraseña del plugin de login de ese servidor (se guarda en bot.json). Vacío = la guardada, o una nueva al registrarse; también MCBOT_PASSWORD")
 	ownerFlag    = flag.String("owner", "", "jugadores que pueden mandarle órdenes por /msg, separados por comas (* = cualquiera; se guarda en bot.json)")
-	skinFlag     = flag.String("skin", "", `skin para este servidor con /skin de SkinsRestorer (ej: 'url "https://…" classic'; "-" = ninguna; se guarda)`)
 	configFlag   = flag.String("config", "bot.json", "archivo con el último servidor, los dueños y las cuentas de cada servidor")
+	chestsFlag   = flag.String("chests", "", "on: guarda en cofres (el de minar, el almacén, los de alrededor; por defecto); off: no usa cofres, trabaja con lo que le quepa encima (se guarda)")
+	defaultsFlag = flag.Bool("defaults", false, "los flags de configuración (servidor, nombre, dueños, webhook, límites, IA) solo valen la primera vez: después manda bot.json, lo que cambies en el panel (para Docker)")
 )
 
 // Lo que sale de la configuración (loadConfig, antes de conectar).
 var (
-	serverAddr  string // host o host:puerto, tal como se conecta
-	serverHost  string // solo el host (para la IA y la carpeta de datos)
-	botName     string
-	botPassword string // "" = no se sabe (al registrarse se inventa una)
-	botSkin     string // "" = la de siempre
-	dataDir     = "."  // datos/<servidor>
+	serverAddr string // host o host:puerto, tal como se conecta
+	serverHost string // solo el host (para la IA y la carpeta de datos)
+	botName    string
+	dataDir    = "." // datos/<servidor>
 )
 
 // remoteOwners son los jugadores que pueden mandarle órdenes al bot por /msg
@@ -54,18 +46,22 @@ var remoteOwners []string
 
 // botConfig es bot.json.
 type botConfig struct {
-	Server     string              `json:"server"` // el último
-	Name       string              `json:"name"`   // el último
-	Owners     []string            `json:"owners"`
-	Webhook    string              `json:"webhook,omitempty"`     // avisos (notify.go)
-	PanelToken string              `json:"panel_token,omitempty"` // la clave del panel web (panel.go)
-	Limits     limits              `json:"limits"`                // lo que no hace nunca (limits.go)
-	Accounts   map[string]*account `json:"accounts"`              // clave: accountKey
+	Server     string      `json:"server"` // el último
+	Name       string      `json:"name"`   // el último
+	Owners     []string    `json:"owners"`
+	Webhook    string      `json:"webhook,omitempty"`     // avisos (notify.go)
+	PanelToken string      `json:"panel_token,omitempty"` // la clave del panel web (panel.go)
+	Limits     limits      `json:"limits"`                // lo que no hace nunca (limits.go)
+	NoChests   bool        `json:"no_chests,omitempty"`   // no usar cofres (/chests off)
+	AI         *aiSettings `json:"ai,omitempty"`          // la IA (la última; se cambia en el panel)
+	Seeded     bool        `json:"seeded,omitempty"`      // ya se usaron los flags una vez (--defaults)
 }
 
-type account struct {
-	Password string `json:"password,omitempty"`
-	Skin     string `json:"skin,omitempty"`
+// aiSettings: --ai, --ai-api y --ai-model, recordados.
+type aiSettings struct {
+	URL   string `json:"url"`
+	API   string `json:"api"`
+	Model string `json:"model"`
 }
 
 var (
@@ -73,12 +69,6 @@ var (
 	cfg     botConfig
 	cfgPath string
 )
-
-// accountKey: "host/nombre" (en minúsculas, sin puerto: el mismo servidor por
-// SRV o con el puerto puesto es la misma cuenta).
-func accountKey(host, name string) string {
-	return strings.ToLower(host) + "/" + strings.ToLower(name)
-}
 
 // hostOf quita el puerto.
 func hostOf(addr string) string {
@@ -89,7 +79,7 @@ func hostOf(addr string) string {
 }
 
 // loadConfig lee bot.json y los flags, y deja listos serverAddr, botName,
-// botPassword, botSkin, remoteOwners y dataDir. Guarda lo nuevo.
+// remoteOwners y dataDir. Guarda lo nuevo.
 func loadConfig() error {
 	cfgPath = *configFlag
 	if b, err := os.ReadFile(cfgPath); err == nil {
@@ -99,12 +89,18 @@ func loadConfig() error {
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	if cfg.Accounts == nil {
-		cfg.Accounts = map[string]*account{}
+	// keep: los flags ya se usaron (--defaults) o el panel reinició el bot:
+	// manda bot.json.
+	keep := ((*defaultsFlag && cfg.Seeded) || os.Getenv(keepConfigEnv) != "") && !*demoFlag
+	cfg.Seeded = cfg.Seeded || *defaultsFlag
+	if keep {
+		*serverFlag, *nameFlag, *ownerFlag, *webhookFlag = "", "", "", ""
+		*areaFlag, *pvpFlag, *neverBreakFlag, *chestsFlag = "", "", "", ""
 	}
+	applyAISettings(keep)
 
 	serverAddr = *serverFlag
-	if serverAddr == "" && flag.NArg() > 0 {
+	if serverAddr == "" && flag.NArg() > 0 && !(keep && cfg.Server != "") {
 		serverAddr = flag.Arg(0)
 	}
 	if serverAddr == "" {
@@ -112,9 +108,6 @@ func loadConfig() error {
 	}
 	if serverAddr == "" {
 		msg := "¿a qué servidor? minecraft-bot [--name <nombre>] [--owner <jugador>] <host[:puerto]>; la próxima vez sin nada entra al último"
-		if ks := knownServers(); len(ks) > 0 {
-			msg += " (con cuenta: " + strings.Join(ks, ", ") + ")"
-		}
 		return errors.New(msg)
 	}
 	serverHost = hostOf(serverAddr)
@@ -141,30 +134,18 @@ func loadConfig() error {
 	remoteOwners = cfg.Owners
 	applyWebhookFlag()
 	applyLimitFlags()
+	switch strings.ToLower(*chestsFlag) {
+	case "on", "true", "si", "sí", "yes":
+		cfg.NoChests = false
+	case "off", "false", "no":
+		cfg.NoChests = true
+	case "":
+	default:
+		return fmt.Errorf("--chests: on u off, no %q", *chestsFlag)
+	}
 	if len(remoteOwners) == 0 {
 		log.Print("sin dueños: nadie puede darle órdenes por /msg (--owner <jugador>)")
 	}
-
-	acc := cfg.Accounts[accountKey(serverHost, botName)]
-	if acc == nil {
-		acc = &account{}
-		cfg.Accounts[accountKey(serverHost, botName)] = acc
-	}
-	if p := *passwordFlag; p == "-" {
-		acc.Password = "" // (ninguna: se inventa una si hace falta)
-	} else if p != "" {
-		acc.Password = p
-	} else if p := os.Getenv("MCBOT_PASSWORD"); p != "" {
-		acc.Password = p
-	}
-	switch *skinFlag {
-	case "":
-	case "-":
-		acc.Skin = ""
-	default:
-		acc.Skin = *skinFlag
-	}
-	botPassword, botSkin = acc.Password, acc.Skin
 
 	cfg.Server, cfg.Name = serverAddr, botName
 	if err := saveConfigLocked(); err != nil {
@@ -178,26 +159,25 @@ func loadConfig() error {
 	return nil
 }
 
-// rememberPassword guarda la contraseña de esta cuenta (la que se inventó al
-// registrarse, o la que se escribió a mano en la consola).
-func rememberPassword(p string) {
-	cfgMu.Lock()
-	defer cfgMu.Unlock()
-	botPassword = p
-	if cfg.Accounts == nil {
-		cfg.Accounts = map[string]*account{}
+// applyAISettings: --ai, --ai-api y --ai-model se recuerdan en bot.json; lo
+// guardado vale si no se ponen a mano (o siempre, con keep).
+func applyAISettings(keep bool) {
+	set := map[string]bool{}
+	if !keep {
+		flag.Visit(func(f *flag.Flag) { set[f.Name] = true })
 	}
-	k := accountKey(serverHost, botName)
-	if cfg.Accounts[k] == nil {
-		cfg.Accounts[k] = &account{}
+	if a := cfg.AI; a != nil {
+		if !set["ai"] {
+			*aiURLFlag = a.URL
+		}
+		if !set["ai-api"] && a.API != "" {
+			*aiAPIFlag = a.API
+		}
+		if !set["ai-model"] && a.Model != "" {
+			*aiModelFlag = a.Model
+		}
 	}
-	if cfg.Accounts[k].Password == p {
-		return
-	}
-	cfg.Accounts[k].Password = p
-	if err := saveConfigLocked(); err != nil {
-		log.Printf("%s: no se guardó la contraseña: %v", cfgPath, err)
-	}
+	cfg.AI = &aiSettings{URL: *aiURLFlag, API: *aiAPIFlag, Model: *aiModelFlag}
 }
 
 func saveConfigLocked() error {
@@ -235,34 +215,45 @@ func safeDirName(host string) string {
 	return "servidor"
 }
 
-// newPassword: una contraseña para registrarse que pasan las reglas de los
-// plugins de login (larga, con mayúsculas, minúsculas y números, sin
-// símbolos que alguno rechaza).
-func newPassword() string {
-	const lower, upper, digits = "abcdefghijkmnpqrstuvwxyz", "ABCDEFGHJKLMNPQRSTUVWXYZ", "23456789"
-	pick := func(set string) byte {
-		n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(set))))
-		return set[n.Int64()]
-	}
-	b := []byte{pick(upper)}
-	for i := 0; i < 9; i++ {
-		b = append(b, pick(lower+upper+digits))
-	}
-	b = append(b, pick(lower), pick(digits), pick(digits))
-	return string(b)
+// chestsOn: si el bot usa cofres (bot.json).
+func chestsOn() bool {
+	cfgMu.Lock()
+	defer cfgMu.Unlock()
+	return !cfg.NoChests
 }
 
-// knownServers: los servidores con cuenta guardada (para el aviso de uso).
-func knownServers() []string {
-	seen := map[string]bool{}
-	var out []string
-	for k := range cfg.Accounts {
-		h := k[:strings.LastIndex(k, "/")]
-		if !seen[h] {
-			seen[h] = true
-			out = append(out, h)
+// setChests guarda si usa cofres y lo aplica al bot conectado.
+func setChests(on bool) error {
+	cfgMu.Lock()
+	cfg.NoChests = !on
+	err := saveConfigLocked()
+	cfgMu.Unlock()
+	if b := current.Load(); b != nil && b.Tasks != nil {
+		b.Tasks.SetChests(on)
+	}
+	return err
+}
+
+// cmdChests: /chests [on|off].
+func cmdChests(_ *Bot, args []string) error {
+	if len(args) > 0 {
+		switch strings.ToLower(args[0]) {
+		case "on":
+			if err := setChests(true); err != nil {
+				return err
+			}
+		case "off":
+			if err := setChests(false); err != nil {
+				return err
+			}
+		default:
+			return errf("/chests on|off", "/chests on|off")
 		}
 	}
-	sort.Strings(out)
-	return out
+	if chestsOn() {
+		log.Print(tr("chests: on (it stores what it gathers; if it finds no chest it says so and keeps working)", "cofres: sí (guarda lo que saca; si no encuentra cofre, lo dice y sigue trabajando)"))
+	} else {
+		log.Print(tr("chests: off (it never uses chests: it keeps what fits, the rest stays on the ground)", "cofres: no (no usa cofres: se queda lo que le quepa, lo demás se queda en el suelo)"))
+	}
+	return nil
 }

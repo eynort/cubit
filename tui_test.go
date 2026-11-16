@@ -150,8 +150,11 @@ func TestGotoSuggestions(t *testing.T) {
 }
 
 func TestChopSuggestions(t *testing.T) {
-	if got := suggestions("/ch"); len(got) != 1 || got[0].value != "/chop " {
-		t.Errorf(`"/ch": %+v`, got)
+	if got := suggestions("/cho"); len(got) != 1 || got[0].value != "/chop " {
+		t.Errorf(`"/cho": %+v`, got)
+	}
+	if got := labels(suggestions("/ch")); len(got) != 2 {
+		t.Errorf(`"/ch": /chests y /chop, da %v`, got)
 	}
 	if got := labels(suggestions("/chop ro")); strings.Join(got, ",") != "roble,roble_oscuro,roble_palido" {
 		t.Errorf(`"/chop ro": %v`, got)
@@ -163,7 +166,7 @@ func TestChopSuggestions(t *testing.T) {
 
 // TestHistory: flecha arriba recorre las órdenes ya mandadas (aunque tengan
 // sugerencias), abajo vuelve hasta lo que se estaba escribiendo; no se
-// repite la última ni se guardan contraseñas.
+// repite la última.
 func TestHistory(t *testing.T) {
 	t.Chdir(t.TempDir()) // el archivo del historial, aparte
 	in := textinput.New()
@@ -180,7 +183,6 @@ func TestHistory(t *testing.T) {
 	send("/chop oak")
 	send("/status")
 	send("/status")
-	send("/login secreto")
 	send("hola")
 	if strings.Join(m.hist, "|") != "/chop oak|/status|hola" {
 		t.Fatalf("historial: %q", m.hist)

@@ -257,9 +257,7 @@ func (m *tui) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if line == "" {
 				return m, nil
 			}
-			if secret(line) {
-				// (una contraseña no se guarda en el historial)
-			} else if len(m.hist) == 0 || m.hist[len(m.hist)-1] != line { // sin repetir la última
+			if len(m.hist) == 0 || m.hist[len(m.hist)-1] != line { // sin repetir la última
 				m.hist = append(m.hist, line)
 				if len(m.hist) > historyMax {
 					m.hist = m.hist[len(m.hist)-historyMax:]
@@ -361,19 +359,6 @@ const (
 	historyFile = ".historial"
 	historyMax  = 500
 )
-
-// secret: la línea lleva una contraseña (/login, /register…): no se guarda.
-func secret(line string) bool {
-	f := strings.Fields(strings.ToLower(line))
-	if len(f) == 0 {
-		return false
-	}
-	switch f[0] {
-	case "/login", "/l", "/log", "/register", "/reg", "/changepassword", "/changepass", "/cp", "/unregister", "/premium":
-		return true
-	}
-	return false
-}
 
 func loadHistory() []string {
 	b, err := os.ReadFile(historyFile)
