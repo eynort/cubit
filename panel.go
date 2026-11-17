@@ -20,6 +20,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -77,6 +78,9 @@ func (r *logRing) since(n int) ([]string, int) {
 
 // panelToken: la clave del panel (se crea una vez y se guarda).
 func panelToken() string {
+	if t := os.Getenv("MCBOT_PANEL_TOKEN"); t != "" {
+		return t // (lo arranca el hub: su clave)
+	}
 	cfgMu.Lock()
 	defer cfgMu.Unlock()
 	if cfg.PanelToken == "" {
@@ -135,7 +139,7 @@ func startMonitor(ctx context.Context) {
 			}
 		}
 		if subtle.ConstantTimeCompare([]byte(t), []byte(token)) != 1 {
-			http.Error(w, "falta la clave: abre la URL que sale en el log del bot (…/?t=…)", http.StatusUnauthorized)
+			httpMsg(w, r, http.StatusUnauthorized, "missing key: open the URL shown in the bot log (…/?t=…)", "falta la clave: abre la URL que sale en el log del bot (…/?t=…)")
 			return false
 		}
 		http.SetCookie(w, &http.Cookie{Name: "mcbot", Value: token, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: 30 * 24 * 3600})
@@ -180,18 +184,41 @@ func startMonitor(ctx context.Context) {
 			Line string `json:"line"`
 		}
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil || strings.TrimSpace(req.Line) == "" {
-			http.Error(w, "falta la orden", http.StatusBadRequest)
+			httpMsg(w, r, http.StatusBadRequest, "missing command", "falta la orden")
 			return
 		}
 		line := strings.TrimSpace(req.Line)
-		if secret(line) {
-			log.Printf("[panel] %s ***", strings.Fields(line)[0])
-		} else {
-			log.Printf("[panel] %s", line)
-		}
+		log.Printf("[panel] %s", line)
 		go execLine(line)
 		w.WriteHeader(http.StatusNoContent)
 	})
+	mux.HandleFunc("/complete", func(w http.ResponseWriter, r *http.Request) {
+		if !ok(w, r) {
+			return
+		}
+		type sug struct {
+			Value string `json:"value"`
+			Label string `json:"label"`
+			Desc  string `json:"desc"`
+		}
+		out := []sug{}
+		for _, x := range suggestions(r.URL.Query().Get("line")) {
+			out = append(out, sug{x.value, stripANSI(x.label), stripANSI(x.desc)})
+			if len(out) == 40 {
+				break
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(out)
+	})
+	settingsRoutes(mux, ok)
+	mux.HandleFunc("/reconnect", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && ok(w, r) {
+			reconnectSoon() // (el hub: el servidor de pruebas acaba de encenderse)
+			w.WriteHeader(http.StatusNoContent)
+		}
+	})
+	serverRoutes(mux, ok)
 	pp := func(h http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			if ok(w, r) {
@@ -213,7 +240,28 @@ func startMonitor(ctx context.Context) {
 		host = net.JoinHostPort(localIP(), port)
 	}
 	log.Printf("panel: http://%s/?t=%s", host, token)
-	srv := &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second}
+	// el mismo idioma que el hub (un hub con un bot): /api/state, /b/self/…, /avatar/…
+	mux.HandleFunc("/api/state", func(w http.ResponseWriter, r *http.Request) {
+		if ok(w, r) {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(singleState())
+		}
+	})
+	mux.HandleFunc("/avatar/", func(w http.ResponseWriter, r *http.Request) {
+		if ok(w, r) {
+			serveAvatar(w, r, strings.TrimPrefix(r.URL.Path, "/avatar/"))
+		}
+	})
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if rest, found := strings.CutPrefix(r.URL.Path, "/b/self/"); found {
+			r2 := r.Clone(r.Context())
+			r2.URL.Path = "/" + rest
+			mux.ServeHTTP(w, r2)
+			return
+		}
+		mux.ServeHTTP(w, r)
+	})
+	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second}
 	go func() {
 		<-ctx.Done()
 		_ = srv.Close()
@@ -229,4 +277,38 @@ func localIP() string {
 	}
 	defer c.Close()
 	return c.LocalAddr().(*net.UDPAddr).IP.String()
+}
+
+// singleState: /api/state de un bot solo (--monitor, sin hub): un hub con un
+// bot, "self", siempre en marcha (es este programa).
+func singleState() hubState {
+	st := hubState{Mode: "single", Last: "self"}
+	p := panelSnapshot()
+	cfgMu.Lock()
+	owners := append([]string{}, cfg.Owners...)
+	cfgMu.Unlock()
+	st.Bots = []hubBotState{{ID: "self", Name: botName, Server: serverAddr, OnTest: botOnTestServer(), Owners: owners,
+		Running: true, Connected: p.Connected, Health: p.Health, Task: p.Task, Avatar: "/avatar/" + botName}}
+	st.Servers = []serverView{}
+	if t := testServerAddr(); t != "" {
+		st.TestServer.Available, st.TestServer.Addr = true, t
+		if serverOff() {
+			st.TestServer.Power = powerState(false)
+		} else {
+			_, err := rconCmd("list")
+			st.TestServer.Power = powerState(err == nil)
+		}
+		v := serverView{ID: testServerID, Name: "Test server", Addr: t, Kind: "test", Power: st.TestServer.Power, Bots: []string{}}
+		if botOnTestServer() {
+			v.Bots = []string{"self"}
+		}
+		st.Servers = append(st.Servers, v)
+	}
+	if botOnTestServer() {
+		st.Bots[0].ServerID = testServerID
+	} else {
+		st.Bots[0].ServerID = "current"
+		st.Servers = append(st.Servers, serverView{ID: "current", Name: serverAddr, Addr: serverAddr, Kind: "external", Premium: *microsoftFlag, Bots: []string{"self"}})
+	}
+	return st
 }
