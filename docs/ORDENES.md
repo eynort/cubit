@@ -88,6 +88,16 @@ Construir un schematic (Litematica .litematic, WorldEdit .schem, estructura .nbt
     - `noclear`: sin despejar la zona antes
 - `list`: los schematics de schematics/
 
+## /chests
+
+`/chests [<on|off>]`
+
+Usar cofres para guardar lo que saca (sí por defecto); off: trabaja con lo que le quepa encima (se guarda en bot.json)
+
+- `<mode>` (opcional)
+  - `off`: no usar cofres nunca
+  - `on`: guardar en cofres; si no hay, lo dice y sigue
+
 ## /chop
 
 `/chop <wood> [<amount>]`
@@ -101,7 +111,7 @@ Talar: con la mejor hacha que lleve; sin ninguna, primero se hace una de piedra;
 
 `/cmd <command>`
 
-Ejecutar un comando del servidor como jugador (aunque se llame igual que una orden del bot: /cmd help, /cmd tpa Alex)
+Ejecutar un comando del servidor como jugador (aunque se llame igual que una orden del bot: /cmd help, /cmd time set day)
 
 - `<command>`: el comando del servidor, sin /
 
@@ -139,7 +149,7 @@ On/off: dejar que /goto vuele con élitros y cohetes cuando está lejos (sí por
 
 ## /excavate
 
-`/excavate <x> <y> <z> <x2> <y2> <z2>`
+`/excavate <x> <y> <z> <x2> <y2> <z2> [<exact>] | chunk <y1> <y2>`
 
 Vaciar una caja de bloques entre dos esquinas (/excavate 10 70 10 30 50 30), de 4 en 4 bloques de alto: cada pasada de 4 en toda la caja antes de bajar a la siguiente (el terreno baja parejo); en cada pasada se pone en el fondo y pica los 4 de alto que alcanza alrededor, y sigue, y al acabarla recoge lo que cayó. Usa los picos que lleve y los del cofre de minar (/mine chest) o del almacén, sin romper ninguno, y cuando se llena lleva lo cavado a los cofres.
 
@@ -149,6 +159,11 @@ Vaciar una caja de bloques entre dos esquinas (/excavate 10 70 10 30 50 30), de 
 - `<x2>`: la esquina opuesta
 - `<y2>`: la esquina opuesta
 - `<z2>`: la esquina opuesta
+- `<exact>` (opcional)
+  - `exact`: justo esos bloques (sin ello, una caja de chunks enteros escrita con los bordes se ajusta a los chunks)
+- `chunk <y1> <y2>`: el chunk entero de 16×16 donde está el bot (o el del bloque x z), de y1 a y2: los bordes del chunk los calcula él
+  - `<y1>`: desde esta altura
+  - `<y2>`: hasta esta altura
 
 ## /farm
 
@@ -284,7 +299,7 @@ Minar por strip mining, cada mineral con su estrategia (altura, separación y la
 
 `/protected list | here | clear`
 
-Sitios donde el servidor dijo "no tienes permiso" (terrenos reclamados, el spawn): a 16 bloques de ellos el bot no cava, no construye ni busca árboles. list los muestra, here olvida los de alrededor del bot, clear los olvida todos.
+Sitios donde el servidor repuso lo que el bot rompió (la protección del spawn): a 16 bloques de ellos el bot no cava, no construye ni busca árboles. list los muestra, here olvida los de alrededor del bot, clear los olvida todos.
 
 - `list`: enseñarlos
 - `here`: olvidar los de alrededor del bot

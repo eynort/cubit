@@ -88,6 +88,16 @@ Build a schematic (Litematica .litematic, WorldEdit .schem, structure .nbt) with
     - `noclear`: without clearing the area first
 - `list`: the schematics in schematics/
 
+## /chests
+
+`/chests [<on|off>]`
+
+Use chests to store what it gathers (on by default); off: it works with what fits in its inventory (saved in bot.json)
+
+- `<mode>` (optional)
+  - `off`: never use chests
+  - `on`: store in chests; with none nearby it says so and keeps working
+
 ## /chop
 
 `/chop <wood> [<amount>]`
@@ -101,7 +111,7 @@ Chop trees: with the best axe it carries; without one, it makes a stone axe firs
 
 `/cmd <command>`
 
-Run a server command as a player (even one named like a bot command: /cmd help, /cmd tpa Alex)
+Run a server command as a player (even one named like a bot command: /cmd help, /cmd time set day)
 
 - `<command>`: the server command, without /
 
@@ -139,7 +149,7 @@ On/off: let /goto fly with elytra and rockets when far (on by default); wear: pu
 
 ## /excavate
 
-`/excavate <x> <y> <z> <x2> <y2> <z2>`
+`/excavate <x> <y> <z> <x2> <y2> <z2> [<exact>] | chunk <y1> <y2>`
 
 Dig out a whole box of blocks between two corners (/excavate 10 70 10 30 50 30), 4 blocks deep at a time: each 4-block pass through the whole box before going down to the next (the ground goes down evenly); in each pass it stands on the bottom and digs the 4 blocks high it reaches around it, then moves on, and picks up what fell when the pass is done. It uses the pickaxes it carries and the ones in the mining chest (/mine chest) or the storage, never breaking one, and when full it takes what it dug to the chests.
 
@@ -149,6 +159,11 @@ Dig out a whole box of blocks between two corners (/excavate 10 70 10 30 50 30),
 - `<x2>`: the opposite corner
 - `<y2>`: the opposite corner
 - `<z2>`: the opposite corner
+- `<exact>` (optional)
+  - `exact`: exactly those blocks (without it, a box of whole chunks written with the chunk edges is fitted to the chunks)
+- `chunk <y1> <y2>`: the whole 16×16 chunk the bot is in (or the one with block x z), from y1 to y2: the chunk edges are worked out for you
+  - `<y1>`: from this height
+  - `<y2>`: to this height
 
 ## /farm
 
@@ -284,7 +299,7 @@ Mine ores by strip mining, each with its own strategy (Y level, tunnel spacing a
 
 `/protected list | here | clear`
 
-Places the server said "you don't have permission" (claims, spawn): the bot does not dig, build or look for trees within 16 blocks of them. list shows them, here forgets the ones around the bot, clear forgets them all.
+Places where the server put back what the bot broke (spawn protection): the bot does not dig, build or look for trees within 16 blocks of them. list shows them, here forgets the ones around the bot, clear forgets them all.
 
 - `list`: show them
 - `here`: forget the ones around the bot

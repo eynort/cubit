@@ -13,9 +13,9 @@
 - **Trabajo de survival de verdad, y con cuidado:**
   - Excava cajas capa a capa sin romper tus picos.
   - Guarda lo que saca en cofres, y si no tiene ninguno, lo fabrica.
-  - Respeta los terrenos protegidos: si los bloques reaparecen, es que son de otro, y se va.
+  - Respeta la protección del spawn: si los bloques reaparecen, no insiste y se va a otro sitio.
   - Se escapa de la lava, se salva de las caídas con el cubo de agua y vuela con élitros a los sitios lejanos.
-- **Entra en cualquier servidor.** Se encarga solo de los plugins de login (AuthMe, nLogin, LibreLogin, VeloAuth…): se registra, guarda la contraseña y hace login. Vuelve a entrar tras un reinicio y retoma el trabajo que tenía. También entra en servidores premium con tu cuenta de Microsoft.
+- **Solo Minecraft vanilla.** No usa comandos de plugins (nada de /tpa, /home ni /login): todo lo hace con lo que trae el juego. Vuelve a entrar tras un reinicio y retoma el trabajo que tenía. También entra en servidores premium con tu cuenta de Microsoft.
 - **Puedes dejarlo solo con confianza.** Puedes decirle qué bloques no romper nunca (por defecto cofres, camas, carteles y puertas), en qué zona quedarse y que no pelee con jugadores. Te avisa por Discord si muere, se atasca o termina, y tiene un panel web para verlo y manejarlo desde otro dispositivo.
 
 ## Empezar
@@ -56,9 +56,8 @@ Todo se configura con flags, y lo que pongas se recuerda en `bot.json`:
 |---|---|
 | `<host[:puerto]>` o `--server` | El servidor; sin puerto, el del registro SRV o 25565 |
 | `--name`, `--owner A,B` | El nombre del bot; quién puede darle órdenes (`*` = cualquiera, cuidado) |
-| `--password` | La contraseña del plugin de login (si no, la guardada, o una nueva al registrarse) |
 | `--microsoft` | Servidor premium: entrar con una cuenta de Microsoft (un código, una sola vez) |
-| `--monitor :8080` | El panel web: estado, inventario, log en directo y caja de órdenes (protegido con una clave) |
+| `--monitor :8080` | El panel web: estado, inventario, log en directo, caja de órdenes y **Ajustes** (dueños, servidor, IA, límites… sin reiniciar a mano; protegido con una clave) |
 | `--webhook <url>` | Avisos a Discord o Slack |
 | `--area "x1 z1 x2 z2"`, `--pvp off`, `--never-break …` | Límites de seguridad |
 | `--ai <url> --ai-model <m>` | La IA para charlar: Ollama (por defecto `http://127.0.0.1:11434`) o `--ai-api openai` para OpenAI, OpenRouter, Groq, LM Studio… (la clave en `MCBOT_AI_KEY`). `--ai=` la apaga |
@@ -76,7 +75,7 @@ Luego abre la dirección del panel que sale en el log desde cualquier navegador 
 
 ## Juega limpio
 
-Úsalo en tu propio servidor o en los que permiten bots: muchos prohíben automatizar estando AFK. El bot respeta las normas del servidor hasta donde puede detectarlas: se aparta de los terrenos protegidos, y nunca se registra con un email ni resuelve captchas por ti.
+Úsalo en tu propio servidor o en los que permiten bots: muchos prohíben automatizar estando AFK. El bot solo usa lo vanilla: no entra en servidores que piden registrarse con un plugin de login.
 
 Minecraft Java **26.2** (protocolo 776).
 

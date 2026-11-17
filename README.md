@@ -13,9 +13,9 @@
 - **Real survival work, done carefully:**
   - It excavates boxes layer by layer and keeps your pickaxes from breaking.
   - It stores loot in chests and crafts a chest when it has none.
-  - It respects claimed land: blocks that grow back mean someone else's claim, so it moves on.
+  - It respects spawn protection: if blocks grow back, it doesn't insist and moves on.
   - It escapes lava, saves itself from falls with a water bucket and flies to far places with elytra.
-- **Joins any server.** It handles login plugins by itself (AuthMe, nLogin, LibreLogin, VeloAuth…): it registers, saves the password and logs in. It reconnects after restarts and resumes the job it was doing. It can also join premium (online-mode) servers with your Microsoft account.
+- **Vanilla Minecraft only.** It never uses plugin commands (no /tpa, /home or /login): everything it does uses what the game ships with. It reconnects after restarts and resumes the job it was doing. It can also join premium (online-mode) servers with your Microsoft account.
 - **Safe to leave alone.** You can list blocks it never breaks (chests, beds, signs and doors by default), set an area it must stay in and turn off PvP. It sends Discord alerts when it dies, gets stuck or finishes, and there's a web panel to watch and control it from another device.
 
 ## Quick start
@@ -56,9 +56,8 @@ Everything is a flag, and what you set is remembered in `bot.json`:
 |---|---|
 | `<host[:port]>` or `--server` | Server; without a port, SRV record or 25565 |
 | `--name`, `--owner A,B` | The bot's name; who may give it orders (`*` = anyone, careful) |
-| `--password` | Login-plugin password (otherwise saved, or generated when it registers) |
 | `--microsoft` | Premium server: log in with a Microsoft account (device code, once) |
-| `--monitor :8080` | Web panel: status, inventory, live log, command box (protected by a key) |
+| `--monitor :8080` | Web panel: status, inventory, live log, command box and **Settings** (owners, server, AI, limits… no manual restarts; protected by a key) |
 | `--webhook <url>` | Discord or Slack alerts |
 | `--area "x1 z1 x2 z2"`, `--pvp off`, `--never-break …` | Safety limits |
 | `--ai <url> --ai-model <m>` | Chat AI: Ollama (default `http://127.0.0.1:11434`) or `--ai-api openai` for OpenAI, OpenRouter, Groq, LM Studio… (key in `MCBOT_AI_KEY`). `--ai=` turns it off |
@@ -76,7 +75,7 @@ Then open the panel URL it prints from any browser on your network.
 
 ## Be a good player
 
-Use it on your own server, or on servers whose rules allow bots: many forbid AFK automation. It plays by the server's rules as far as it can tell: it backs off from claimed land, and it never registers with an email or solves captchas for you.
+Use it on your own server, or on servers whose rules allow bots: many forbid AFK automation. It only uses vanilla features: it does not join servers that ask you to register through a login plugin.
 
 Minecraft Java **26.2** (protocol 776).
 
