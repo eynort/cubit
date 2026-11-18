@@ -346,6 +346,9 @@ func categoryOf(item string) string {
 // Deposit guarda en el almacén todo el item que lleva: en el cofre de su
 // categoría, y si está lleno (o no hay), en uno doble nuevo que hace y pone.
 func (j *Job) Deposit(item string) error {
+	if j.depositMarked(item) {
+		return nil // (todo en el cofre marcado con /chest)
+	}
 	st := j.r.Store
 	if st.Base == nil {
 		f := j.Feet()
@@ -380,6 +383,30 @@ func (j *Job) Deposit(item string) error {
 		}
 	}
 	return nil
+}
+
+// depositMarked: el cofre marcado (/chest; el de minar de esta dimensión),
+// si está cerca, va primero. Dice si ya no queda nada de item encima.
+func (j *Job) depositMarked(item string) bool {
+	c, ok := j.nearMineChest(j.Dimension())
+	if !ok || !isChest(j.Block(c)) {
+		return false
+	}
+	j.Status("guardando %s en el cofre de %v", item, c)
+	if err := j.Open(c); err != nil {
+		j.Logf("cofre marcado %v: %v", c, err)
+		return false
+	}
+	n, err := j.r.ui.Move(j.ctx, full(item), true)
+	j.CloseScreen()
+	if err == nil && n > 0 {
+		j.Logf("cofre marcado: %d %s a %v", n, item, c)
+	}
+	if j.Count(item) > 0 {
+		j.Logf("el cofre marcado de %v está lleno: lo que no cabe, al almacén", c)
+		return false
+	}
+	return true
 }
 
 // craftChests hace cofres hasta llevar n (8 tablones iguales cada uno).

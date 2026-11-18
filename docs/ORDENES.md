@@ -88,6 +88,18 @@ Construir un schematic (Litematica .litematic, WorldEdit .schem, estructura .nbt
     - `noclear`: sin despejar la zona antes
 - `list`: los schematics de schematics/
 
+## /chest
+
+`/chest <x> <y> <z> [<off>]`
+
+Dónde guardar lo que saca (minar, excavar, madera…): el cofre de x y z; sin coordenadas dice cuál es; off lo olvida.
+
+- `<x>`: las coordenadas del cofre (~ = donde está el bot)
+- `<y>`: las coordenadas del cofre (~ = donde está el bot)
+- `<z>`: las coordenadas del cofre (~ = donde está el bot)
+- `<off>` (opcional)
+  - `off`: olvidarlo
+
 ## /chests
 
 `/chests [<on|off>]`

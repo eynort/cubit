@@ -88,6 +88,18 @@ Build a schematic (Litematica .litematic, WorldEdit .schem, structure .nbt) with
     - `noclear`: without clearing the area first
 - `list`: the schematics in schematics/
 
+## /chest
+
+`/chest <x> <y> <z> [<off>]`
+
+Where to store what it gathers (mining, digging, wood…): the chest at x y z; with no coordinates it says which one; off forgets it.
+
+- `<x>`: the chest's coordinates (~ = where the bot is)
+- `<y>`: the chest's coordinates (~ = where the bot is)
+- `<z>`: the chest's coordinates (~ = where the bot is)
+- `<off>` (optional)
+  - `off`: forget it
+
 ## /chests
 
 `/chests [<on|off>]`

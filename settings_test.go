@@ -25,3 +25,14 @@ func TestRenameWithoutServer(t *testing.T) {
 		t.Fatal("nombre inválido aceptado")
 	}
 }
+
+// TestStorageChestNeedsBot: sin bot en marcha no se puede marcar el cofre
+// (el almacén es del bot), y lo dice claro.
+func TestStorageChestNeedsBot(t *testing.T) {
+	if current.Load() != nil {
+		t.Skip("hay un bot")
+	}
+	if err := setStorageChest("10 64 -20"); err == nil {
+		t.Fatal("sin bot tendría que fallar")
+	}
+}

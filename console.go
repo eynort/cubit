@@ -155,6 +155,10 @@ func init() {
 				descs: map[string]text{"area": {"area <x1> <z1> <x2> <z2> | area off", "area <x1> <z1> <x2> <z2> | area off"}, "pvp": {"pvp on|off", "pvp on|off"},
 					"deny": {"deny <block>: never break it", "deny <bloque>: no romperlo nunca"}, "allow": {"allow <block>: it may break it", "allow <bloque>: puede romperlo"}, "reset": {"the default limits", "los límites de siempre"}}},
 				{name: "value", rest: true, opt: true}}, run: cmdLimits},
+		"chest": {desc: text{"where to store what it gathers (mining, digging, wood…): the chest at x y z; with no coordinates it says which one; off forgets it",
+			"dónde guardar lo que saca (minar, excavar, madera…): el cofre de x y z; sin coordenadas dice cuál es; off lo olvida"},
+			args: append(withDesc(xyz(false), text{"the chest's coordinates (~ = where the bot is)", "las coordenadas del cofre (~ = donde está el bot)"}),
+				arg{name: "off", kind: argChoice, opt: true, choices: []string{"off"}, descs: map[string]text{"off": {"forget it", "olvidarlo"}}}), run: cmdChest},
 		"chests": {desc: text{"use chests to store what it gathers (on by default); off: it works with what fits in its inventory (saved in bot.json)", "usar cofres para guardar lo que saca (sí por defecto); off: trabaja con lo que le quepa encima (se guarda en bot.json)"},
 			args: []arg{{name: "mode", kind: argChoice, opt: true, choices: []string{"on", "off"},
 				descs: map[string]text{"on": {"store in chests; with none nearby it says so and keeps working", "guardar en cofres; si no hay, lo dice y sigue"}, "off": {"never use chests", "no usar cofres nunca"}}}}, run: cmdChests},
@@ -1163,23 +1167,9 @@ func cmdMineChest(b *Bot, args []string) error {
 				"no hay un cofre a menos de 5 bloques: ponme al lado o dime /mine chest <x> <y> <z>")
 		}
 	case len(args) == 3:
-		var v [3]int
-		for i, a := range args {
-			n, err := coord(a, []float64{p.X, p.Y, p.Z}[i])
-			if err != nil {
-				return err
-			}
-			v[i] = int(math.Floor(n))
-		}
-		c = world.BlockPos{X: v[0], Y: v[1], Z: v[2]}
-		if s, ok := b.World.BlockAt(c); ok && !strings.Contains(world.StateString(s), "chest") && !strings.Contains(world.StateString(s), "barrel") {
-			// un bloque desviado (con negativas, -739.6 es el bloque -740): el cofre más cercano
-			if near, found := b.Tasks.NearestChest(c, 3); found {
-				log.Printf("cofre de minar: en %v no hay cofre, uso el de %v", c, near)
-				c = near
-			} else {
-				log.Printf("cofre de minar: ojo, en %v no veo ningún cofre (ni a 3 bloques); lo apunto igual", c)
-			}
+		var err error
+		if c, err = chestAt(b, args); err != nil {
+			return err
 		}
 	default:
 		return errf("usage: /mine chest [<x> <y> <z> | off | list]", "uso: /mine chest [<x> <y> <z> | off | list]")
@@ -1187,6 +1177,66 @@ func cmdMineChest(b *Bot, args []string) error {
 	st.SetMineChest(dim, &c)
 	log.Printf("cofre de minar de %s: %v. Deja ahí picos, comida y armadura (y oro para el Nether); lo minado lo dejo ahí. Hay uno por dimensión: si para un mineral no hay en la suya, voy al de la otra",
 		dimShort(dim), c)
+	return nil
+}
+
+// chestAt: el cofre de las coordenadas x y z (con ~); si ahí no hay cofre
+// (un bloque desviado: con negativas, -739.6 es el bloque -740), el más
+// cercano a 3 bloques.
+func chestAt(b *Bot, args []string) (world.BlockPos, error) {
+	p := b.Player.Position()
+	var v [3]int
+	for i, a := range args {
+		n, err := coord(a, []float64{p.X, p.Y + 1e-6, p.Z}[i])
+		if err != nil {
+			return world.BlockPos{}, err
+		}
+		v[i] = int(math.Floor(n))
+	}
+	c := world.BlockPos{X: v[0], Y: v[1], Z: v[2]}
+	if s, ok := b.World.BlockAt(c); ok && !strings.Contains(world.StateString(s), "chest") && !strings.Contains(world.StateString(s), "barrel") {
+		if near, found := b.Tasks.NearestChest(c, 3); found {
+			log.Print(tr(fmt.Sprintf("there is no chest at %d %d %d: I use the one at %d %d %d", c.X, c.Y, c.Z, near.X, near.Y, near.Z),
+				fmt.Sprintf("en %d %d %d no hay cofre: uso el de %d %d %d", c.X, c.Y, c.Z, near.X, near.Y, near.Z)))
+			c = near
+		} else {
+			log.Print(tr(fmt.Sprintf("careful: I see no chest at %d %d %d (nor within 3 blocks); I note it anyway", c.X, c.Y, c.Z),
+				fmt.Sprintf("ojo: en %d %d %d no veo ningún cofre (ni a 3 bloques); lo apunto igual", c.X, c.Y, c.Z)))
+		}
+	}
+	return c, nil
+}
+
+// cmdChest: /chest [<x> <y> <z> | off] — el cofre donde guarda todo (el de
+// minar de esta dimensión, y la base del almacén junto a él: si se llena,
+// los cofres nuevos van al lado).
+func cmdChest(b *Bot, args []string) error {
+	st := b.Tasks.Store
+	dim := string(b.Player.Spawn.Dimension)
+	switch {
+	case len(args) == 0:
+		if c, ok := st.MineChest(dim); ok {
+			log.Print(tr(fmt.Sprintf("storage chest: %d %d %d (everything it gathers goes there)", c.X, c.Y, c.Z),
+				fmt.Sprintf("cofre para guardar: %d %d %d (todo lo que saca va ahí)", c.X, c.Y, c.Z)))
+		} else {
+			log.Print(tr("no storage chest: /chest <x> <y> <z> marks one", "sin cofre para guardar: /chest <x> <y> <z> marca uno"))
+		}
+		return nil
+	case len(args) == 1 && strings.EqualFold(args[0], "off"):
+		st.SetMineChest(dim, nil)
+		log.Print(tr("storage chest forgotten", "cofre para guardar olvidado"))
+		return nil
+	case len(args) != 3:
+		return errf("usage: /chest <x> <y> <z> | off", "uso: /chest <x> <y> <z> | off")
+	}
+	c, err := chestAt(b, args)
+	if err != nil {
+		return err
+	}
+	st.SetMineChest(dim, &c)
+	st.SetBase(c) // (si se llena, los cofres nuevos van junto a él)
+	log.Print(tr(fmt.Sprintf("storage chest: %d %d %d — mining, digging and wood go there; if it fills up, it makes more chests next to it", c.X, c.Y, c.Z),
+		fmt.Sprintf("cofre para guardar: %d %d %d — lo minado, lo excavado y la madera van ahí; si se llena, hace más cofres a su lado", c.X, c.Y, c.Z)))
 	return nil
 }
 

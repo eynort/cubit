@@ -252,6 +252,8 @@ func Woodcut(kind string, target int) func(j *Job) error {
 		}
 		if !j.r.Chests() {
 			j.storingOff() // (lo dice por el chat una vez)
+		} else if c, ok := j.nearMineChest(j.Dimension()); ok {
+			j.Logf("guardo la madera en el cofre marcado de %v (/chest)", c)
 		} else if b := j.r.Store.Base; b != nil && j.baseDist() > baseNear {
 			j.Logf("la base está lejos (%v, a %.0f bloques, con cofres): talo aquí y llevo la madera al llenarme; /base here la pone donde estoy", *b, j.baseDist())
 		} else if err := j.SetupBase(); err != nil {

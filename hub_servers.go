@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -35,13 +36,18 @@ type hubServer struct {
 
 // serverView: un servidor tal como lo ve el panel.
 type serverView struct {
-	ID      string   `json:"id"`
-	Name    string   `json:"name"`
-	Addr    string   `json:"addr"`
-	Kind    string   `json:"kind"` // "test" (el local) o "external"
-	Premium bool     `json:"premium"`
-	Power   string   `json:"power,omitempty"` // solo el de pruebas: on, off, stopping, starting
-	Bots    []string `json:"bots"`            // los ids de los bots asignados
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Addr    string `json:"addr"`
+	Kind    string `json:"kind"` // "test" (el local) o "external"
+	Premium bool   `json:"premium"`
+	Power   string `json:"power,omitempty"` // solo el de pruebas: on, off, stopping, starting
+	// cómo entra un jugador: el de pruebas, por el puerto publicado en el equipo
+	// del hub (el panel pone delante el nombre con el que se abrió); los
+	// externos, por su dirección
+	JoinPort int      `json:"join_port,omitempty"`
+	Version  string   `json:"version"` // la de Minecraft que hace falta (la del bot)
+	Bots     []string `json:"bots"`    // los ids de los bots asignados
 }
 
 // sameAddr: dos direcciones son el mismo servidor (host sin mayúsculas, puerto 25565 por defecto).
@@ -146,7 +152,7 @@ func (h *hub) botsOn(id string) []string {
 func (h *hub) servers() []serverView {
 	var out []serverView
 	if t := testServerAddr(); t != "" {
-		v := serverView{ID: testServerID, Name: "Test server", Addr: t, Kind: "test", Bots: h.botsOn(testServerID)}
+		v := serverView{ID: testServerID, Name: "Test server", Addr: t, Kind: "test", Bots: h.botsOn(testServerID), JoinPort: testJoinPort(), Version: versionName()}
 		v.Power = "on"
 		if serverOff() {
 			v.Power = powerState(false)
@@ -159,7 +165,7 @@ func (h *hub) servers() []serverView {
 	ext := slices.Clone(h.cfg.Servers)
 	h.mu.Unlock()
 	for _, s := range ext {
-		out = append(out, serverView{ID: s.ID, Name: s.Name, Addr: s.Addr, Kind: "external", Premium: s.Premium, Bots: h.botsOn(s.ID)})
+		out = append(out, serverView{ID: s.ID, Name: s.Name, Addr: s.Addr, Kind: "external", Premium: s.Premium, Bots: h.botsOn(s.ID), Version: versionName()})
 	}
 	if out == nil {
 		out = []serverView{}
@@ -363,4 +369,13 @@ func loginFrom(tail []string) *msLogin {
 		}
 	}
 	return nil
+}
+
+// testJoinPort: el puerto del servidor de pruebas en el equipo del hub
+// (MCBOT_TEST_PORT, el MC_PORT de compose; 25565 si no se dice).
+func testJoinPort() int {
+	if p, err := strconv.Atoi(os.Getenv("MCBOT_TEST_PORT")); err == nil && p > 0 && p < 65536 {
+		return p
+	}
+	return 25565
 }

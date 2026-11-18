@@ -298,7 +298,7 @@ func singleState() hubState {
 			_, err := rconCmd("list")
 			st.TestServer.Power = powerState(err == nil)
 		}
-		v := serverView{ID: testServerID, Name: "Test server", Addr: t, Kind: "test", Power: st.TestServer.Power, Bots: []string{}}
+		v := serverView{ID: testServerID, Name: "Test server", Addr: t, Kind: "test", Power: st.TestServer.Power, Bots: []string{}, JoinPort: testJoinPort(), Version: versionName()}
 		if botOnTestServer() {
 			v.Bots = []string{"self"}
 		}
@@ -308,7 +308,7 @@ func singleState() hubState {
 		st.Bots[0].ServerID = testServerID
 	} else {
 		st.Bots[0].ServerID = "current"
-		st.Servers = append(st.Servers, serverView{ID: "current", Name: serverAddr, Addr: serverAddr, Kind: "external", Premium: *microsoftFlag, Bots: []string{"self"}})
+		st.Servers = append(st.Servers, serverView{ID: "current", Name: serverAddr, Addr: serverAddr, Kind: "external", Premium: *microsoftFlag, Bots: []string{"self"}, Version: versionName()})
 	}
 	return st
 }

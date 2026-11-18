@@ -153,8 +153,8 @@ func TestChopSuggestions(t *testing.T) {
 	if got := suggestions("/cho"); len(got) != 1 || got[0].value != "/chop " {
 		t.Errorf(`"/cho": %+v`, got)
 	}
-	if got := labels(suggestions("/ch")); len(got) != 2 {
-		t.Errorf(`"/ch": /chests y /chop, da %v`, got)
+	if got := labels(suggestions("/ch")); len(got) != 3 {
+		t.Errorf(`"/ch": /chest, /chests y /chop, da %v`, got)
 	}
 	if got := labels(suggestions("/chop ro")); strings.Join(got, ",") != "roble,roble_oscuro,roble_palido" {
 		t.Errorf(`"/chop ro": %v`, got)
