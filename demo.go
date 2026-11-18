@@ -35,7 +35,6 @@ func runDemo() {
 	set("server", s.Addr)
 	set("name", "Demo_Bot")
 	set("owner", "Tester")
-	set("password", "-")
 	set("reconnect", "false")
 	if *monitorFlag == "" {
 		set("monitor", "127.0.0.1:8080")

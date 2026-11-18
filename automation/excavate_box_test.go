@@ -22,8 +22,6 @@ func TestExcavateStaysInBox(t *testing.T) {
 			"give Tester diamond_shovel 1", "give Tester diamond_pickaxe 1",
 		}})
 		r, _ := safeRunner(t, g)
-		chest := world.BlockPos{X: -3, Y: 64, Z: 0}
-		r.Store.SetMineChest("minecraft:overworld", &chest)
 		g.Step(5)
 		// esquinas al revés, y un rectángulo (no un cuadrado): 6 x 4 x 9
 		box := automation.NewBox(world.BlockPos{X: 8, Y: 63, Z: 11}, world.BlockPos{X: 3, Y: 60, Z: 3})
@@ -77,8 +75,6 @@ func TestExcavateNegativeCoords(t *testing.T) {
 			"give Tester diamond_shovel 1", "give Tester diamond_pickaxe 1",
 		}})
 		r, _ := safeRunner(t, g)
-		chest := world.BlockPos{X: -3, Y: 64, Z: 0}
-		r.Store.SetMineChest("minecraft:overworld", &chest)
 		g.Step(5)
 		box := automation.NewBox(world.BlockPos{X: -4, Y: 63, Z: -14}, world.BlockPos{X: -9, Y: 61, Z: -19})
 		var err error

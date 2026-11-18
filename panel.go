@@ -1,7 +1,7 @@
 package main
 
-// El panel web (--monitor :8080): el estado del bot, su inventario, la tarea
-// y la cola, el log en directo y una caja para mandarle órdenes, como en la
+// El panel web (--monitor :8080): el estado del bot, su inventario, la tarea,
+// el log en directo y una caja para mandarle órdenes, como en la
 // consola. Pensado para el móvil: si el bot corre en un teléfono viejo, se
 // maneja desde el navegador de otro.
 //
@@ -96,15 +96,12 @@ type panelState struct {
 	stats
 	Server    string         `json:"server"`
 	Connected bool           `json:"connected"`
-	Queue     []string       `json:"queue"`
-	Current   string         `json:"current"`
 	Inventory map[string]int `json:"inventory"`
-	Limits    string         `json:"limits"`
 	Online    []string       `json:"online"`
 }
 
 func panelSnapshot() panelState {
-	st := panelState{Server: serverAddr, Limits: describeLimits()}
+	st := panelState{Server: serverAddr}
 	b := current.Load()
 	if b == nil {
 		st.stats.Name = botName
@@ -112,9 +109,6 @@ func panelSnapshot() panelState {
 	}
 	st.stats = b.stats()
 	st.Connected = b.ctx.Err() == nil && !b.connectedAt.IsZero()
-	if b.Queue != nil {
-		st.Queue, st.Current = b.Queue.Pending(), b.Queue.Current()
-	}
 	if b.Screens != nil {
 		st.Inventory = b.itemTotals()
 	}

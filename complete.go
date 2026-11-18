@@ -9,15 +9,12 @@ package main
 import (
 	"fmt"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
-
-	"minecraft-bot/automation"
 )
 
-// untilCmds son las órdenes que empiezan un trabajo: aceptan "until …".
-var untilCmds = map[string]bool{"chop": true, "mine": true, "beds": true, "farm": true}
+// untilCmds: órdenes que aceptaban "until …" (ya ninguna: se quitó).
+var untilCmds = map[string]bool{}
 
 // completeArgs completa lo que va tras "/name ": parts es la línea partida
 // por espacios (parts[0] la orden, la última lo que se está escribiendo).
@@ -26,15 +23,6 @@ func completeArgs(c command, name string, parts []string) []suggestion {
 	cur := words[len(words)-1]
 	prev := words[:len(words)-1]
 	base := "/" + strings.Join(parts[:len(parts)-1], " ") + " "
-
-	// las condiciones de parada: todo lo de después de "until"
-	if untilCmds[name] {
-		for k, w := range prev {
-			if strings.EqualFold(w, "until") {
-				return completeUntil(prev[k+1:], cur, base)
-			}
-		}
-	}
 
 	args, at := c.args, len(prev) // los argumentos que tocan y cuál se escribe
 	task := untilCmds[name]       // (en un subcomando, no: /mine chest no es un trabajo)
@@ -297,76 +285,6 @@ func completePlayer(c command, a arg, i int, parts []string, cur, base, more str
 	} else if len(out) == 0 {
 		out = append(out, suggestion{label: "<" + a.name + ">", desc: tr("no online player starts with \"", "ningún jugador conectado empieza por \"") + cur + "\""})
 	}
-	return out
-}
-
-// completeUntil completa las condiciones de parada: toks son las palabras ya
-// escritas tras "until", cur la que se escribe.
-//
-//	got|have <objeto|grupo> <n> · count <contador> <n> · time <10m>, unidas con "or"
-func completeUntil(toks []string, cur, base string) []suggestion {
-	size := map[string]int{"got": 3, "have": 3, "count": 3, "time": 2}
-	pos, kind, in := 0, "", 0 // in: qué parte de la condición se escribe (0 la clase)
-	for pos < len(toks) {
-		if strings.EqualFold(toks[pos], "or") {
-			pos++
-			continue
-		}
-		k := strings.ToLower(toks[pos])
-		n, ok := size[k]
-		if !ok {
-			return []suggestion{{label: "got | have | count | time", desc: fmt.Sprintf(tr("\"%s\" is not a condition", "\"%s\" no es una condición"), toks[pos])}}
-		}
-		if pos+n > len(toks) {
-			kind, in = k, len(toks)-pos
-			break
-		}
-		pos += n
-	}
-	match := func(ch string) bool { return strings.HasPrefix(strings.ToLower(ch), strings.ToLower(cur)) }
-	var out []suggestion
-	switch {
-	case kind == "" && pos > 0 && (len(toks) == 0 || !strings.EqualFold(toks[len(toks)-1], "or")):
-		// una condición entera: otra con "or" (o nada más)
-		if match("or") {
-			out = append(out, suggestion{value: base + "or ", label: "or", desc: tr("another condition (whichever comes first)", "otra condición (la que llegue antes)")})
-		}
-		if len(out) == 0 {
-			out = append(out, suggestion{label: tr("(nothing more)", "(nada más)"), desc: tr("or: another condition", "or: otra condición")})
-		}
-	case kind == "": // la clase de condición
-		for _, c := range [][3]string{
-			{"got", "got <item|group> <n>: until it has collected n more", "got <objeto|grupo> <n>: hasta juntar n más"},
-			{"have", "have <item|group> <n>: until it carries n", "have <objeto|grupo> <n>: hasta llevar n"},
-			{"time", "time <10m>: for this long", "time <10m>: durante este tiempo"},
-			{"count", "count <counter> <n>: until a task counter reaches n", "count <contador> <n>: hasta que un contador de la tarea llegue a n"},
-		} {
-			if match(c[0]) {
-				out = append(out, suggestion{value: base + c[0] + " ", label: c[0], desc: tr(c[1], c[2])})
-			}
-		}
-	case (kind == "got" || kind == "have") && in == 1: // el objeto o grupo
-		for _, g := range automation.ItemGroups() {
-			if match(g) {
-				out = append(out, suggestion{value: base + g + " ", label: g, desc: tr("group of items", "grupo de objetos")})
-			}
-		}
-		for _, it := range carriedItems(cur) {
-			out = append(out, suggestion{value: base + it.name + " ", label: it.name, desc: fmt.Sprintf(tr("×%d in the inventory", "×%d en el inventario"), it.count)})
-		}
-		out = append(out, suggestion{label: "<item|group>", desc: tr("an item (diamond), a group or a pattern (*_log)", "un objeto (diamond), un grupo o un patrón (*_log)")})
-	case kind == "count" && in == 1:
-		out = append(out, suggestion{label: "<counter>", desc: tr("a counter of the task", "un contador de la tarea")})
-	case kind == "time" && in == 1:
-		for _, d := range []string{"10m", "30m", "1h", "2h"} {
-			if match(d) {
-				out = append(out, suggestion{value: base + d + " ", label: d, desc: tr("duration (90s, 10m, 1h30m…)", "duración (90s, 10m, 1h30m…)")})
-			}
-		}
-	default: // el número
-		out = append(out, suggestion{label: "<n>", desc: tr("how many", "cuántos")})
-	}
-	sort.SliceStable(out, func(a, b int) bool { return out[a].value != "" && out[b].value == "" })
 	return out
 }
 

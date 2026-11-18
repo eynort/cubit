@@ -149,18 +149,15 @@ func TestGotoSuggestions(t *testing.T) {
 	}
 }
 
-func TestChopSuggestions(t *testing.T) {
-	if got := suggestions("/cho"); len(got) != 1 || got[0].value != "/chop " {
-		t.Errorf(`"/cho": %+v`, got)
+func TestExSuggestions(t *testing.T) {
+	if got := suggestions("/ex"); len(got) != 1 || got[0].value != "/excavate " {
+		t.Errorf(`"/ex": %+v`, got)
 	}
-	if got := labels(suggestions("/ch")); len(got) != 3 {
-		t.Errorf(`"/ch": /chest, /chests y /chop, da %v`, got)
-	}
-	if got := labels(suggestions("/chop ro")); strings.Join(got, ",") != "roble,roble_oscuro,roble_palido" {
-		t.Errorf(`"/chop ro": %v`, got)
-	}
-	if got := labels(suggestions("/base ")); strings.Join(got, ",") != "here,info" {
-		t.Errorf(`"/base ": %v`, got)
+	// lo que se quitó ya no es una orden del bot: se manda al servidor
+	for _, l := range []string{"/chop", "/mine", "/build", "/queue", "/ai", "/chest", "/limits"} {
+		if got := suggestions(l); len(got) != 1 || got[0].value != "" {
+			t.Errorf("%q: tendría que ser un comando del servidor, da %+v", l, got)
+		}
 	}
 }
 

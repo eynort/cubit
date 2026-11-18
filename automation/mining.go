@@ -1117,8 +1117,8 @@ func (j *Job) coverPit(top world.BlockPos) {
 // tapada o sin camino andando; se cava hasta él. Si uno no se puede, a por
 // el siguiente: nada se queda atrás.
 func (j *Job) fetchDrops(ok func(string) bool, radius float64) error {
-	if j.storingOff() && j.FreeSlots() == 0 {
-		return nil // (sin dónde guardar y lleno: lo del suelo se queda)
+	if j.FreeSlots() == 0 {
+		return nil // (lleno: lo del suelo se queda)
 	}
 	want := dropOf(ok)
 	tried := map[int32]bool{}
@@ -1206,11 +1206,6 @@ func dropOf(ok func(string) bool) func(string) bool {
 		if ok(item) {
 			return true
 		}
-		for _, o := range ores {
-			if slices.Contains(o.Items, item) && slices.ContainsFunc(o.Blocks, ok) {
-				return true
-			}
-		}
-		return false
+		return oreDrops[item]
 	}
 }

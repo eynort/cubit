@@ -11,7 +11,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"runtime"
 	"runtime/debug"
@@ -120,11 +119,6 @@ func rssMB() float64 {
 func (s stats) String() string {
 	return fmt.Sprintf("RAM %.1f MB (heap %.1f, Go %.1f, límite %.0f) · GC %d (última pausa %.2f ms) · goroutines %d · chunks %d · entidades %d · activo %s",
 		s.RSSMB, s.HeapMB, s.SysMB, s.LimitMB, s.NumGC, s.GCPauseMS, s.Goroutine, s.Chunks, s.Entities, s.Uptime)
-}
-
-func cmdMem(b *Bot, _ []string) error {
-	log.Print(b.stats())
-	return nil
 }
 
 // startMonitor sirve la página de estado en --monitor (si se pidió).

@@ -41,7 +41,6 @@ import (
 
 	"minecraft-bot/automation"
 	"minecraft-bot/combat"
-	"minecraft-bot/elytra"
 	"minecraft-bot/pathing"
 	"minecraft-bot/safety"
 )
@@ -67,9 +66,6 @@ type Bot struct {
 	Lava      *safety.Lava              // el reflejo de la lava (manda sobre todo)
 	Fall      *safety.Fall              // el del cubo de agua en una caída (después de la lava)
 	Fire      *safety.Fire              // el de apagarse con el cubo de agua
-	Flight    *elytra.Flight            // volar con élitros y cohetes (/goto lejos)
-	Queue     *Queue                    // la cola de órdenes de primer nivel
-	AI        *AI                       // la IA (gemma4 en Ollama): /ai y los /msg que no son órdenes
 	lastDeath atomic.Pointer[deathSpot] // dónde murió llevando cosas (para volver a recogerlas)
 	lastCarry atomic.Int64              // la última vez (UnixNano) que llevaba algo en el inventario
 	work      workState                 // el trabajo largo en curso (para retomarlo tras morir)
@@ -170,7 +166,6 @@ func run(ctx context.Context, quit func(), prev *Bot) (b *Bot, again bool, err e
 	b.watchPlayers()
 	b.watchSeen()
 	b.watchThrown() // recoger lo que le tiran (y ponérselo, si es equipo mejor)
-	b.attachAI()
 	b.inherit(prev) // la cola y el trabajo de la conexión anterior
 	current.Store(b)
 
@@ -204,8 +199,6 @@ func run(ctx context.Context, quit func(), prev *Bot) (b *Bot, again bool, err e
 			log.Print("pelea: ", err)
 		}
 	}()
-	go b.Queue.Run(conn)
-	go b.hungerWatch(conn)
 	go b.resumeAfterReconnect()
 
 	for {
@@ -221,7 +214,6 @@ func run(ctx context.Context, quit func(), prev *Bot) (b *Bot, again bool, err e
 		case errors.As(err, &kicked):
 			reason := chat.Message(kicked).ClearString()
 			log.Print("expulsado: ", reason)
-			notify("expulsado: " + reason)
 			if finalKick.MatchString(reason) {
 				log.Print("no vuelvo a entrar: eso no se arregla esperando")
 				return b, false, nil
@@ -230,7 +222,6 @@ func run(ctx context.Context, quit func(), prev *Bot) (b *Bot, again bool, err e
 		case errors.As(err, &handlerErr):
 			log.Print(err) // falló un handler; la conexión sigue viva
 		default:
-			notify(fmt.Sprintf("conexión perdida: %v", err))
 			return b, true, fmt.Errorf("conexión perdida: %w", err)
 		}
 	}
@@ -277,7 +268,6 @@ func (b *Bot) setupModules() {
 	b.Walker = pathing.New(b.World, b.Player, tags)
 	b.Walker.SetMemory(loadPathMemory()) // (la misma en cada reconexión)
 	b.Hands = &act.Hands{C: b.Client, World: b.World, Screens: b.Screens}
-	b.Hands.Guard = b.guard // los límites (limits.go)
 	// puentes y torres con los bloques que lleve (después de crear las manos: las usa)
 	b.Builder = &pathing.HandsBuilder{Screens: b.Screens, Hands: b.Hands, Ctl: b.Ctl, Ctx: b.ctx}
 	b.Walker.SetBuilder(b.Builder)
@@ -291,10 +281,6 @@ func (b *Bot) setupModules() {
 		Logf:       func(format string, args ...any) { log.Printf("[lava] "+format, args...) },
 		Extinguish: func(p world.BlockPos) { b.Hands.Dig(p, nil) }}
 
-	b.Flight = elytra.New(elytra.Deps{Client: b.Client, Player: b.Player, World: b.World, Entities: b.Entities,
-		Screens: b.Screens, Hands: b.Hands, Ctl: b.Ctl, Mover: mover,
-		Logf: func(format string, args ...any) { log.Printf(format, args...) }})
-
 	b.Combat = combat.New(combat.Deps{
 		Client: b.Client, Player: b.Player, Entities: b.Entities, Players: b.Players,
 		Screens: b.Screens, World: b.World, Hands: b.Hands, Ctl: b.Ctl, Walker: b.Walker, Mover: mover,
@@ -306,8 +292,6 @@ func (b *Bot) setupModules() {
 		Ordered: func() bool {
 			return currentMove() != "" || detour.Load() || dropping() || b.Tasks != nil && (b.Tasks.Status() != "" || b.workResuming())
 		},
-		// volando no se pelea (ni se cambia lo de la mano: son los cohetes)
-		Flying: b.Flight.Active,
 		// los dueños: aunque vengan armados, no se les planta cara
 		Friend: func(id uuid.UUID) bool { return allowedRemote(nameOf(id)) },
 		// con qué encerrarse con bloques para curarse contra un jugador (bunker.go)
@@ -340,18 +324,12 @@ func (b *Bot) setupModules() {
 		Problem: noteProblem,
 	})
 
-	b.Tasks.SetChests(chestsOn())
-	b.Queue = b.newQueue()
 
 	b.Ctl.Act = b.Hands.Act
 	// primero los reflejos (la lava); luego la pelea, que fuera de combate le pasa el control al walker
 	b.Ctl.Think = func(s *control.State, bp *basic.Player) {
 		if s.Ticks%20 == 0 && bp.Status().Health > 0 && b.carrying() {
 			b.lastCarry.Store(time.Now().UnixNano())
-		}
-		if b.Flight.Active() { // volando: el piloto lleva las teclas y la mirada (soltarlas es caer)
-			b.Flight.Think(s, bp)
-			return
 		}
 		if b.Lava.Think(s, bp) {
 			return
@@ -443,52 +421,4 @@ type tickInfo struct {
 	sprinting          bool
 	vel                [3]float64
 	tick               uint64
-}
-
-// hungerWatch: en difícil el hambre mata. Si el bot está sin nada que hacer
-// (ni tarea, ni orden de movimiento, ni pelea), con hambre y sin comida, sale
-// solo a buscarla (cazar, cocinar): mejor eso que morirse quieto esperando.
-func (b *Bot) hungerWatch(ctx context.Context) {
-	var lastRestock time.Time // (sin comida en los cofres: no ir cada 5 s)
-	t := time.NewTicker(5 * time.Second)
-	defer t.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-		}
-		if b.Player == nil || b.Tasks == nil {
-			continue
-		}
-		st := b.Player.Status()
-		// sin nada de comer aunque aún no tenga hambre: con cofres de comida
-		// (los marcados, el almacén, la base) y sin nada que hacer, a por ella
-		// ya, antes de que el hambre lo pille lejos o en una pelea
-		if st.Health > 0 && st.Food > 6 && !b.Combat.HasFood() && b.Tasks.Chests() && b.Tasks.Store.HasFoodSources() &&
-			b.Tasks.Status() == "" && !b.Combat.Fighting() && currentMove() == "" && time.Since(lastRestock) > 5*time.Minute {
-			lastRestock = time.Now()
-			log.Printf("no llevo comida: voy a los cofres a por ella")
-			b.Tasks.Start(ctx, "comida", automation.FoodRestock())
-			continue
-		}
-		if st.Health <= 0 || st.Food > 6 || b.Combat.HasFood() {
-			continue
-		}
-		if b.Tasks.Status() != "" || b.Combat.Fighting() {
-			continue // las tareas buscan comida solas
-		}
-		if currentMove() != "" {
-			// una orden del operador (un goto) manda… salvo que se esté muriendo
-			// de hambre: entonces la comida primero, y la orden después (la
-			// cola la retoma)
-			if st.Food > 3 {
-				continue
-			}
-			log.Printf("me muero de hambre (comida %d): dejo la orden un momento para buscar comida", st.Food)
-			b.Queue.Interrupt()
-		}
-		log.Printf("tengo hambre (comida %d) y nada que comer: voy a buscar comida", st.Food)
-		b.Tasks.Start(ctx, "comida", automation.FindFood())
-	}
 }

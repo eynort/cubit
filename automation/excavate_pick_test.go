@@ -13,20 +13,16 @@ import (
 	"minecraft-bot/automation"
 )
 
-// TestExcavateWaitsForPick: una caja de piedra y el bot sin pico. Antes
-// corría por la capa picando con la mano y, sin picos en el cofre, paraba;
-// ahora lo pide una vez por el chat y espera: se le da uno y sigue hasta
-// vaciar la caja.
+// TestExcavateWaitsForPick: una caja de piedra y el bot sin pico: lo pide
+// una vez por el chat y espera; se le da uno y sigue hasta vaciar la caja.
 func TestExcavateWaitsForPick(t *testing.T) {
 	simworld.Run(t, func(t *testing.T) {
-		defer automation.SetStoreWait(20 * time.Second)()
+		defer automation.SetPickWait(20 * time.Second)()
 		g := simworld.Start(t, simworld.Options{Setup: []string{
 			"setblock -3 64 0 minecraft:chest[facing=north,type=single,waterlogged=false]",
 			"fill 3 61 3 6 63 6 minecraft:stone",
 		}})
 		r, _ := safeRunner(t, g)
-		chest := world.BlockPos{X: -3, Y: 64, Z: 0}
-		r.Store.SetMineChest("minecraft:overworld", &chest)
 		var said []string
 		r.SetSay(func(s string) { said = append(said, s) })
 		g.Step(5)

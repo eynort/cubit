@@ -42,10 +42,8 @@ var finalKick = regexp.MustCompile(`(?i)(banned|baneado|ban(ned)? (permanente|te
 // runForever: conexión tras conexión mientras haga falta.
 func runForever(ctx context.Context, quit func()) error {
 	log.Printf("Minecraft %s · servidor %s · %s", versionName(), serverAddr, botName)
-	log.Printf("límites: %s", describeLimits())
 	ui := startUI()
 	defer ui.Stop()
-	startAI()
 	startMonitor(ctx)
 	if ui == nil {
 		go console(ctx) // sin terminal (entrada redirigida): consola simple
@@ -119,9 +117,6 @@ type carryOver struct {
 	pos     [3]int
 	hasPos  bool
 	running bool // la tarea estaba en marcha (o volviendo a ella)
-	queue   []queueItem
-	cur     *queueItem
-	paused  bool
 }
 
 // inherit recoge la cola y el trabajo de la conexión anterior.
@@ -135,28 +130,12 @@ func (b *Bot) inherit(prev *Bot) {
 	c.pos = [3]int{prev.work.pos.X, prev.work.pos.Y, prev.work.pos.Z}
 	c.running = c.task != nil && prev.work.resuming // (markInterrupted)
 	prev.work.mu.Unlock()
-	if q := prev.Queue; q != nil {
-		q.mu.Lock()
-		c.queue = append([]queueItem(nil), q.items...)
-		c.cur, c.paused = q.cur, q.paused
-		q.mu.Unlock()
-	}
 
 	b.work.mu.Lock()
 	b.work.name, b.work.task, b.work.hasPos = c.name, c.task, c.hasPos
 	b.work.pos.X, b.work.pos.Y, b.work.pos.Z = c.pos[0], c.pos[1], c.pos[2]
 	b.work.resuming = c.running
 	b.work.mu.Unlock()
-	b.Queue.mu.Lock()
-	b.Queue.items, b.Queue.paused = c.queue, c.paused
-	if c.cur != nil {
-		if queueWork[c.cur.kind()] && c.running {
-			b.Queue.cur = c.cur // (la retoma resumeWork: la cola espera)
-		} else {
-			b.Queue.items = append([]queueItem{*c.cur}, b.Queue.items...) // otra vez la primera
-		}
-	}
-	b.Queue.mu.Unlock()
 	b.resume = c
 }
 
@@ -176,9 +155,6 @@ func (b *Bot) resumeAfterReconnect() {
 		}
 		log.Printf("reconexión: retomo /%s", c.name)
 		b.resumeWork(nil)
-	}
-	if n := len(c.queue); n > 0 {
-		log.Printf("reconexión: la cola sigue (%d)", n)
 	}
 }
 

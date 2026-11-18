@@ -7,12 +7,10 @@ import (
 	"log"
 	"math"
 	"os"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,7 +19,6 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/entities"
 	"github.com/mj41/go-mc26-kit/bot/world"
 
-	"minecraft-bot/automation"
 	"minecraft-bot/combat"
 )
 
@@ -75,9 +72,7 @@ type command struct {
 var usages = map[string]string{
 	"fight":     "/fight <player> | in <x> <z> [<x2> <z2>]",
 	"goto":      "/goto <player> | <x> <z>",
-	"mine":      "/mine <ore[,ore…]> [<amount> | all] | chest [<x> <y> <z> | off | list] | list",
 	"drop":      "/drop [<item> [<amount>] [<player>] | <player>]",
-	"foodchest": "/foodchest [add [<x> <y> <z>] | remove [<x> <y> <z>] | list | clear | now]",
 }
 
 // usage es la forma de uso: "/fight <player>".
@@ -112,16 +107,11 @@ func init() {
 	xyz := func(opt bool, alt ...string) []arg { // <x> <y> <z>, o en su lugar una de alt
 		return []arg{{name: "x", kind: argCoord, opt: opt, choices: alt}, {name: "y", kind: argCoord, opt: opt}, {name: "z", kind: argCoord, opt: opt}}
 	}
-	nearest := text{"<x> <y> <z> of the chest; without them, the nearest one (5 blocks)", "<x> <y> <z> del cofre; sin ellas, el más cercano (5 bloques)"}
 	withDesc := func(as []arg, d text) []arg {
 		for i := range as {
 			as[i].desc = d
 		}
 		return as
-	}
-	oreDescs := map[string]text{}
-	for k, v := range automation.OreBrief() {
-		oreDescs[k] = text{v, v}
 	}
 	commands = map[string]command{
 		"help": {desc: text{"this help", "esta ayuda"}, run: cmdHelp},
@@ -150,62 +140,9 @@ func init() {
 		"say": {desc: text{"write in the chat (or type without /)", "escribir en el chat (o escribe sin /)"},
 			args: []arg{{name: "text", rest: true, desc: text{"what to write", "lo que escribir"}}}, run: cmdSay},
 		"status": {desc: text{"health, food, position and combat", "vida, comida, posición y combate"}, run: cmdStatus},
-		"limits": {desc: text{"what the bot never does: blocks it never breaks, the area it may dig in, PvP (saved in bot.json)", "lo que el bot no hace nunca: bloques que no rompe, la zona donde puede picar, PvP (se guarda en bot.json)"},
-			args: []arg{{name: "what", kind: argChoice, opt: true, choices: []string{"area", "pvp", "deny", "allow", "reset"},
-				descs: map[string]text{"area": {"area <x1> <z1> <x2> <z2> | area off", "area <x1> <z1> <x2> <z2> | area off"}, "pvp": {"pvp on|off", "pvp on|off"},
-					"deny": {"deny <block>: never break it", "deny <bloque>: no romperlo nunca"}, "allow": {"allow <block>: it may break it", "allow <bloque>: puede romperlo"}, "reset": {"the default limits", "los límites de siempre"}}},
-				{name: "value", rest: true, opt: true}}, run: cmdLimits},
-		"chest": {desc: text{"where to store what it gathers (mining, digging, wood…): the chest at x y z; with no coordinates it says which one; off forgets it",
-			"dónde guardar lo que saca (minar, excavar, madera…): el cofre de x y z; sin coordenadas dice cuál es; off lo olvida"},
-			args: append(withDesc(xyz(false), text{"the chest's coordinates (~ = where the bot is)", "las coordenadas del cofre (~ = donde está el bot)"}),
-				arg{name: "off", kind: argChoice, opt: true, choices: []string{"off"}, descs: map[string]text{"off": {"forget it", "olvidarlo"}}}), run: cmdChest},
-		"chests": {desc: text{"use chests to store what it gathers (on by default); off: it works with what fits in its inventory (saved in bot.json)", "usar cofres para guardar lo que saca (sí por defecto); off: trabaja con lo que le quepa encima (se guarda en bot.json)"},
-			args: []arg{{name: "mode", kind: argChoice, opt: true, choices: []string{"on", "off"},
-				descs: map[string]text{"on": {"store in chests; with none nearby it says so and keeps working", "guardar en cofres; si no hay, lo dice y sigue"}, "off": {"never use chests", "no usar cofres nunca"}}}}, run: cmdChests},
-		"mem":    {desc: text{"memory, GC, loaded chunks and entities (the same as --monitor)", "memoria, GC, chunks cargados y entidades (lo mismo que --monitor)"}, run: cmdMem},
 		"sprint": {desc: text{"allow or forbid sprinting", "permitir o prohibir correr"},
 			args: []arg{{name: "mode", kind: argChoice, choices: []string{"on", "off"},
 				descs: map[string]text{"on": {"it may sprint", "puede correr"}, "off": {"it always walks", "siempre camina"}}}}, run: cmdSprint},
-		"elytra": {desc: text{"on/off: let /goto fly with elytra and rockets when far (on by default); wear: put the elytra on now", "on/off: dejar que /goto vuele con élitros y cohetes cuando está lejos (sí por defecto); wear: ponerse los élitros ya"},
-			args: []arg{{name: "mode", kind: argChoice, choices: []string{"on", "off", "wear"},
-				descs: map[string]text{"on": {"/goto may fly when far", "/goto puede volar si está lejos"}, "off": {"/goto always walks", "/goto siempre a pie"}, "wear": {"put the elytra on now", "ponerse los élitros ya"}}}}, run: cmdElytra},
-		"chop": {
-			desc: text{"chop trees: with the best axe it carries; without one, it makes a stone axe first; then the base (table and double chest)",
-				"talar: con la mejor hacha que lleve; sin ninguna, primero se hace una de piedra; luego la base (mesa y cofre doble)"},
-			args: []arg{{name: "wood", kind: argChoice, choices: automation.WoodKinds(), desc: text{"which wood", "qué madera"}},
-				{name: "amount", kind: argNumber, opt: true, desc: text{"how many logs (without it, until /stop)", "cuántos troncos (sin ello, hasta /stop)"}}},
-			run: cmdChop,
-		},
-		"mine": {
-			desc: text{"mine ores by strip mining, each with its own strategy (Y level, tunnel spacing and length): /mine diamond, /mine iron,copper 200, /mine debris. /mine list shows the strategies. /mine chest marks the chest of its dimension (one per dimension): it takes pickaxes (without breaking any), food and armor from it and leaves what it mines there; if the ore's dimension has none it goes to the other one. With no usable pickaxe it makes its own",
-				"minar por strip mining, cada mineral con su estrategia (altura, separación y largo de las galerías): /mine diamond, /mine iron,copper 200, /mine debris. /mine list enseña las estrategias. /mine chest marca el cofre de su dimensión (uno por dimensión): de ahí coge picos (sin romper ninguno), comida y armadura y ahí deja lo minado; si en la dimensión del mineral no hay, va al de la otra. Sin pico que valga se hace uno"},
-			args: []arg{{name: "ores", kind: argList, choices: automation.OreKeys(), descs: oreDescs},
-				{name: "amount", kind: argNumber, opt: true, choices: []string{"all"}, desc: text{"how many (without it, or all: until /stop)", "cuántos (sin ello, o all: hasta /stop)"},
-					descs: map[string]text{"all": {"until /stop", "hasta /stop"}}}},
-			subs: []sub{
-				{name: "chest", desc: text{"mark the mining chest of this dimension (the nearest one, or <x> <y> <z>); off forgets it; list shows them", "marcar el cofre de minar de esta dimensión (el más cercano, o <x> <y> <z>); off lo olvida; list los enseña"},
-					args: func() []arg {
-						as := withDesc(xyz(true, "off", "list"), nearest)
-						as[0].descs = map[string]text{"off": {"forget the chest of this dimension", "olvidar el cofre de esta dimensión"},
-							"list": {"show the mining chests", "ver los cofres de minar"}}
-						return as
-					}()},
-				{name: "list", desc: text{"the strategy of every ore (Y level, spacing, why)", "la estrategia de cada mineral (altura, separación, por qué)"}},
-			},
-			run: cmdMine,
-		},
-		"foodchest": {
-			desc: text{"chests the bot may take food from (besides its storage and the chests by the base): add marks the nearest one (or <x> <y> <z>), remove/clear forget, list shows them, now goes for food now. With no food it goes there before hunting, and takes only what it needs",
-				"cofres de los que el bot puede coger comida (además de su almacén y los de junto a la base): add marca el más cercano (o <x> <y> <z>), remove/clear los olvida, list los muestra, now va ya a por comida. Sin comida va allí antes de cazar, y coge solo lo que necesita"},
-			subs: []sub{
-				{name: "add", desc: text{"mark a food chest", "marcar un cofre de comida"}, args: withDesc(xyz(true), nearest)},
-				{name: "remove", desc: text{"forget a food chest", "olvidar un cofre de comida"}, args: withDesc(xyz(true), nearest)},
-				{name: "list", desc: text{"show them", "enseñarlos"}},
-				{name: "clear", desc: text{"forget them all", "olvidarlos todos"}},
-				{name: "now", desc: text{"go for food now", "ir ya a por comida"}},
-			},
-			run: cmdFoodChest,
-		},
 		"excavate": {
 			desc: text{"dig out a whole box of blocks between two corners (/excavate 10 70 10 30 50 30), 4 blocks deep at a time: each 4-block pass through the whole box before going down to the next (the ground goes down evenly); in each pass it stands on the bottom and digs the 4 blocks high it reaches around it, then moves on, and picks up what fell when the pass is done. It uses the pickaxes it carries and the ones in the mining chest (/mine chest) or the storage, never breaking one, and when full it takes what it dug to the chests",
 				"vaciar una caja de bloques entre dos esquinas (/excavate 10 70 10 30 50 30), de 4 en 4 bloques de alto: cada pasada de 4 en toda la caja antes de bajar a la siguiente (el terreno baja parejo); en cada pasada se pone en el fondo y pica los 4 de alto que alcanza alrededor, y sigue, y al acabarla recoge lo que cayó. Usa los picos que lleve y los del cofre de minar (/mine chest) o del almacén, sin romper ninguno, y cuando se llena lleva lo cavado a los cofres"},
@@ -218,77 +155,15 @@ func init() {
 				args: []arg{{name: "y1", kind: argCoord, desc: text{"from this height", "desde esta altura"}}, {name: "y2", kind: argCoord, desc: text{"to this height", "hasta esta altura"}}}}},
 			run: cmdExcavate,
 		},
-		"protected": {
-			desc: text{"places where the server put back what the bot broke (spawn protection): the bot does not dig, build or look for trees within 16 blocks of them. list shows them, here forgets the ones around the bot, clear forgets them all",
-				"sitios donde el servidor repuso lo que el bot rompió (la protección del spawn): a 16 bloques de ellos el bot no cava, no construye ni busca árboles. list los muestra, here olvida los de alrededor del bot, clear los olvida todos"},
-			subs: []sub{
-				{name: "list", desc: text{"show them", "enseñarlos"}},
-				{name: "here", desc: text{"forget the ones around the bot", "olvidar los de alrededor del bot"}},
-				{name: "clear", desc: text{"forget them all", "olvidarlos todos"}},
-			},
-			run: cmdProtected,
-		},
-		"farm": {
-			desc: text{"farm by the base: wheat field and sheep pen (brings sheep in, breeds and shears them) — until /stop",
-				"granja junto a la base: campo de trigo y corral de ovejas (las mete, las cría y las esquila) — hasta /stop"},
-			run: cmdFarm,
-		},
-		"beds": {
-			desc: text{"make beds (wool from sheep: shears the ones around and in the pen; tends the farm if short)",
-				"hacer camas (lana de las ovejas: esquila las de alrededor y las del corral; cuida la granja si falta)"},
-			args: []arg{{name: "amount", kind: argNumber, opt: true, desc: text{"how many beds (8 if not given)", "cuántas camas (8 si no se dice)"}}},
-			run:  cmdBeds,
-		},
-		"base": {
-			desc: text{"the storage: \"here\" sets the chests' base where the bot stands; \"info\" shows it",
-				"el almacén: \"here\" pone la base de los cofres donde está el bot; \"info\" la muestra"},
-			args: []arg{{name: "action", kind: argChoice, choices: []string{"here", "info"},
-				descs: map[string]text{"here": {"the base where the bot stands", "la base donde está el bot"}, "info": {"where it is and its chests", "dónde está y sus cofres"}}}},
-			run: cmdBase,
-		},
-		"queue": {
-			desc: text{"the command queue (goto, guard, fight, chop, mine, beds, farm, build): list, add, remove, reorder, skip, pause",
-				"la cola de órdenes (goto, guard, fight, chop, mine, beds, farm, build): ver, añadir, quitar, reordenar, saltar, pausar"},
-			subs: []sub{
-				{name: "list", desc: text{"show the queue", "ver la cola"}},
-				{name: "add", desc: text{"add a command at the end", "añadir una orden al final"}, args: []arg{{name: "command", kind: argCommand, rest: true}}},
-				{name: "insert", desc: text{"put a command at a position", "poner una orden en una posición"},
-					args: []arg{{name: "position", kind: argNumber, desc: text{"where (1 = next)", "dónde (1 = la siguiente)"}}, {name: "command", kind: argCommand, rest: true}}},
-				{name: "remove", desc: text{"remove one", "quitar una"}, args: []arg{{name: "n", kind: argNumber, desc: text{"its position (see /queue)", "su posición (mira /queue)"}}}},
-				{name: "move", desc: text{"move one", "mover una"}, args: []arg{{name: "from", kind: argNumber, desc: text{"its position", "su posición"}}, {name: "to", kind: argNumber, desc: text{"the new position", "la posición nueva"}}}},
-				{name: "up", desc: text{"one place earlier", "un puesto antes"}, args: []arg{{name: "n", kind: argNumber, desc: text{"its position", "su posición"}}}},
-				{name: "down", desc: text{"one place later", "un puesto después"}, args: []arg{{name: "n", kind: argNumber, desc: text{"its position", "su posición"}}}},
-				{name: "skip", desc: text{"stop the running one and go to the next", "parar la que va y pasar a la siguiente"}},
-				{name: "clear", desc: text{"remove all the pending ones", "quitar todas las pendientes"}},
-				{name: "pause", desc: text{"do not start the next ones", "no empezar las siguientes"}},
-				{name: "resume", desc: text{"go on", "seguir"}},
-			},
-			run: cmdQueue,
-		},
 		"inventory": {desc: text{"what the bot carries: equipment, hotbar slot by slot and the inventory; grid: like the game screen",
 			"lo que lleva el bot: el equipo, la barra casilla a casilla y el inventario; grid: como la pantalla del juego"},
 			args: []arg{{name: "view", kind: argChoice, opt: true, choices: []string{"grid"},
 				descs: map[string]text{"grid": {"like the game screen (wide)", "como la pantalla del juego (ancha)"}}}}, run: cmdInventory},
-		"around": {desc: text{"write the blocks around the bot (layer by layer) to the log", "escribir en el log los bloques alrededor del bot (capa a capa)"}, run: cmdAround},
-		"debug":  {desc: text{"write where every part of the bot is (goroutine stacks) to the session log (--logs)", "escribir en el log de sesión (--logs) dónde está cada parte del bot (las pilas de las goroutines)"}, run: cmdDebug},
-		"diag":   {desc: text{"tests jumps and moves and counts the server's corrections", "prueba saltos y movimientos y cuenta correcciones del servidor"}, run: cmdDiag},
 		"drop": {desc: text{"throw on the ground everything it carries, or one item (all of it, or the amount given: /drop dirt 10); with a player, it goes to them and throws it to them (/drop Alex, /drop dirt 10 Alex)",
 			"tirar al suelo todo lo que lleva, o un objeto (todo, o la cantidad que se diga: /drop dirt 10); con un jugador, va hasta él y se lo tira (/drop Alex, /drop dirt 10 Alex)"},
 			args: []arg{{name: "item", kind: argPlayer, items: true}, {name: "amount", amountOf: 1, orPlayer: true}, {name: "player", kind: argPlayer}}, run: cmdDrop},
 		"quit": {desc: text{"disconnect and exit", "desconectar y salir"}, run: cmdQuit},
-		"ai": {desc: text{"talk to the AI (gemma4 in Ollama), or: info, reset [player], compact [player], on, off",
-			"hablar con la IA (gemma4 en Ollama), o: info, reset [jugador], compact [jugador], on, off"},
-			args: []arg{{name: "message", rest: true, desc: text{"what to tell it", "lo que decirle"}}},
-			subs: []sub{
-				{name: "info", desc: text{"model, context and conversations", "modelo, contexto y conversaciones"}},
-				{name: "reset", desc: text{"forget a conversation (yours without a player)", "olvidar una conversación (la tuya sin jugador)"}, args: []arg{{name: "player", kind: argPlayer, opt: true}}},
-				{name: "compact", desc: text{"summarise a conversation now", "resumir una conversación ya"}, args: []arg{{name: "player", kind: argPlayer, opt: true}}},
-				{name: "on", desc: text{"answer /msg with the AI", "contestar los /msg con la IA"}},
-				{name: "off", desc: text{"/msg are only commands", "los /msg son solo órdenes"}},
-			},
-			run: cmdAI},
 	}
-	registerBuildCommand()
 }
 
 // exec ejecuta una línea de la consola:
@@ -326,81 +201,18 @@ func (b *Bot) run(line string) error {
 		}
 		return nil
 	}
-	// una orden directa que mueve al bot le quita el control a la cola: la de
-	// la cola en marcha se retoma después
-	if name := strings.ToLower(fields[0]); b.Queue != nil && (queueKinds[name] || name == "follow" || name == "diag") {
-		b.Queue.Interrupt()
-	}
 	return b.runCommand(c, fields[0], fields[1:])
 }
 
-// runCommand ejecuta una orden del bot con sus argumentos; un "until …" al
-// final son las condiciones de parada del trabajo que empiece (startWork se
-// las lleva). La usan la consola, los /msg y la cola.
-func (b *Bot) runCommand(c command, name string, rawArgs []string) error {
-	args, conds, err := splitConds(c, rawArgs)
-	if err != nil {
+// runCommand ejecuta una orden del bot con sus argumentos (la consola, los /msg).
+func (b *Bot) runCommand(c command, name string, args []string) error {
+	if err := c.run(b, args); err != nil {
 		return fmt.Errorf("/%s: %w", name, err)
-	}
-	if conds == nil {
-		if err := c.run(b, args); err != nil {
-			return fmt.Errorf("/%s: %w", name, err)
-		}
-		return nil
-	}
-	untilState.Lock()
-	untilState.conds, untilState.used = conds, false
-	untilState.Unlock()
-	err = c.run(b, args)
-	untilState.Lock()
-	used := untilState.used
-	untilState.conds, untilState.used = nil, false
-	untilState.Unlock()
-	if err != nil {
-		return fmt.Errorf("/%s: %w", name, err)
-	}
-	if !used {
-		return errf("/%s: done, but without the until (it only works with commands that start a task: chop, mine, beds, farm…)",
-			"/%s: hecho, pero sin el until (solo vale para órdenes que empiezan una tarea: chop, mine, beds, farm…)", name)
 	}
 	return nil
 }
 
-// splitConds separa "until …" del final de los argumentos (las condiciones de
-// parada de cualquier tarea). Las órdenes que se comen el resto de la línea
-// (say, cmd, queue, ai) lo dejan tal cual: es su texto (la cola lo guarda y
-// lo aplica al ejecutar la orden).
-func splitConds(c command, args []string) ([]string, []automation.Cond, error) {
-	if hasRest(c) { // texto libre (say, cmd, queue, ai): el until es parte del texto
-		return args, nil, nil
-	}
-	args, until := automation.SplitUntil(args)
-	if until == nil {
-		return args, nil, nil
-	}
-	conds, err := automation.ParseUntil(until)
-	if err != nil {
-		return nil, nil, fmt.Errorf("until: %w", err)
-	}
-	return args, conds, nil
-}
 
-// hasRest: algún argumento de la orden (o de un subcomando) se come el resto de la línea.
-func hasRest(c command) bool {
-	for _, a := range c.args {
-		if a.rest {
-			return true
-		}
-	}
-	for _, s := range c.subs {
-		for _, a := range s.args {
-			if a.rest {
-				return true
-			}
-		}
-	}
-	return false
-}
 
 // console lee órdenes línea a línea: la consola simple, para cuando la
 // salida no es una terminal (si lo es, se usa la interfaz de tui.go).
@@ -435,11 +247,7 @@ func cmdHelp(*Bot, []string) error {
 	sort.Strings(lines)
 	lines = append(lines, "  /<other command>           "+tr("is sent to the server (e.g. /time set day)", "se manda al servidor (ej: /time set day)"),
 		"  text without /             "+tr("is written in the chat", "se escribe en el chat"),
-		"",
-		"  "+tr("Any task (chop, mine, beds, farm) can end on its own with:", "Cualquier tarea (chop, mine, beds, farm) puede acabar sola con:"),
-		"    "+automation.UntilUsage,
-		"    "+tr("groups: ", "grupos: ")+strings.Join(automation.ItemGroups(), ", ")+tr("; or an item (oak_log) or a pattern (*_log)", "; o un objeto (oak_log) o un patrón (*_log)"),
-		"    "+tr("e.g. /chop abeto until got logs 64 or time 20m", "ej: /chop abeto until got logs 64 or time 20m"))
+)
 	log.Print(tr("commands:", "órdenes:") + "\n" + strings.Join(lines, "\n"))
 	return nil
 }
@@ -535,9 +343,6 @@ func (b *Bot) distanceTo(e entities.Entity) float64 {
 }
 
 func cmdStop(b *Bot, _ []string) error {
-	if b.Queue != nil {
-		b.Queue.Stop()
-	}
 	b.cancelMove()
 	b.Tasks.Stop()
 	b.Combat.Reset()
@@ -558,9 +363,6 @@ func cmdStatus(b *Bot, _ []string) error {
 	log.Printf("vida %.1f, comida %d, bloques de construir %d, en %.1f %.1f %.1f, %s", st.Health, st.Food, b.Walker.BuildBlocks(), p.X, p.Y, p.Z, b.Combat.Status())
 	if t := b.Tasks.Status(); t != "" {
 		log.Printf("tarea: %s", t)
-	}
-	if f := b.Flight.Status(); f != "" {
-		log.Printf("élitros: %s", f)
 	}
 	return nil
 }
@@ -617,11 +419,6 @@ func (b *Bot) follow(ctx context.Context, name string, uid uuid.UUID) {
 			}
 			last = world.BlockPos{X: int(math.Floor(e.X)), Y: int(math.Floor(e.Y + 1e-6)), Z: int(math.Floor(e.Z))}
 			known, walking = true, false
-			// lejos o muy por encima (se fue volando): volar tras él
-			if b.flyToPlayer(ctx, e.ID) {
-				following = -1
-				continue
-			}
 			if following != e.ID || b.Walker.Status() != "following" {
 				id := e.ID
 				b.Walker.SetSprint(true)
@@ -651,10 +448,6 @@ func (b *Bot) follow(ctx context.Context, name string, uid uuid.UUID) {
 			known, walking = false, false // allí ya no está: esperar a verlo
 			log.Printf("follow: %s no está donde lo vi; espero a que aparezca", name)
 		default:
-			// lejos (se fue volando): volar hasta donde lo vio
-			if b.flyNear(ctx, float64(last.X)+0.5, float64(last.Y), float64(last.Z)+0.5) {
-				continue
-			}
 			b.Walker.SetSprint(true)
 			b.Walker.Goto(last)
 			walking = true
@@ -679,15 +472,6 @@ func keys(in control.Input) string {
 	return strings.Join(k, "+")
 }
 
-func cmdDiag(b *Bot, _ []string) error {
-	if b.Combat.Fighting() {
-		return errf("I am fighting", "estoy peleando")
-	}
-	b.cancelMove()
-	b.Walker.Stop()
-	go b.diag()
-	return nil
-}
 
 // diag muestra los bloques que el bot cree tener alrededor y prueba, mirando
 // hacia donde mira, saltar, andar, andar saltando y correr saltando, contando
@@ -795,36 +579,7 @@ func (b *Bot) diag() {
 	log.Print("diag: fin")
 }
 
-// flyMinDist: a menos de esto, /goto anda (despegar y aterrizar no compensa).
-const flyMinDist = 64
 
-// elytraAllowed: /goto puede volar con élitros (orden "elytra on|off").
-var elytraAllowed = func() *atomic.Bool { var b atomic.Bool; b.Store(true); return &b }()
-
-// cmdElytra: /elytra on|off — si /goto vuela con élitros cuando puede;
-// /elytra wear — ponérselos ya.
-func cmdElytra(b *Bot, args []string) error {
-	ready := func() string {
-		if _, why := b.Flight.Ready(flyMinDist); why != "" {
-			return why
-		}
-		return "listo para volar"
-	}
-	if len(args) != 1 || (args[0] != "on" && args[0] != "off" && args[0] != "wear") {
-		return errf("usage: /elytra on|off|wear (now: %v; %s)", "uso: /elytra on|off|wear (ahora: %v; %s)", map[bool]string{true: "on", false: "off"}[elytraAllowed.Load()], ready())
-	}
-	if args[0] == "wear" {
-		ctx, cancel := context.WithTimeout(b.ctx, 10*time.Second)
-		defer cancel()
-		if err := b.Flight.Wear(ctx); err != nil {
-			return errf("elytra: %v", "élitros: %v", err)
-		}
-		return nil
-	}
-	elytraAllowed.Store(args[0] == "on")
-	log.Printf("élitros: %s (/goto vuela a más de %d bloques); %s", args[0], flyMinDist, ready())
-	return nil
-}
 
 func cmdSprint(b *Bot, args []string) error {
 	if len(args) != 1 || (args[0] != "on" && args[0] != "off") {
@@ -990,10 +745,6 @@ func (b *Bot) gotoCoordsY(ctx context.Context, x, y, z float64, stop func() bool
 	defer b.Walker.Stop()
 	const done = 1.5
 	fails := 0
-	// lejos, con élitros y cohetes: volando (lo que quede, andando)
-	if b.flyNear(ctx, x, y, z) && ctx.Err() != nil {
-		return false
-	}
 	for {
 		p := b.Player.Position()
 		d := math.Hypot(x-p.X, z-p.Z)
@@ -1064,67 +815,6 @@ func (b *Bot) segment(p basic.Position, x, z, d float64, fails int) (world.Block
 	return world.BlockPos{}, false
 }
 
-// cmdMine: /mine <minerales> [<cantidad> | all] | chest [...] | list
-func cmdMine(b *Bot, args []string) error {
-	if len(args) == 0 {
-		return errf("which ore? "+usages["mine"], "¿qué mineral? "+usages["mine"])
-	}
-	switch strings.ToLower(args[0]) {
-	case "chest", "cofre":
-		return cmdMineChest(b, args[1:])
-	case "list", "lista":
-		for _, l := range automation.OreHelp() {
-			log.Print(l)
-		}
-		return nil
-	}
-	// "diamond, iron 50": los minerales pueden venir separados por coma y espacio
-	words, target := args, 0
-	if n := len(args); n > 1 {
-		last := strings.ToLower(args[n-1])
-		if v, err := strconv.Atoi(last); err == nil {
-			if v <= 0 {
-				return errf("amount: a positive number or all", "cantidad: un número mayor que 0 o all")
-			}
-			words, target = args[:n-1], v
-		} else if last == "all" || last == "todo" {
-			words = args[:n-1]
-		}
-	}
-	for _, w := range words { // un subcomando fuera de sitio: decir dónde va
-		switch lw := strings.ToLower(strings.Trim(w, ",")); lw {
-		case "chest", "cofre", "list", "lista":
-			return errf("\"%s\" goes right after /mine, on its own: /mine %s (the chest is set once, then /mine <ore> uses it)",
-				"\"%s\" va justo después de /mine, solo: /mine %s (el cofre se marca una vez y luego /mine <mineral> lo usa)", lw, lw)
-		case "all", "todo":
-			return errf("\"all\" goes at the end: /mine <ore> all", "\"all\" va al final: /mine <mineral> all")
-		}
-	}
-	os, err := automation.ParseOres(strings.Join(words, ","))
-	if err != nil {
-		return err
-	}
-	keys := make([]string, len(os))
-	for i, o := range os {
-		keys[i] = o.Key
-	}
-	what := fmt.Sprint(target)
-	if target == 0 {
-		what = "hasta /stop"
-	}
-	where := "sin cofre de minar: lo minado al almacén y los picos me los hago (/mine chest para marcar uno)"
-	if l := b.Tasks.Store.MineChestList(); len(l) > 0 {
-		var cs []string
-		for d, c := range l {
-			cs = append(cs, fmt.Sprintf("%v en %s", c, dimShort(d)))
-		}
-		sort.Strings(cs)
-		where = "con el cofre de minar " + strings.Join(cs, " y ")
-	}
-	log.Printf("minar %s: %s, %s (/stop para parar)", strings.Join(keys, ","), what, where)
-	b.startWork("minar", automation.MineOres(os, target))
-	return nil
-}
 
 // dimShort: "minecraft:the_nether" → "el Nether".
 func dimShort(d string) string {
@@ -1137,296 +827,12 @@ func dimShort(d string) string {
 	return strings.TrimPrefix(d, "minecraft:")
 }
 
-// cmdMineChest: /mine chest [<x> <y> <z> | off | list] — el cofre de minar de
-// la dimensión donde está el bot (sin coordenadas: el más cercano).
-func cmdMineChest(b *Bot, args []string) error {
-	st := b.Tasks.Store
-	dim := string(b.Player.Spawn.Dimension)
-	p := b.Player.Position()
-	here := world.BlockPos{X: int(math.Floor(p.X)), Y: int(math.Floor(p.Y)), Z: int(math.Floor(p.Z))}
-	var c world.BlockPos
-	switch {
-	case len(args) == 1 && strings.EqualFold(args[0], "list"):
-		l := st.MineChestList()
-		if len(l) == 0 {
-			log.Print("cofres de minar: ninguno (/mine chest junto a uno lo marca)")
-			return nil
-		}
-		for d, c := range l {
-			log.Printf("cofre de minar en %s: %v", dimShort(d), c)
-		}
-		return nil
-	case len(args) == 1 && strings.EqualFold(args[0], "off"):
-		st.SetMineChest(dim, nil)
-		log.Printf("cofre de minar de %s: olvidado", dimShort(dim))
-		return nil
-	case len(args) == 0:
-		var ok bool
-		if c, ok = b.Tasks.NearestChest(here, 5); !ok {
-			return errf("no chest within 5 blocks: stand by it or give /mine chest <x> <y> <z>",
-				"no hay un cofre a menos de 5 bloques: ponme al lado o dime /mine chest <x> <y> <z>")
-		}
-	case len(args) == 3:
-		var err error
-		if c, err = chestAt(b, args); err != nil {
-			return err
-		}
-	default:
-		return errf("usage: /mine chest [<x> <y> <z> | off | list]", "uso: /mine chest [<x> <y> <z> | off | list]")
-	}
-	st.SetMineChest(dim, &c)
-	log.Printf("cofre de minar de %s: %v. Deja ahí picos, comida y armadura (y oro para el Nether); lo minado lo dejo ahí. Hay uno por dimensión: si para un mineral no hay en la suya, voy al de la otra",
-		dimShort(dim), c)
-	return nil
-}
 
-// chestAt: el cofre de las coordenadas x y z (con ~); si ahí no hay cofre
-// (un bloque desviado: con negativas, -739.6 es el bloque -740), el más
-// cercano a 3 bloques.
-func chestAt(b *Bot, args []string) (world.BlockPos, error) {
-	p := b.Player.Position()
-	var v [3]int
-	for i, a := range args {
-		n, err := coord(a, []float64{p.X, p.Y + 1e-6, p.Z}[i])
-		if err != nil {
-			return world.BlockPos{}, err
-		}
-		v[i] = int(math.Floor(n))
-	}
-	c := world.BlockPos{X: v[0], Y: v[1], Z: v[2]}
-	if s, ok := b.World.BlockAt(c); ok && !strings.Contains(world.StateString(s), "chest") && !strings.Contains(world.StateString(s), "barrel") {
-		if near, found := b.Tasks.NearestChest(c, 3); found {
-			log.Print(tr(fmt.Sprintf("there is no chest at %d %d %d: I use the one at %d %d %d", c.X, c.Y, c.Z, near.X, near.Y, near.Z),
-				fmt.Sprintf("en %d %d %d no hay cofre: uso el de %d %d %d", c.X, c.Y, c.Z, near.X, near.Y, near.Z)))
-			c = near
-		} else {
-			log.Print(tr(fmt.Sprintf("careful: I see no chest at %d %d %d (nor within 3 blocks); I note it anyway", c.X, c.Y, c.Z),
-				fmt.Sprintf("ojo: en %d %d %d no veo ningún cofre (ni a 3 bloques); lo apunto igual", c.X, c.Y, c.Z)))
-		}
-	}
-	return c, nil
-}
 
-// cmdChest: /chest [<x> <y> <z> | off] — el cofre donde guarda todo (el de
-// minar de esta dimensión, y la base del almacén junto a él: si se llena,
-// los cofres nuevos van al lado).
-func cmdChest(b *Bot, args []string) error {
-	st := b.Tasks.Store
-	dim := string(b.Player.Spawn.Dimension)
-	switch {
-	case len(args) == 0:
-		if c, ok := st.MineChest(dim); ok {
-			log.Print(tr(fmt.Sprintf("storage chest: %d %d %d (everything it gathers goes there)", c.X, c.Y, c.Z),
-				fmt.Sprintf("cofre para guardar: %d %d %d (todo lo que saca va ahí)", c.X, c.Y, c.Z)))
-		} else {
-			log.Print(tr("no storage chest: /chest <x> <y> <z> marks one", "sin cofre para guardar: /chest <x> <y> <z> marca uno"))
-		}
-		return nil
-	case len(args) == 1 && strings.EqualFold(args[0], "off"):
-		st.SetMineChest(dim, nil)
-		log.Print(tr("storage chest forgotten", "cofre para guardar olvidado"))
-		return nil
-	case len(args) != 3:
-		return errf("usage: /chest <x> <y> <z> | off", "uso: /chest <x> <y> <z> | off")
-	}
-	c, err := chestAt(b, args)
-	if err != nil {
-		return err
-	}
-	st.SetMineChest(dim, &c)
-	st.SetBase(c) // (si se llena, los cofres nuevos van junto a él)
-	log.Print(tr(fmt.Sprintf("storage chest: %d %d %d — mining, digging and wood go there; if it fills up, it makes more chests next to it", c.X, c.Y, c.Z),
-		fmt.Sprintf("cofre para guardar: %d %d %d — lo minado, lo excavado y la madera van ahí; si se llena, hace más cofres a su lado", c.X, c.Y, c.Z)))
-	return nil
-}
 
-// cmdFarm: /farm — monta y cuida la granja de trigo y ovejas hasta /stop.
-func cmdFarm(b *Bot, args []string) error {
-	log.Printf("granja: trigo y ovejas junto a la base (/stop para parar)")
-	b.startWork("farm", automation.Farm())
-	return nil
-}
 
-// cmdBeds: /beds [n] — hace n camas (8 si no se dice).
-func cmdBeds(b *Bot, args []string) error {
-	n := 8
-	if len(args) > 0 {
-		v, err := strconv.Atoi(args[0])
-		if err != nil || v <= 0 {
-			return errf("amount: a number of beds", "amount: un número de camas")
-		}
-		n = v
-	}
-	log.Printf("camas: %d (/stop para parar)", n)
-	b.startWork("beds", automation.Beds(n))
-	return nil
-}
 
-func cmdChop(b *Bot, args []string) error {
-	kind, target := "", 0
-	for _, a := range args {
-		if n, err := strconv.Atoi(a); err == nil {
-			target = n
-			continue
-		}
-		k, err := automation.ParseWood(a)
-		if err != nil {
-			return err
-		}
-		kind = k
-	}
-	what := "cualquier madera"
-	if kind != "" {
-		what = kind
-	}
-	if target > 0 {
-		log.Printf("talar: %d troncos de %s (/stop para parar)", target, what)
-	} else {
-		log.Printf("talar: %s, sin parar (/stop para parar)", what)
-	}
-	b.startWork("talar", automation.Woodcut(kind, target))
-	return nil
-}
 
-// cmdBase: /base here | info — el sitio del almacén (los cofres).
-func cmdBase(b *Bot, args []string) error {
-	if len(args) == 0 || args[0] == "info" {
-		log.Printf("almacén: %s", b.Tasks.Store.Describe())
-		return nil
-	}
-	if args[0] != "here" {
-		return errf("usage: /base here | info", "uso: /base here | info")
-	}
-	p := b.Player.Position()
-	pos := world.BlockPos{X: int(math.Floor(p.X)), Y: int(math.Floor(p.Y + 1e-6)), Z: int(math.Floor(p.Z))}
-	b.Tasks.Store.SetBase(pos)
-	log.Printf("almacén: base en %v (los cofres irán en fila desde aquí)", pos)
-	return nil
-}
 
-// cmdDebug: /debug — las pilas de todas las goroutines al log de la sesión.
-func cmdDebug(b *Bot, _ []string) error {
-	buf := make([]byte, 4<<20)
-	buf = buf[:runtime.Stack(buf, true)]
-	session.Trace("DEBUG pilas:\n%s", buf)
-	log.Print(tr("debug: goroutine stacks written to the session log", "debug: pilas escritas en el log de la sesión"))
-	return nil
-}
 
-// cmdAround: /around — los bloques alrededor del bot, de 2 abajo a 3 arriba,
-// 7x7 (el bot en el centro, "@"), con la leyenda de abreviaturas.
-func cmdAround(b *Bot, _ []string) error {
-	p := b.Player.Position()
-	fx, fy, fz := int(math.Floor(p.X)), int(math.Floor(p.Y+1e-6)), int(math.Floor(p.Z))
-	short := map[string]string{}
-	next := 'a'
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "alrededor de %d %d %d (x hacia la derecha, z hacia abajo):\n", fx, fy, fz)
-	for y := fy + 3; y >= fy-2; y-- {
-		fmt.Fprintf(&sb, "y=%d\n", y)
-		for z := fz - 3; z <= fz+3; z++ {
-			for x := fx - 3; x <= fx+3; x++ {
-				st, ok := b.World.BlockAt(world.BlockPos{X: x, Y: y, Z: z})
-				n := "?"
-				if ok {
-					n = strings.TrimPrefix(world.StateString(st), "minecraft:")
-				}
-				c := "."
-				switch {
-				case x == fx && z == fz && (y == fy || y == fy+1):
-					c = "@"
-				case n == "air" || n == "cave_air":
-				default:
-					if _, seen := short[n]; !seen {
-						short[n] = string(next)
-						next++
-					}
-					c = short[n]
-				}
-				sb.WriteString(c)
-			}
-			sb.WriteString("\n")
-		}
-	}
-	for n, c := range short {
-		fmt.Fprintf(&sb, "  %s = %s\n", c, n)
-	}
-	log.Print(sb.String())
-	return nil
-}
 
-// cmdFoodChest: /foodchest [add|remove [<x> <y> <z>] | list | clear | now].
-func cmdFoodChest(b *Bot, args []string) error {
-	st := b.Tasks.Store
-	p := b.Player.Position()
-	here := world.BlockPos{X: int(math.Floor(p.X)), Y: int(math.Floor(p.Y)), Z: int(math.Floor(p.Z))}
-	action := "list"
-	if len(args) > 0 {
-		action = strings.ToLower(args[0])
-		args = args[1:]
-	}
-	where := func() (world.BlockPos, error) {
-		if len(args) == 3 {
-			var v [3]int
-			for i, a := range args {
-				n, err := coord(a, []float64{p.X, p.Y, p.Z}[i])
-				if err != nil {
-					return world.BlockPos{}, err
-				}
-				v[i] = int(math.Floor(n))
-			}
-			return world.BlockPos{X: v[0], Y: v[1], Z: v[2]}, nil
-		}
-		if len(args) != 0 {
-			return world.BlockPos{}, errf("give <x> <y> <z>, or nothing for the nearest chest", "dime <x> <y> <z>, o nada para el cofre más cercano")
-		}
-		c, ok := b.Tasks.NearestChest(here, 5)
-		if !ok {
-			return world.BlockPos{}, errf("no chest within 5 blocks: stand by it or give <x> <y> <z>",
-				"no hay un cofre a menos de 5 bloques: ponme al lado o dime <x> <y> <z>")
-		}
-		return c, nil
-	}
-	switch action {
-	case "add":
-		c, err := where()
-		if err != nil {
-			return err
-		}
-		if st.AddFoodChest(c) {
-			log.Printf("cofre de comida: %v (van %d). Sin comida, irá a él antes de cazar", c, len(st.FoodChestList()))
-		} else {
-			log.Printf("cofre de comida: %v ya estaba", c)
-		}
-	case "remove":
-		c, err := where()
-		if err != nil {
-			return err
-		}
-		if st.RemoveFoodChest(c) {
-			log.Printf("cofre de comida: %v olvidado", c)
-		} else {
-			log.Printf("cofre de comida: %v no estaba", c)
-		}
-	case "clear":
-		st.ClearFoodChests()
-		log.Print("cofres de comida: olvidados todos (sigue usando el almacén y los de junto a la base)")
-	case "now":
-		log.Print("comida: voy a los cofres")
-		b.startWork("comida", automation.FoodRestock())
-	case "list":
-		l := st.FoodChestList()
-		base := "sin base (/base here)"
-		if st.Base != nil {
-			base = fmt.Sprintf("y los cofres a menos de 16 bloques de la base (%v)", *st.Base)
-		}
-		if len(l) == 0 {
-			log.Printf("cofres de comida: ninguno marcado (/foodchest add); uso el almacén %s", base)
-		} else {
-			log.Printf("cofres de comida: %v; además, el almacén %s", l, base)
-		}
-	default:
-		return errf("usage: "+usages["foodchest"], "uso: "+usages["foodchest"])
-	}
-	return nil
-}

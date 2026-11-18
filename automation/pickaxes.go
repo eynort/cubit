@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/mj41/go-mc26-kit/bot/act"
-	"github.com/mj41/go-mc26-kit/bot/world"
 	"github.com/mj41/go-mc26/level/component"
 	"github.com/mj41/go-mc26/protocol/types"
 )
@@ -135,29 +134,6 @@ func (j *Job) holdSlot(i int) error {
 		return j.Wait(1)
 	}
 	return nil
-}
-
-// isChest: un cofre en el que se puede guardar (no el de ender).
-func isChest(n string) bool { return n == "chest" || n == "trapped_chest" || n == "barrel" }
-
-// NearestChest es el cofre más cercano a p a menos de r bloques.
-func (r *Runner) NearestChest(p world.BlockPos, rad int) (world.BlockPos, bool) {
-	best, bestD := world.BlockPos{}, -1
-	for dx := -rad; dx <= rad; dx++ {
-		for dy := -rad; dy <= rad; dy++ {
-			for dz := -rad; dz <= rad; dz++ {
-				q := world.BlockPos{X: p.X + dx, Y: p.Y + dy, Z: p.Z + dz}
-				st, ok := r.d.World.BlockAt(q)
-				if !ok || !isChest(blockName(st)) {
-					continue
-				}
-				if d := dx*dx + dy*dy + dz*dz; bestD < 0 || d < bestD {
-					best, bestD = q, d
-				}
-			}
-		}
-	}
-	return best, bestD >= 0
 }
 
 // chestFoods: lo que se coge del cofre para comer, de lo que más alimenta a lo que menos.

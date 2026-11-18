@@ -479,10 +479,7 @@ type hubState struct {
 	} `json:"test_server"`
 	Setup    bool     `json:"setup"` // nada en marcha (o ningún bot): el asistente
 	Defaults struct { // para el asistente
-		AIURL   string `json:"ai_url"`
-		AIAPI   string `json:"ai_api"`
-		AIModel string `json:"ai_model"`
-		Owner   string `json:"owner"`
+		Owner string `json:"owner"`
 	} `json:"defaults"`
 }
 
@@ -527,7 +524,6 @@ func (h *hub) state() hubState {
 	st.Servers = h.servers()
 	st.Setup = len(st.Bots) == 0 // (sin bots: el asistente; con bots, la lista aunque estén apagados)
 	_ = anyRunning
-	st.Defaults.AIURL, st.Defaults.AIAPI, st.Defaults.AIModel = *aiURLFlag, *aiAPIFlag, *aiModelFlag
 	st.Defaults.Owner = *ownerFlag
 	return st
 }
@@ -556,11 +552,6 @@ type newBotReq struct {
 	Server   string   `json:"server"`    // una dirección (se guarda como servidor si no está)
 	ServerID string   `json:"server_id"` // o uno de la lista ("test" = el de pruebas); manda sobre server
 	Owners   []string `json:"owners"`
-	AIURL    string   `json:"ai_url"`
-	AIAPI    string   `json:"ai_api"`
-	AIModel  string   `json:"ai_model"`
-	Chests   *bool    `json:"chests"`
-	PvP      *bool    `json:"pvp"`
 	Lang     string   `json:"lang"`
 	Start    bool     `json:"start"`
 	TestOn   bool     `json:"start_test_server"` // encender el de pruebas si está apagado
@@ -602,24 +593,7 @@ func (h *hub) create(r newBotReq) (string, error) {
 			owners = append(owners, o)
 		}
 	}
-	api := r.AIAPI
-	if api == "" {
-		api = "ollama"
-	}
-	if api != "ollama" && api != "openai" {
-		return "", bi(`AI API: "ollama" or "openai"`, `API de la IA: "ollama" u "openai"`)
-	}
-	c := botConfig{Server: r.Server, Name: r.Name, Owners: owners, Seeded: true,
-		AI: &aiSettings{URL: strings.TrimRight(strings.TrimSpace(r.AIURL), "/"), API: api, Model: strings.TrimSpace(r.AIModel)}}
-	if c.AI.URL != "" && c.AI.Model == "" {
-		return "", bi("missing AI model", "falta el modelo de la IA")
-	}
-	if r.Chests != nil {
-		c.NoChests = !*r.Chests
-	}
-	if r.PvP != nil {
-		c.Limits.NoPvP = !*r.PvP
-	}
+	c := botConfig{Server: r.Server, Name: r.Name, Owners: owners, Seeded: true}
 	h.mu.Lock()
 	id := h.newID(r.Name)
 	h.mu.Unlock()

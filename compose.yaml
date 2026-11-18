@@ -1,12 +1,10 @@
-# Todo de una vez: el servidor de Minecraft, la IA (Ollama) y el bot.
+# Todo de una vez: el servidor de pruebas (Minecraft vanilla) y el hub con los bots.
 #
-#   ./up.sh                    # lo levanta todo y abre la consola del bot
-#   docker compose up -d       # (lo mismo, sin la consola)
+#   ./up.sh                    # lo levanta todo y te da la URL del panel
+#   docker compose up -d       # (lo mismo)
 #
-# La configuración inicial, en .env (ver .env.example): el nombre del bot, el
-# dueño, el servidor (el local de aquí, o uno de verdad) y el modelo. Solo vale
-# la primera vez: después se cambia en el panel (Ajustes) y se guarda en
-# bot-data/bot.json.
+# Los bots se crean y se configuran en el panel (bot-data/bots/<id>/); en
+# .env (ver .env.example) solo los puertos y tu nombre de jugador.
 
 services:
   minecraft:
@@ -14,7 +12,7 @@ services:
     # apagado desde el panel (la marca .mcbot-apagado en su carpeta): espera sin
     # arrancar Minecraft hasta que se quita (Encender en el panel, o ./up.sh)
     entrypoint: ["/bin/sh", "-c", "while [ -e /data/.mcbot-apagado ]; do sleep 2; done; exec /image/scripts/start"]
-    profiles: ["local"] # (COMPOSE_PROFILES=local en .env: sin él, solo el bot y la IA)
+    profiles: ["local"] # (COMPOSE_PROFILES=local en .env: sin él, solo el hub)
     ports: ["${MC_PORT:-25565}:25565"]
     environment:
       EULA: "TRUE"
@@ -36,29 +34,6 @@ services:
     volumes: ["./mc-data:/data"]
     restart: unless-stopped
 
-  ollama:
-    image: ollama/ollama${OLLAMA_TAG:-}
-    profiles: ["ai"]
-    volumes: ["${OLLAMA_MODELS:-ollama}:/root/.ollama/models"]
-    environment:
-      OLLAMA_KEEP_ALIVE: 30m
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 5s
-      retries: 30
-    restart: unless-stopped
-
-  # descarga el modelo la primera vez (luego, nada: ya está)
-  ollama-pull:
-    image: ollama/ollama${OLLAMA_TAG:-}
-    profiles: ["ai"]
-    depends_on:
-      ollama: {condition: service_healthy}
-    environment:
-      OLLAMA_HOST: ollama:11434
-    entrypoint: ["ollama", "pull", "${AI_MODEL:-gemma4:e4b}"]
-    restart: "no"
-
   # el hub: el panel siempre encendido y los bots (cada uno un proceso, en
   # bot-data/bots/<id>/); se crean, arrancan y paran desde el panel
   bot:
@@ -66,13 +41,11 @@ services:
     image: minecraft-bot
     depends_on:
       minecraft: {condition: service_started, required: false}
-      ollama-pull: {condition: service_completed_successfully, required: false}
     ports: ["${PANEL_PORT:-8080}:8080"]
     volumes:
       - ./bot-data:/data
       - ./mc-data:/server # (la configuración del servidor local, para el panel)
     environment:
-      MCBOT_AI_KEY: "${AI_KEY:-}"
       MCBOT_RCON: "${RCON_ADDR:-minecraft:25575}" # (la consola del servidor local; con uno de fuera no hace nada)
       MCBOT_RCON_PASSWORD: "${RCON_PASSWORD:-minecraft-bot}"
       MCBOT_SERVER_DIR: /server
@@ -80,12 +53,5 @@ services:
       MCBOT_TEST_PORT: "${MC_PORT:-25565}" # (y desde tu equipo: para decirte cómo entrar)
     command:
       - --hub=:8080
-      # lo que el asistente propone para un bot nuevo
-      - --owner=${OWNER:-}
-      - --ai=${AI_URL:-http://ollama:11434}
-      - --ai-api=${AI_API:-ollama}
-      - --ai-model=${AI_MODEL:-gemma4:e4b}
+      - --owner=${OWNER:-} # (el dueño que propone el asistente para un bot nuevo)
     restart: unless-stopped
-
-volumes:
-  ollama: {}

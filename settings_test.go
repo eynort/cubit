@@ -7,11 +7,11 @@ import "testing"
 func TestRenameWithoutServer(t *testing.T) {
 	cfgMu.Lock()
 	oldCfg, oldPath, oldOwners := cfg, cfgPath, remoteOwners
-	cfg, cfgPath = botConfig{Server: "minecraft", Name: "Viejo_Bot", AI: &aiSettings{URL: "", API: "ollama", Model: "m"}}, ""
+	cfg, cfgPath = botConfig{Server: "minecraft", Name: "Viejo_Bot"}, ""
 	cfgMu.Unlock()
 	defer func() { cfgMu.Lock(); cfg, cfgPath, remoteOwners = oldCfg, oldPath, oldOwners; cfgMu.Unlock() }()
 
-	restart, err := applySettings(panelSettings{Name: "Nuevo_Bot", AIAPI: "ollama", AIModel: "m"})
+	restart, err := applySettings(panelSettings{Name: "Nuevo_Bot"})
 	if err != nil || !restart || cfg.Server != "minecraft" || cfg.Name != "Nuevo_Bot" {
 		t.Fatalf("sin servidor: restart=%v err=%v cfg=%s/%s", restart, err, cfg.Server, cfg.Name)
 	}
@@ -23,16 +23,5 @@ func TestRenameWithoutServer(t *testing.T) {
 	}
 	if _, err := renameBot("a b"); err == nil {
 		t.Fatal("nombre inválido aceptado")
-	}
-}
-
-// TestStorageChestNeedsBot: sin bot en marcha no se puede marcar el cofre
-// (el almacén es del bot), y lo dice claro.
-func TestStorageChestNeedsBot(t *testing.T) {
-	if current.Load() != nil {
-		t.Skip("hay un bot")
-	}
-	if err := setStorageChest("10 64 -20"); err == nil {
-		t.Fatal("sin bot tendría que fallar")
 	}
 }

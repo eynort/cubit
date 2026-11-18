@@ -25,8 +25,6 @@ func TestExcavateOldZoneDropped(t *testing.T) {
 		g.GiveEnchanted("minecraft:diamond_shovel", map[string]int{"efficiency": 5})
 		g.Protect(9, 3, 20, 12)
 		r, _ := safeRunner(t, g)
-		chest := world.BlockPos{X: -3, Y: 64, Z: 0}
-		r.Store.SetMineChest("minecraft:overworld", &chest)
 		r.Store.NoteProtected(world.BlockPos{X: 15, Y: 63, Z: 7}) // apuntado en otra sesión
 		g.Step(5)
 		box := automation.NewBox(world.BlockPos{X: 3, Y: 63, Z: 3}, world.BlockPos{X: 20, Y: 60, Z: 12})

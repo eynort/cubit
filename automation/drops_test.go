@@ -37,29 +37,3 @@ func TestFetchDiamondDrop(t *testing.T) {
 		}
 	})
 }
-
-// TestStripTakesWallOres: menas de diamante en las paredes, el suelo y el
-// techo de la primera galería: las saca todas (y recoge lo que suelta).
-func TestStripTakesWallOres(t *testing.T) {
-	simworld.Run(t, func(t *testing.T) {
-		ore := "minecraft:deepslate_diamond_ore"
-		g := simworld.Start(t, simworld.Options{Setup: []string{
-			"give Tester diamond_pickaxe 1", "give Tester cobblestone 32",
-			"fill 10 -52 1 10 -52 1 " + ore, "fill 10 -51 -1 10 -51 -1 " + ore,
-			"fill 11 -53 0 11 -53 0 " + ore, "fill 11 -50 0 11 -50 0 " + ore,
-			"fill 12 -52 1 12 -51 1 " + ore,
-		}})
-		r := runner(t, g)
-		g.Step(5)
-		var err error
-		r.Start(context.Background(), "minar", func(j *automation.Job) error {
-			err = j.StripMineForTest("diamond", 6)
-			return err
-		})
-		g.Until(3000*20, func() bool { return r.Status() == "" })
-		t.Logf("error %v; diamantes %d", err, g.Count("minecraft:diamond"))
-		if g.Count("minecraft:diamond") < 6 {
-			t.Fatalf("sacó %d de 6", g.Count("minecraft:diamond"))
-		}
-	})
-}

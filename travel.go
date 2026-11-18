@@ -12,16 +12,13 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"math"
-	"minecraft-bot/elytra"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -139,11 +136,8 @@ func (b *Bot) gotoPlayer(ctx context.Context, name string, uid uuid.UUID) {
 			log.Printf("goto: %s se desconectó", name)
 			return
 		}
-		// 1. a la vista: directo (lejos, volando si lleva élitros y cohetes)
+		// 1. a la vista: directo
 		if e, ok := b.Entities.ByUUID(uid); ok {
-			if b.flyToPlayer(ctx, e.ID) && ctx.Err() != nil {
-				return
-			}
 			if b.chase(ctx, name, e.ID) {
 				log.Printf("goto: llegué hasta %s", name)
 				return
@@ -177,150 +171,11 @@ func (b *Bot) gotoPlayer(ctx context.Context, name string, uid uuid.UUID) {
 		}
 		p := b.Player.Position()
 		log.Printf("goto: %s no está a la vista; voy a %s: %.0f %.0f (a %.0f bloques)", name, src, tx, tz, math.Hypot(tx-p.X, tz-p.Z))
-		// volando si se puede (y si no, se le dice por qué); lo que quede, andando
-		if b.flyTargetTold(ctx, func() (float64, float64, float64, bool, bool) { return tx, ty, tz, true, true }, name) && ctx.Err() != nil {
-			return
-		}
 		if b.gotoCoordsY(ctx, tx, ty, tz, visible) && !visible() {
 			log.Printf("goto: %s no está aquí", name)
 			// allí no está: preguntar (si no se hizo ya)
 		}
 	}
-}
-
-// flyNear vuela hasta cerca de (x, y, z) si está lejos y se puede (élitros,
-// cohetes, /elytra on); dice si lo intentó. Lo que quede, se anda. y es la
-// altura de la meta (NaN: no se sabe): se aterriza lo más cerca posible de
-// ella (en lo alto de una torre, sí; en una cueva no se entra volando).
-func (b *Bot) flyNear(ctx context.Context, x, y, z float64) bool {
-	return b.flyTarget(ctx, func() (float64, float64, float64, bool, bool) { return x, y, z, true, true })
-}
-
-// flyToPlayer vuela tras el jugador id (que puede moverse, o volar) si está
-// lejos o muy por encima; dice si lo intentó. Si no puede volar (sin
-// cohetes, sin élitros que aguanten), se lo dice a él por privado.
-func (b *Bot) flyToPlayer(ctx context.Context, id int32) bool {
-	name := ""
-	if e, ok := b.Entities.Get(id); ok {
-		name = nameOf(e.UUID)
-	}
-	return b.flyTargetTold(ctx, func() (float64, float64, float64, bool, bool) {
-		e, ok := b.Entities.Get(id)
-		return e.X, e.Y, e.Z, e.OnGround, ok
-	}, name)
-}
-
-// flyTold: lo último que se le dijo a cada jugador de por qué no se vuela, y cuándo.
-var flyTold struct {
-	sync.Mutex
-	last map[string]flyNote
-}
-
-type flyNote struct {
-	why string
-	at  time.Time
-}
-
-// tellNoFly le dice a name por qué no vuela con él (una vez cada 2 minutos
-// por motivo: en los logs, no voló sin decir nada y él no sabía por qué).
-func (b *Bot) tellNoFly(name, why string) {
-	if name == "" {
-		return
-	}
-	flyTold.Lock()
-	if flyTold.last == nil {
-		flyTold.last = map[string]flyNote{}
-	}
-	n := flyTold.last[name]
-	if n.why == why && time.Since(n.at) < 2*time.Minute {
-		flyTold.Unlock()
-		return
-	}
-	flyTold.last[name] = flyNote{why, time.Now()}
-	flyTold.Unlock()
-	b.whisper(name, "no puedo volar contigo: "+why)
-}
-
-// noFlyUntil: tras un vuelo que no se pudo (sin cohetes, sin élitros), no
-// se vuelve a intentar (ni a decirlo) hasta entonces.
-var noFlyUntil atomic.Int64
-
-// flyTarget vuela hacia target si está lejos (o muy por encima: subir
-// andando 100 bloques no se puede) y se puede; dice si lo intentó.
-func (b *Bot) flyTarget(ctx context.Context, target func() (x, y, z float64, onGround, ok bool)) bool {
-	return b.flyTargetTold(ctx, target, "")
-}
-
-// flyTargetTold es flyTarget diciéndole a name (si no es "") por qué no vuela.
-func (b *Bot) flyTargetTold(ctx context.Context, target func() (x, y, z float64, onGround, ok bool), name string) bool {
-	x, y, z, _, ok := target()
-	if !ok || !elytraAllowed.Load() {
-		return false
-	}
-	p := b.Player.Position()
-	d := math.Hypot(x-p.X, z-p.Z)
-	if up := y - p.Y; !math.IsNaN(y) && up > 0 {
-		d = math.Hypot(d, up)
-	}
-	if d < flyMinDist {
-		return false
-	}
-	if ok, why := b.Flight.Ready(d); !ok {
-		if time.Now().UnixNano() >= noFlyUntil.Load() {
-			if why != "no llevo élitros" {
-				log.Printf("goto: no vuelo: %s; voy andando", why)
-			}
-			noFlyUntil.Store(time.Now().Add(30 * time.Second).UnixNano())
-		}
-		b.tellNoFly(name, why)
-		return false
-	}
-	if time.Now().UnixNano() < noFlyUntil.Load() {
-		return false // (un vuelo que acaba de fallar: no otra vez en seguida)
-	}
-	log.Printf("goto: voy volando con élitros (a %.0f bloques)", d)
-	b.Walker.Stop()
-	err := b.Flight.FlyFollow(ctx, target)
-	if errors.Is(err, elytra.ErrNoHeadroom) && b.walkToSky(ctx) {
-		err = b.Flight.FlyFollow(ctx, target)
-	}
-	if err != nil && ctx.Err() == nil {
-		log.Printf("goto: el vuelo no salió (%v); sigo andando", err)
-		noFlyUntil.Store(time.Now().Add(30 * time.Second).UnixNano())
-		b.tellNoFly(name, err.Error())
-	}
-	return true
-}
-
-// walkToSky anda a un sitio cercano (a 12 bloques) con aire encima para
-// despegar (debajo de un árbol, de un techo, no se puede).
-func (b *Bot) walkToSky(ctx context.Context) bool {
-	p := b.Player.Position()
-	for r := 1; r <= 12; r++ {
-		for k := 0; k < 8*r; k++ {
-			a := float64(k) * 2 * math.Pi / float64(8*r)
-			x, z := int(math.Floor(p.X+float64(r)*math.Cos(a))), int(math.Floor(p.Z+float64(r)*math.Sin(a)))
-			g, ok := b.Walker.Ground(x, z, int(math.Floor(p.Y)))
-			if !ok || !elytra.Headroom(b.World, float64(x)+0.5, float64(g.Y), float64(z)+0.5) {
-				continue
-			}
-			log.Printf("élitros: aquí no hay sitio encima para despegar; voy a %d %d %d (a cielo abierto)", g.X, g.Y, g.Z)
-			b.Walker.SetSprint(true)
-			b.Walker.Goto(g)
-			for i := 0; i < 20*20/5; i++ {
-				if b.Ctl.WaitTicks(ctx, 5) != nil {
-					return false
-				}
-				if st := b.Walker.Status(); st != "walking" {
-					return st == "arrived"
-				}
-			}
-			b.Walker.Stop()
-			return false
-		}
-	}
-	log.Printf("élitros: no hay sitio a cielo abierto cerca para despegar")
-	return false
 }
 
 // askWhere le pregunta por privado a un jugador dónde está.

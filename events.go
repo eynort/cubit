@@ -44,7 +44,7 @@ func (b *Bot) onDeath() error {
 	p := b.Player.Position()
 	dim := string(b.Player.Spawn.Dimension)
 	log.Printf("he muerto en %.0f %.0f %.0f, reapareciendo", p.X, p.Y, p.Z)
-	notify(fmt.Sprintf("he muerto en %.0f %.0f %.0f (%s)", p.X, p.Y, p.Z, dim))
+	_ = dim
 	if b.carriedSomething() {
 		// solo si llevaba algo (una muerte con el inventario vacío no tira
 		// nada: no se cambia el sitio al que volver por esta)

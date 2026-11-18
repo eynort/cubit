@@ -70,19 +70,12 @@ type Deps struct {
 type Runner struct {
 	d     Deps
 	ui    *act.Screens
-	Store *Storage
-	Build *BuildState // la construcción apuntada (/build)
+	Store *Storage // las zonas protegidas (donde el servidor repone lo que rompe)
 
-	wantGold atomic.Bool // la tarea va al Nether: el oro puesto no se quita
-	noChests atomic.Bool // no usar cofres: nada se guarda (SetChests)
-	// strips: el plan de galerías de cada mineral de /mine (el siguiente viaje sigue en él)
-	strips   map[string]*stripPlan
-	bred     map[string]time.Time     // cuándo crió cada oveja (por uuid)
-	beat     atomic.Int64             // la última señal de vida de la tarea (UnixNano): Wait, Status, Logf
-	resting  atomic.Bool              // la tarea espera quieta a propósito (Rest): no es un atasco
-	progress atomic.Pointer[Progress] // el de la tarea en curso con condiciones de parada (lo recogido)
-	job      atomic.Pointer[Job]      // la tarea en curso (para su progreso en Status)
-	chats    atomic.Int64             // los mensajes de jugadores recibidos: una respuesta (NoteChat)
+	beat    atomic.Int64        // la última señal de vida de la tarea (UnixNano): Wait, Status, Logf
+	resting atomic.Bool         // la tarea espera quieta a propósito (Rest): no es un atasco
+	job     atomic.Pointer[Job] // la tarea en curso (para su progreso en Status)
+	chats   atomic.Int64        // los mensajes de jugadores recibidos: una respuesta (NoteChat)
 
 	mu     sync.Mutex
 	cancel context.CancelFunc
@@ -93,10 +86,8 @@ type Runner struct {
 
 // New crea el ejecutor (y carga el almacén guardado).
 func New(d Deps) *Runner {
-	r := &Runner{d: d, ui: &act.Screens{C: d.Client, Ctl: d.Ctl, Screens: d.Screens}, bred: map[string]time.Time{}, strips: map[string]*stripPlan{}}
+	r := &Runner{d: d, ui: &act.Screens{C: d.Client, Ctl: d.Ctl, Screens: d.Screens}}
 	r.Store = loadStorage(d.StorageFile)
-	r.Build = loadBuildState(d.BuildFile)
-	r.watchPickups()
 	return r
 }
 
@@ -147,21 +138,17 @@ func (r *Runner) start(parent context.Context, name string, task func(j *Job) er
 		r.job.Store(j)
 		err := task(j)
 		r.job.CompareAndSwap(j, nil)
-		r.wantGold.Store(false)
 		if r.d.Walker != nil {
 			r.d.Walker.Stop()
 		}
 		if r.d.Ctl != nil {
 			r.d.Ctl.SetInput(control.Input{})
 		}
-		if err != nil && !errors.Is(err, ErrStopCondition) && !errors.Is(err, context.Canceled) {
+		if err != nil && !errors.Is(err, context.Canceled) {
 			j.snapshot("la tarea terminó con error: " + err.Error())
 		}
 		sum := j.ProblemSummary()
 		switch {
-		case errors.Is(err, ErrStopCondition): // (una tarea sin Until que la devuelva)
-			log.Printf("[%s] terminado: %v%s", name, err, sum)
-			err = nil
 		case errors.Is(err, context.Canceled):
 			log.Printf("[%s] parado%s", name, sum)
 		case err != nil:
@@ -346,9 +333,9 @@ func (r *Runner) NoteProtected(p world.BlockPos) {
 }
 
 // KeepGold dice si la armadura de oro tiene que quedarse puesta: en el Nether
-// o yendo a él (los piglins atacan a quien no lleva oro).
+// (los piglins atacan a quien no lleva oro).
 func (r *Runner) KeepGold() bool {
-	return r.wantGold.Load() || string(r.d.Player.Spawn.Dimension) == theNether
+	return string(r.d.Player.Spawn.Dimension) == theNether
 }
 
 // Status es la tarea en curso y por dónde va ("" si ninguna).
@@ -358,23 +345,17 @@ func (r *Runner) Status() string {
 	if r.name == "" {
 		return ""
 	}
-	if j := r.job.Load(); j != nil && j.stop != nil {
-		return r.name + ": " + r.status + " [hasta: " + j.StopProgress() + "]"
-	}
 	return r.name + ": " + r.status
 }
 
 // Job es una tarea en marcha: lo que puede hacer, paso a paso.
 type Job struct {
-	r         *Runner
-	ctx       context.Context
-	trail     []world.BlockPos       // las celdas de los túneles que cavó (para volver a salir)
-	fatal     error                  // por qué la tarea tiene que parar (sin comida y herido): cada Wait lo devuelve
-	ignore    func(item string) bool // lo que Collect no recoge (la basura que tiró)
-	feeding   bool                   // buscando comida (no se vuelve a empezar desde Wait)
-	foodRetry time.Time              // no buscar comida otra vez antes (tras no encontrar)
-	foodSeen  int                    // cofres de comida que miró la última vez (FoodFromChests)
-	stop      *stopper               // las condiciones de parada (nil: sin ellas; Until)
+	r       *Runner
+	ctx     context.Context
+	trail   []world.BlockPos       // las celdas de los túneles que cavó (para volver a salir)
+	fatal   error                  // por qué la tarea tiene que parar (sin comida y herido): cada Wait lo devuelve
+	ignore  func(item string) bool // lo que Collect no recoge (la basura que tiró)
+	feeding bool                   // buscando comida (no se vuelve a empezar desde Wait)
 	// pickFloor: los picos con estos usos o menos no se usan (0: cualquiera).
 	// Lo pone /mine con los picos del cofre, para no romper ninguno.
 	pickFloor int
@@ -482,17 +463,7 @@ func (j *Job) Wait(n int) error {
 		}
 		j.Logf("pelea terminada: sigo")
 	}
-	if err := j.hungerCheck(); err != nil {
-		if j.ctx.Err() == nil {
-			j.fatal = err
-		}
-		return err
-	}
 	if err := j.heal(); err != nil {
-		j.fatal = err
-		return err
-	}
-	if err := j.stopCheck(n); err != nil { // condición de parada cumplida: se acaba aquí
 		j.fatal = err
 		return err
 	}
@@ -517,18 +488,8 @@ func (j *Job) heal() error {
 			j.Logf("curado (vida %.1f): sigo", st.Health)
 			return nil
 		}
-		hasFood := j.r.d.HasFood != nil && j.r.d.HasFood() || j.FoodItems() > 0
-		if !hasFood && st.Food < 18 && !j.feeding && time.Now().After(j.foodRetry) {
-			j.feeding = true
-			err := j.EnsureFood(foodStock) // antes de rendirse: a por comida
-			j.feeding = false
-			if err == nil {
-				continue
-			}
-			j.foodRetry = time.Now().Add(time.Minute)
-			j.Logf("comida: %v", err)
-		}
-		if !hasFood && st.Food < 18 && j.FoodItems() == 0 {
+		hasFood := j.r.d.HasFood != nil && j.r.d.HasFood()
+		if !hasFood && st.Food < 18 {
 			return fmt.Errorf("vida %.1f y sin comida: así no me curo, paro (dame comida)", st.Health)
 		}
 		if time.Since(start) > 4*time.Minute {
@@ -558,11 +519,3 @@ func (j *Job) Block(p world.BlockPos) string {
 	}
 	return blockName(s)
 }
-
-// SetChests: con false, el bot no usa cofres para nada (ni el de minar, ni el
-// almacén, ni los de alrededor): trabaja con lo que le quepa encima y lo
-// demás se queda en el suelo. Lo dice una vez en cada tarea.
-func (r *Runner) SetChests(on bool) { r.noChests.Store(!on) }
-
-// Chests: si usa cofres.
-func (r *Runner) Chests() bool { return !r.noChests.Load() }

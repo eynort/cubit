@@ -130,9 +130,6 @@ func (j *Job) Dig(p world.BlockPos) error {
 	if j.protected(p) {
 		return fmt.Errorf("%w (%v)", ErrProtected, p)
 	}
-	if j.r.Store.isMineChest(p) {
-		return fmt.Errorf("%v es el cofre de minar: no se rompe", p)
-	}
 	name := blockName(st)
 	j.HoldBestTool(name)
 	// los picos del cofre no se rompen: si los que lleva están todos gastados,
@@ -210,7 +207,7 @@ func (j *Job) digChain(cells []world.BlockPos, moving bool) (map[world.BlockPos]
 	var todo []world.BlockPos
 	for _, p := range cells {
 		st, ok := j.r.d.World.BlockAt(p)
-		if !ok || block.IsAir(st) || !j.Reaches(p) || j.protected(p) || j.r.Store.isMineChest(p) {
+		if !ok || block.IsAir(st) || !j.Reaches(p) || j.protected(p) {
 			continue
 		}
 		todo = append(todo, p)
@@ -383,8 +380,8 @@ func (j *Job) Collect(radius float64) error {
 // troncos de la copa y de las ramas caen ahí) lo hace caer rompiéndolas. Al
 // acabar, deja en el log lo que no pudo coger.
 func (j *Job) CollectAround(x, y, z, radius float64) error {
-	if j.storingOff() && j.FreeSlots() == 0 {
-		return nil // (sin dónde guardar y lleno: lo del suelo se queda)
+	if j.FreeSlots() == 0 {
+		return nil // (lleno: lo del suelo se queda)
 	}
 	tried := map[int32]int{}
 	leaves := map[int32]int{} // hojas rotas bajo cada objeto
@@ -538,14 +535,6 @@ func (j *Job) walkToItem(e entities.Entity) (bool, error) {
 		}
 	}
 	return false, nil
-}
-
-// ItemOf es el objeto (nombre corto) de una entidad de objeto tirado ("" si no lo es).
-func itemOfStack(s types.ItemStack) string {
-	if s.Count <= 0 {
-		return ""
-	}
-	return strings.TrimPrefix(itemName(int32(s.Item)), "minecraft:")
 }
 
 // burning: en p hay fuego o lava.

@@ -6,19 +6,13 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"slices"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
-
-	"github.com/mj41/go-mc26-kit/bot/world"
-
-	"minecraft-bot/automation"
 )
 
 // keepConfigEnv: al reiniciarse desde el panel, manda bot.json (no los flags
@@ -26,43 +20,17 @@ import (
 const keepConfigEnv = "MCBOT_KEEP_CONFIG"
 
 type panelSettings struct {
-	Server     string   `json:"server"`
-	Name       string   `json:"name"`
-	Owners     []string `json:"owners"`
-	Webhook    string   `json:"webhook"`
-	AIURL      string   `json:"ai_url"`
-	AIAPI      string   `json:"ai_api"`
-	AIModel    string   `json:"ai_model"`
-	Area       string   `json:"area"`        // "x1 z1 x2 z2" o ""
-	PvP        bool     `json:"pvp"`         // puede pelear con jugadores
-	NeverBreak string   `json:"never_break"` // separados por comas
-	Chests     *bool    `json:"chests"`      // usa cofres para guardar (nil: sin cambios)
-	Chest      *string  `json:"chest"`       // el cofre donde guarda todo: "x y z", "" = ninguno (nil: sin cambios)
-	Lang       string   `json:"lang"`        // el idioma de las explicaciones (en, es)
-	RCON       bool     `json:"rcon"`        // (solo lectura) hay consola del servidor
+	Server string   `json:"server"`
+	Name   string   `json:"name"`
+	Owners []string `json:"owners"`
+	Lang   string   `json:"lang"` // el idioma del bot: su ayuda y las sugerencias (en, es)
+	RCON   bool     `json:"rcon"` // (solo lectura) hay consola del servidor
 }
 
 func currentSettings() panelSettings {
 	cfgMu.Lock()
 	defer cfgMu.Unlock()
-	s := panelSettings{
-		Server: cfg.Server, Name: cfg.Name, Owners: append([]string{}, cfg.Owners...), Webhook: cfg.Webhook,
-		PvP: !cfg.Limits.NoPvP, NeverBreak: strings.Join(cfg.Limits.neverBreak(), ", "), RCON: rconAddr() != "", Lang: lang(), Chests: new(bool),
-	}
-	*s.Chests = !cfg.NoChests
-	s.Chest = new(string)
-	if st, dim := botStore(); st != nil {
-		if c, ok := st.MineChest(dim); ok {
-			*s.Chest = fmt.Sprintf("%d %d %d", c.X, c.Y, c.Z)
-		}
-	}
-	if a := cfg.AI; a != nil {
-		s.AIURL, s.AIAPI, s.AIModel = a.URL, a.API, a.Model
-	}
-	if a := cfg.Limits.Area; a != nil {
-		s.Area = fmt.Sprintf("%d %d %d %d", a[0], a[1], a[2], a[3])
-	}
-	return s
+	return panelSettings{Server: cfg.Server, Name: cfg.Name, Owners: append([]string{}, cfg.Owners...), RCON: rconAddr() != "", Lang: lang()}
 }
 
 // applySettings guarda los ajustes; restart: hace falta reiniciar.
@@ -91,46 +59,18 @@ func applySettings(s panelSettings) (restart bool, err error) {
 	if s.Lang != "" && languages[s.Lang] == "" {
 		return false, bi("language %q: en or es", "idioma %q: en o es", s.Lang)
 	}
-	area, err := parseArea(s.Area)
-	if err != nil {
-		return false, bi("area: \"x1 z1 x2 z2\" (four numbers)", "zona: \"x1 z1 x2 z2\" (cuatro números)")
-	}
-	nb := parseNeverBreak(s.NeverBreak)
-	if slices.Equal(nb, defaultNeverBreak) {
-		nb = nil
-	}
-	switch s.AIAPI = strings.TrimSpace(s.AIAPI); s.AIAPI {
-	case "ollama", "openai":
-	case "":
-		s.AIAPI = "ollama"
-	default:
-		return false, bi(`AI API: "ollama" or "openai"`, `API de la IA: "ollama" u "openai"`)
-	}
-	ai := &aiSettings{URL: strings.TrimRight(strings.TrimSpace(s.AIURL), "/"), API: s.AIAPI, Model: strings.TrimSpace(s.AIModel)}
-	if ai.URL != "" && ai.Model == "" {
-		return false, bi("missing AI model", "falta el modelo de la IA")
-	}
 
 	cfgMu.Lock()
-	restart = !strings.EqualFold(s.Server, cfg.Server) || s.Name != cfg.Name || cfg.AI == nil || *ai != *cfg.AI
+	restart = !strings.EqualFold(s.Server, cfg.Server) || s.Name != cfg.Name
 	newOwners := !slices.Equal(owners, cfg.Owners)
-	cfg.Server, cfg.Name, cfg.Owners, cfg.Webhook, cfg.AI = s.Server, s.Name, owners, strings.TrimSpace(s.Webhook), ai
-	cfg.Limits.Area, cfg.Limits.NoPvP, cfg.Limits.NeverBreak = area, !s.PvP, nb
+	cfg.Server, cfg.Name, cfg.Owners = s.Server, s.Name, owners
 	remoteOwners = owners
 	err = saveConfigLocked()
 	cfgMu.Unlock()
 	if err != nil {
 		return false, err
 	}
-	log.Printf("[panel] ajustes guardados · dueños: %s · límites: %s", strings.Join(owners, ", "), describeLimits())
-	if s.Chest != nil {
-		if err := setStorageChest(*s.Chest); err != nil {
-			return false, err
-		}
-	}
-	if s.Chests != nil && *s.Chests != chestsOn() {
-		_ = setChests(*s.Chests)
-	}
+	log.Printf("[panel] ajustes guardados · dueños: %s", strings.Join(owners, ", "))
 	if s.Lang != "" && s.Lang != lang() {
 		setLang(s.Lang)
 	}
@@ -161,53 +101,6 @@ func restartSelf() {
 		log.Fatalf("no se pudo reiniciar: %v", err)
 	}
 	os.Exit(0)
-}
-
-// botStore: el almacén del bot conectado y su dimensión (nil si no hay bot).
-func botStore() (*automation.Storage, string) {
-	b := current.Load()
-	if b == nil || b.Tasks == nil {
-		return nil, ""
-	}
-	dim := "minecraft:overworld"
-	if b.Player != nil && b.Player.Spawn.Dimension != "" {
-		dim = string(b.Player.Spawn.Dimension)
-	}
-	return b.Tasks.Store, dim
-}
-
-// setStorageChest: el cofre donde guarda todo ("x y z"; "" = ninguno), como /chest.
-func setStorageChest(v string) error {
-	st, dim := botStore()
-	if st == nil {
-		return bi("the bot is not running: start it to set its chest", "el bot no está en marcha: arráncalo para marcar su cofre")
-	}
-	v = strings.TrimSpace(strings.ReplaceAll(v, ",", " "))
-	if v == "" {
-		if _, ok := st.MineChest(dim); ok {
-			st.SetMineChest(dim, nil)
-			log.Print("[panel] cofre para guardar: ninguno")
-		}
-		return nil
-	}
-	f := strings.Fields(v)
-	var n [3]int
-	ok := len(f) == 3
-	for i := 0; ok && i < 3; i++ {
-		x, err := strconv.Atoi(f[i])
-		n[i], ok = x, err == nil
-	}
-	if !ok {
-		return bi("chest: three numbers, x y z", "cofre: tres números, x y z")
-	}
-	c := world.BlockPos{X: n[0], Y: n[1], Z: n[2]}
-	if old, had := st.MineChest(dim); had && old == c {
-		return nil
-	}
-	st.SetMineChest(dim, &c)
-	st.SetBase(c)
-	log.Printf("[panel] cofre para guardar: %d %d %d", c.X, c.Y, c.Z)
-	return nil
 }
 
 // renameBot cambia solo el nombre del bot (y lo reinicia, si cambió).

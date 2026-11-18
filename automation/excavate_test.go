@@ -17,17 +17,15 @@ import (
 
 // TestExcavate: una caja de 5×5×5 en el suelo (hierba, tierra y piedra). El
 // bot no lleva pico: coge el de hierro del cofre de minar, vacía la caja de
-// arriba abajo sin cavar bajo sus pies y deja lo cavado en el cofre
-// (quedándose un montón de relleno).
+// arriba abajo sin cavar bajo sus pies; no usa cofres (el de al lado se
+// queda vacío).
 func TestExcavate(t *testing.T) {
 	simworld.Run(t, func(t *testing.T) {
 		g := simworld.Start(t, simworld.Options{Setup: []string{
 			"setblock -3 64 0 minecraft:chest[facing=north,type=single,waterlogged=false]",
 		}})
 		r, _ := safeRunner(t, g)
-		g.PutInChest(-3, 64, 0, "minecraft:iron_pickaxe", 1)
-		chest := world.BlockPos{X: -3, Y: 64, Z: 0}
-		r.Store.SetMineChest("minecraft:overworld", &chest)
+		g.Give("minecraft:iron_pickaxe", 1)
 		g.Step(5)
 		box := automation.NewBox(world.BlockPos{X: 3, Y: 63, Z: 3}, world.BlockPos{X: 7, Y: 59, Z: 7})
 		var err error
@@ -61,20 +59,17 @@ func TestExcavate(t *testing.T) {
 			t.Errorf("quedan %d bloques en %d columnas: solo debería quedar parte de la torre para salir", left, len(cols))
 		}
 		if g.Count("minecraft:iron_pickaxe") != 1 {
-			t.Errorf("no cogió (o rompió) el pico del cofre")
+			t.Errorf("rompió el pico")
 		}
-		if g.ChestCount(-3, 64, 0, "minecraft:dirt") < 40 {
-			t.Errorf("no guardó la tierra en el cofre")
-		}
-		if g.Count("minecraft:cobblestone")+g.Count("minecraft:dirt") > 64+10 {
-			t.Errorf("se quedó con demasiado: lo cavado va al cofre")
+		if n := g.ChestCount(-3, 64, 0, "minecraft:dirt") + g.ChestCount(-3, 64, 0, "minecraft:cobblestone"); n != 0 {
+			t.Errorf("sin cofres: no tenía que guardar nada, y en el cofre hay %d", n)
 		}
 	})
 }
 
 // TestExcavateRoundTrip: una caja de 7×8×7 con el inventario casi lleno
-// (antorchas: se quedan): a mitad se llena, va al cofre a dejar lo cavado,
-// vuelve al hoyo y acaba.
+// (antorchas: se quedan): a mitad se llena, tira la basura y acaba sin
+// tocar las antorchas.
 func TestExcavateRoundTrip(t *testing.T) {
 	simworld.Run(t, func(t *testing.T) {
 		g := simworld.Start(t, simworld.Options{Setup: []string{
@@ -82,8 +77,6 @@ func TestExcavateRoundTrip(t *testing.T) {
 			"give Tester torch 1664", "give Tester diamond_pickaxe 1",
 		}})
 		r, _ := safeRunner(t, g)
-		chest := world.BlockPos{X: -3, Y: 64, Z: 0}
-		r.Store.SetMineChest("minecraft:overworld", &chest)
 		g.Step(5)
 		box := automation.NewBox(world.BlockPos{X: 3, Y: 63, Z: 3}, world.BlockPos{X: 9, Y: 56, Z: 9})
 		var err error
@@ -103,15 +96,15 @@ func TestExcavateRoundTrip(t *testing.T) {
 			}
 		}
 		stored := g.ChestCount(-3, 64, 0, "minecraft:dirt") + g.ChestCount(-3, 64, 0, "minecraft:cobblestone")
-		t.Logf("error %v; quedan %d; en el cofre %d; antorchas %d", err, left, stored, g.Count("minecraft:torch"))
+		t.Logf("error %v; quedan %d; en el cofre %d; antorchas %d; libres %d", err, left, stored, g.Count("minecraft:torch"), g.Count("minecraft:dirt"))
 		if err != nil {
 			t.Fatalf("excavar: %v", err)
 		}
 		if left > 10 { // (la torre por la que sale a guardar desde el fondo de una pasada, y la del final)
 			t.Errorf("quedan %d bloques en la caja", left)
 		}
-		if stored < 7*7*8-64-30 {
-			t.Errorf("en el cofre solo hay %d de lo cavado", stored)
+		if stored != 0 {
+			t.Errorf("sin cofres: no tenía que guardar nada, y en el cofre hay %d", stored)
 		}
 		if g.Count("minecraft:torch") != 1664 {
 			t.Errorf("las antorchas no se guardan: lleva %d", g.Count("minecraft:torch"))
@@ -157,8 +150,6 @@ func TestExcavateTools(t *testing.T) {
 				}
 				g := simworld.Start(t, simworld.Options{Setup: setup})
 				r, _ := safeRunner(t, g)
-				chest := world.BlockPos{X: -3, Y: 64, Z: 0}
-				r.Store.SetMineChest("minecraft:overworld", &chest)
 				g.Step(5)
 				pick := usesLeft(g, "iron_pickaxe")
 				box := automation.NewBox(world.BlockPos{X: 3, Y: 63, Z: 3}, world.BlockPos{X: 5, Y: 61, Z: 5})
@@ -202,8 +193,6 @@ func TestExcavateHaste(t *testing.T) {
 				}
 				g := simworld.Start(t, simworld.Options{Setup: setup})
 				r, _ := safeRunner(t, g)
-				chest := world.BlockPos{X: -3, Y: 64, Z: 0}
-				r.Store.SetMineChest("minecraft:overworld", &chest)
 				g.Step(5)
 				box := automation.NewBox(world.BlockPos{X: 3, Y: 63, Z: 3}, world.BlockPos{X: 14, Y: 60, Z: 5})
 				var err error
@@ -252,8 +241,6 @@ func TestExcavateHill(t *testing.T) {
 			"give Tester diamond_pickaxe 1", "give Tester cobblestone 64",
 		}})
 		r, _ := safeRunner(t, g)
-		chest := world.BlockPos{X: -3, Y: 64, Z: 0}
-		r.Store.SetMineChest("minecraft:overworld", &chest)
 		g.Step(5)
 		box := automation.NewBox(world.BlockPos{X: 3, Y: 75, Z: 3}, world.BlockPos{X: 11, Y: 61, Z: 11})
 		var err error
@@ -282,39 +269,6 @@ func TestExcavateHill(t *testing.T) {
 		}
 		if left > 6 {
 			t.Errorf("quedan %d bloques", left)
-		}
-	})
-}
-
-// TestExcavateNearestChests: sin cofre de minar ni almacén, con dos cofres
-// cualquiera cerca: al llenarse va al más cercano, y cuando ese se llena,
-// al siguiente.
-func TestExcavateNearestChests(t *testing.T) {
-	simworld.Run(t, func(t *testing.T) {
-		g := simworld.Start(t, simworld.Options{Setup: []string{
-			"setblock -3 64 0 minecraft:chest[facing=north,type=single,waterlogged=false]",
-			"setblock -6 64 4 minecraft:chest[facing=north,type=single,waterlogged=false]",
-			"give Tester torch 1664", "give Tester diamond_pickaxe 1",
-		}})
-		r, _ := safeRunner(t, g)
-		// el más cercano casi lleno: le caben 3 montones
-		g.PutInChest(-3, 64, 0, "minecraft:oak_log", 64*24)
-		g.Step(5)
-		box := automation.NewBox(world.BlockPos{X: 3, Y: 63, Z: 3}, world.BlockPos{X: 9, Y: 56, Z: 9})
-		var err error
-		r.Start(context.Background(), "excavar", func(j *automation.Job) error {
-			err = automation.Excavate(box)(j)
-			return err
-		})
-		g.Until(4000*20, func() bool { return r.Status() == "" })
-		a := g.ChestCount(-3, 64, 0, "minecraft:dirt") + g.ChestCount(-3, 64, 0, "minecraft:cobblestone")
-		b := g.ChestCount(-6, 64, 4, "minecraft:dirt") + g.ChestCount(-6, 64, 4, "minecraft:cobblestone")
-		t.Logf("error %v; en el cercano %d, en el otro %d", err, a, b)
-		if err != nil {
-			t.Fatalf("excavar: %v", err)
-		}
-		if a == 0 || b == 0 {
-			t.Errorf("no usó los dos cofres (cercano %d, otro %d)", a, b)
 		}
 	})
 }
@@ -365,8 +319,6 @@ func TestExcavateFast(t *testing.T) {
 		g.GiveEnchanted("minecraft:diamond_pickaxe", map[string]int{"efficiency": 5})
 		g.GiveEnchanted("minecraft:diamond_shovel", map[string]int{"efficiency": 5})
 		r, _ := safeRunner(t, g)
-		chest := world.BlockPos{X: -3, Y: 64, Z: 0}
-		r.Store.SetMineChest("minecraft:overworld", &chest)
 		g.Step(5)
 		box := automation.NewBox(world.BlockPos{X: 3, Y: 63, Z: 3}, world.BlockPos{X: 18, Y: 56, Z: 12})
 		var err error
@@ -445,8 +397,6 @@ func TestExcavateOldProtected(t *testing.T) {
 			"give Tester diamond_shovel 1", "give Tester diamond_pickaxe 1",
 		}})
 		r, _ := safeRunner(t, g)
-		chest := world.BlockPos{X: -3, Y: 64, Z: 0}
-		r.Store.SetMineChest("minecraft:overworld", &chest)
 		r.Store.NoteProtected(world.BlockPos{X: 12, Y: 64, Z: 12}) // tapa de x/z -4 a 28
 		g.Step(5)
 		box := automation.NewBox(world.BlockPos{X: 3, Y: 63, Z: 3}, world.BlockPos{X: 7, Y: 61, Z: 7})
@@ -491,8 +441,6 @@ func TestExcavateLeaves(t *testing.T) {
 			"give Tester diamond_shovel 1", "give Tester diamond_pickaxe 1", "give Tester diamond_hoe 1",
 		}})
 		r, _ := safeRunner(t, g)
-		chest := world.BlockPos{X: -3, Y: 64, Z: 0}
-		r.Store.SetMineChest("minecraft:overworld", &chest)
 		g.Step(5)
 		box := automation.NewBox(world.BlockPos{X: 3, Y: 65, Z: 3}, world.BlockPos{X: 9, Y: 62, Z: 9})
 		var err error
@@ -534,8 +482,6 @@ func TestExcavateEven(t *testing.T) {
 		g.GiveEnchanted("minecraft:diamond_pickaxe", map[string]int{"efficiency": 5})
 		g.GiveEnchanted("minecraft:diamond_shovel", map[string]int{"efficiency": 5})
 		r, _ := safeRunner(t, g)
-		chest := world.BlockPos{X: -3, Y: 64, Z: 0}
-		r.Store.SetMineChest("minecraft:overworld", &chest)
 		g.Step(5)
 		box := automation.NewBox(world.BlockPos{X: 3, Y: 63, Z: 3}, world.BlockPos{X: 12, Y: 52, Z: 12})
 		passes := [][2]int{{60, 63}, {56, 59}, {52, 55}}
@@ -600,8 +546,6 @@ func TestExcavateProtectedSkip(t *testing.T) {
 		g.GiveEnchanted("minecraft:diamond_shovel", map[string]int{"efficiency": 5})
 		g.Protect(9, 3, 12, 12) // la franja de x 9 a 12 es de otro
 		r, _ := safeRunner(t, g)
-		chest := world.BlockPos{X: -3, Y: 64, Z: 0}
-		r.Store.SetMineChest("minecraft:overworld", &chest)
 		g.Step(5)
 		box := automation.NewBox(world.BlockPos{X: 3, Y: 63, Z: 3}, world.BlockPos{X: 12, Y: 60, Z: 12})
 		var err error

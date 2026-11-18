@@ -1,8 +1,0 @@
-# GPU NVIDIA para Ollama (necesita nvidia-container-toolkit): ./up.sh lo
-# añade solo si nvidia-smi funciona.
-services:
-  ollama:
-    deploy:
-      resources:
-        reservations:
-          devices: [{driver: nvidia, count: all, capabilities: [gpu]}]

@@ -38,12 +38,6 @@ func (b *Bot) onWhisper(from, text string) {
 	if isCoordsReply(from, text) {
 		return // la respuesta a "¿dónde estás?" de /goto (ya anotada), no una orden
 	}
-	// lo que no es una orden se lo contesta la IA (si está)
-	if b.AI != nil && !b.AI.off.Load() && !(allowedRemote(from) && looksLikeCommand(text)) {
-		log.Printf("[%s → IA por /msg] %s", from, text)
-		b.aiChat(from, text)
-		return
-	}
 	if !allowedRemote(from) {
 		log.Printf("ignoro la orden por /msg de %s (no está en remoteOwners): %s", from, text)
 		return

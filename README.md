@@ -1,95 +1,80 @@
 # minecraft-bot
 
-**A survival companion that lives on your phone.** Talk to it in chat and it chops trees, digs out areas layer by layer, mines, farms, builds from a Litematica schematic, stores everything in chests and guards you, all on its own.
+**A Minecraft bot that does three things, and does them well: fight, dig and move.** Give it orders in chat (or from a web panel) and it digs out areas layer by layer, follows you or goes where you tell it, and fights mobs and players.
 
 [Español](README.es.md) · [Commands](docs/COMMANDS.md) · [Órdenes](docs/ORDENES.md)
 
-<!-- TODO: a 20–30 s GIF here: whisper "dig this out" in chat and watch it clear the box layer by layer -->
+## What it does
 
-## Why this bot
+- **PvP**: fights one player or everyone in an area (shield, crits, bow, pearls, potions, careful near edges), or works as a bodyguard.
+- **Excavate**: empties a box between two corners, 4 blocks high at a time, never breaking a pickaxe. No chests: it keeps what's valuable and throws away the junk (dirt, stone, gravel…). Give it a chunk written with its edges (Z -48 to -63) and it fits the whole chunk.
+- **Move**: goes to coordinates or to a player, and follows you. It plans paths with A*, places blocks for towers and bridges when needed, and saves itself from lava, falls and fire.
+- **Vanilla only**: no plugin commands (no /tpa, /home or /login).
+- **Small**: one Go binary, no Java or Node, about 150 MB of RAM: it can live on an old Android phone (Termux), a Raspberry Pi or a cheap VPS.
 
-- **One small binary, no Java or Node.** It's written in Go and fits in about 150 MB of RAM, so you can leave it running on an old Android phone (Termux), a Raspberry Pi or a cheap VPS.
-- **A teammate, not a macro.** Owners give it orders by whisper (`/msg Bot chop 64 oak`). With an optional local AI (Ollama) or any OpenAI-compatible API, it also chats like a player and turns plain language into commands.
-- **Real survival work, done carefully:**
-  - It excavates boxes layer by layer and keeps your pickaxes from breaking.
-  - It stores loot in chests and crafts a chest when it has none.
-  - It respects spawn protection: if blocks grow back, it doesn't insist and moves on.
-  - It escapes lava, saves itself from falls with a water bucket and flies to far places with elytra.
-- **Vanilla Minecraft only.** It never uses plugin commands (no /tpa, /home or /login): everything it does uses what the game ships with. It reconnects after restarts and resumes the job it was doing. It can also join premium (online-mode) servers with your Microsoft account.
-- **Safe to leave alone.** You can list blocks it never breaks (chests, beds, signs and doors by default), set an area it must stay in and turn off PvP. It sends Discord alerts when it dies, gets stuck or finishes, and there's a web panel to watch and control it from another device.
-
-## Quick start
-
-1. Download the binary for your system from [Releases](../../releases) (Linux, Windows, macOS, Android/Termux).
-2. Try it without a server:
-   ```sh
-   ./minecraft-bot --demo
-   ```
-   It starts a tiny built-in test world, opens the console and serves the panel at http://127.0.0.1:8080.
-3. Join a real server:
-   ```sh
-   ./minecraft-bot --name My_Bot --owner YourName play.example.net
-   ```
-   Next time, `./minecraft-bot` alone joins the last server. In game, whisper it: `/msg My_Bot follow me`.
-
-## What it can do
+## Commands
 
 | | |
 |---|---|
-| `/chop`, `/mine`, `/farm` | Chop trees, mine ores (strip mining, tunnels) and harvest and replant crops |
-| `/excavate x1 y1 z1 x2 y2 z2` | Clear a box layer by layer, collecting drops and stashing them in chests |
-| `/build` | Build from a Litematica schematic |
-| `/goto`, `/follow`, `/guard` | Walk (or fly) anywhere, follow you, or act as your bodyguard |
-| `/fight` | Fight a player or everyone in an area (shield, critical hits, edge awareness) |
-| `/queue` | Line up jobs: `/queue add chop oak 64`, then `/queue add mine iron 32` |
-| `… until got logs 64` | Stop conditions on any job: amount gathered, amount held, time |
-| `/drop`, `/inventory`, `/status` | Hand items to a player, see what it carries, see its health and job |
-| `/limits` | What it must never do (see below) |
+| `/fight <player>` · `/fight in <x> <z> [<x2> <z2>]` | Fight a player, or everyone in an area |
+| `/guard <player> [<minutes>]` | Follow a player and attack whoever hits them |
+| `/excavate <x1> <y1> <z1> <x2> <y2> <z2> [exact]` | Dig out that box (`/excavate chunk <y1> <y2>`: the chunk it stands in) |
+| `/goto <player>` · `/goto <x> <z>` | Go to a player or to coordinates |
+| `/follow <player>` | Follow a player until `/stop` |
+| `/inventory` · `/drop [<item> [<amount>]] [<player>]` | See what it carries; drop or give things |
+| `/stop` · `/status` · `/say` · `/cmd` · `/lang` · `/sprint` · `/help` · `/quit` | The basics |
 
-The full reference is in [docs/COMMANDS.md](docs/COMMANDS.md), generated from the same descriptions the console's `/help` and autocomplete use.
+Owners whisper them: `/msg MyBot follow me`. The full reference is in [docs/COMMANDS.md](docs/COMMANDS.md); it comes from the same descriptions as `/help` and the console autocomplete.
 
-## Setup
+## Getting started
 
-Everything is a flag, and what you set is remembered in `bot.json`:
+### With Docker (the panel for several bots, plus a test server)
+
+```sh
+./up.sh YourName
+```
+
+It starts a vanilla 26.2 test server and the web panel. Open the URL it prints: with no bots yet, it walks you through creating the first one (name, server, owner, language). From the panel:
+
+- **Bot**: your bots with their skin heads; start, stop, give orders, delete, and move them to another server.
+- **Servers**: the test server (start, stop, restart, players, game rules, `server.properties`) and any external servers you add. Each one tells you how to join from Minecraft.
+
+`./up.sh logs` shows what's going on; `./up.sh down` stops everything.
+
+### A single bot (also on a phone)
+
+```sh
+./minecraft-bot --name MyBot --owner YourName play.example.net
+./minecraft-bot --monitor :8080 play.example.net   # with the web panel
+./minecraft-bot --demo                             # no server: a test world inside the program
+```
+
+Next time, `./minecraft-bot` alone joins the last server. Whatever you set is remembered in `bot.json`.
 
 | Flag | |
 |---|---|
-| `<host[:port]>` or `--server` | Server; without a port, SRV record or 25565 |
+| `<host[:port]>` or `--server` | The server; without a port, the SRV record's or 25565 |
 | `--name`, `--owner A,B` | The bot's name; who may give it orders (`*` = anyone, careful) |
-| `--microsoft` | Premium server: log in with a Microsoft account (device code, once) |
-| `--monitor :8080` | Web panel: status, inventory, live log, command box and **Settings** (owners, server, AI, limits… no manual restarts; protected by a key) |
-| `--webhook <url>` | Discord or Slack alerts |
-| `--area "x1 z1 x2 z2"`, `--pvp off`, `--never-break …` | Safety limits |
-| `--ai <url> --ai-model <m>` | Chat AI: Ollama (default `http://127.0.0.1:11434`) or `--ai-api openai` for OpenAI, OpenRouter, Groq, LM Studio… (key in `MCBOT_AI_KEY`). `--ai=` turns it off |
-| `--view 6 --memlimit 150` | Memory: view distance and soft memory limit (for phones) |
+| `--microsoft` | Premium server: join with a Microsoft account (a code, once) |
+| `--monitor :8080` | The web panel (protected by a key) |
+| `--hub :8080` | The panel for several bots, each in its own process (what Docker uses) |
+| `--view 6 --memlimit 150` | Memory: view distance and soft limit (for phones) |
 
-What the bot learns about each world (chests, paths, build progress, notes for the AI in `ia_servidor.md`) is kept per server in `datos/<server>/`.
+## Play fair
 
-### Running on a phone (Termux)
-
-```sh
-chmod +x minecraft-bot-*-android-arm64
-./minecraft-bot-*-android-arm64 --monitor :8080 play.example.net
-```
-Then open the panel URL it prints from any browser on your network.
-
-## Be a good player
-
-Use it on your own server, or on servers whose rules allow bots: many forbid AFK automation. It only uses vanilla features: it does not join servers that ask you to register through a login plugin.
+Use it on your own server, or on servers whose rules allow bots: many forbid AFK automation.
 
 Minecraft Java **26.2** (protocol 776).
 
 ## Building
 
 ```sh
-go build .            # Go version from go.mod
+go build .
 go test ./...
 go run . --gen-docs docs
 ```
 
-The packages: `automation/` (jobs), `pathing/` (A* and movement), `combat/`, `safety/` (lava, falls, fire), `elytra/`, `schematic/`. `third_party/` holds a vendored Minecraft protocol library and bot kit (MIT, derived from [Tnze/go-mc](https://github.com/Tnze/go-mc)). Most tests run against a deterministic simulated world (`third_party/go-mc26-kit/bot/simworld`), so they need no server.
-
-The code comments are in Spanish. Contributions in English are welcome.
+Packages: `automation/` (excavate), `pathing/` (A* and movement), `combat/` (PvP) and `safety/` (lava, falls, fire). `third_party/` vendors a Minecraft protocol library and a bot kit (MIT, derived from [Tnze/go-mc](https://github.com/Tnze/go-mc)). Almost every test runs in a deterministic simulated world, so no server is needed.
 
 ## License
 

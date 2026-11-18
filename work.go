@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"strings"
 	"sync"
 	"time"
 	"unicode/utf8"
@@ -60,7 +59,6 @@ func asOrderFrom(who string, f func() error) error {
 // reportWork cuenta en el chat qué le pasa al trabajo: por privado a quien lo
 // mandó por /msg, o en el chat si vino de la consola (lo ve quien lo vigila).
 func (b *Bot) reportWork(text string) {
-	notify(text)
 	b.work.mu.Lock()
 	by := b.work.by
 	b.work.mu.Unlock()
@@ -97,27 +95,8 @@ func (b *Bot) onTaskStall(name, status string, attempt int, gaveUp bool) {
 	b.reportWork(fmt.Sprintf("[%s] me he atascado en \"%s\": vuelvo a empezar (%d de 3)", name, status, attempt))
 }
 
-// untilState: las condiciones de parada ("until …") de la orden que se está
-// ejecutando, para el trabajo que empiece (startWork las recoge).
-var untilState struct {
-	sync.Mutex
-	conds []automation.Cond
-	used  bool
-}
-
 // startWork empieza una tarea larga (apuntando dónde, para volver si muere).
 func (b *Bot) startWork(name string, task func(*automation.Job) error) {
-	untilState.Lock()
-	if untilState.conds != nil {
-		task = automation.Until(task, untilState.conds)
-		var cs []string
-		for _, c := range untilState.conds {
-			cs = append(cs, c.String())
-		}
-		log.Printf("%s: hasta %s", name, strings.Join(cs, " o "))
-		untilState.used = true
-	}
-	untilState.Unlock()
 	p := b.Player.Position()
 	here := world.BlockPos{X: int(math.Floor(p.X)), Y: int(math.Floor(p.Y)), Z: int(math.Floor(p.Z))}
 	b.work.mu.Lock()
@@ -136,10 +115,8 @@ func (b *Bot) startWork(name string, task func(*automation.Job) error) {
 // muerte), se olvida.
 func (b *Bot) onTaskEnd(name string, err error) {
 	// por qué paró, en el chat: si no, quien lo mandó no se entera
-	if err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, automation.ErrStopCondition) {
+	if err != nil && !errors.Is(err, context.Canceled) {
 		b.reportWork(fmt.Sprintf("[%s] paro: %v", name, err))
-	} else if err == nil || errors.Is(err, automation.ErrStopCondition) {
-		notify(fmt.Sprintf("[%s] terminado", name))
 	}
 	b.work.mu.Lock()
 	if b.work.name == name && !b.work.resuming {

@@ -211,9 +211,6 @@ func Excavate(box Box) func(j *Job) error {
 		if v := box.Volume(); v > ExcavateMax {
 			return fmt.Errorf("la caja tiene %d bloques: demasiado (máximo %d)", v, ExcavateMax)
 		}
-		if _, ok := j.r.Store.MineChest(j.Dimension()); !ok && j.r.Store.Base == nil && len(j.chestsNear(nearChestR)) == 0 {
-			return errors.New("no tengo dónde guardar lo cavado: no hay cofres cerca; marca uno con /mine chest (ahí también busco picos) o pon el almacén con /base here")
-		}
 		j.pickOK = anyPick // cualquier pico vale, pero ninguno se rompe
 		j.pickFloor = pickReserve
 		j.toolFloor = toolReserve // (ni las palas, hachas y azadas)
@@ -283,7 +280,8 @@ func Excavate(box Box) func(j *Job) error {
 }
 
 type excavation struct {
-	j *Job
+	j          *Job
+	fullWarned bool // ya dijo que lleva el inventario lleno de cosas valiosas
 	// deniedCols: columnas dejadas porque el servidor no da permiso (dropOldProtected)
 	deniedCols int
 	box        Box
@@ -373,8 +371,7 @@ func (e *excavation) diggable(p world.BlockPos) bool {
 	if noExcavate(n) || j.fluidBlock(p) || e.fails[p] >= excavateFails {
 		return false
 	}
-	st := j.r.Store
-	return !j.protected(p) && !st.isMineChest(p) && !st.taken(p)
+	return !j.protected(p)
 }
 
 // next es el siguiente bloque: de la capa más alta que quede, el más cercano
@@ -598,32 +595,27 @@ func (e *excavation) leftovers() string {
 	return strings.Join(out, ", ")
 }
 
-// restockPicks va a por picos: guarda lo cavado y coge los del cofre de minar
-// o del almacén. Error si no hay ninguno que valga.
+// restockPicks: sin picos que valgan, lo pide por el chat y espera a que se
+// lo den (tirándoselo cerca). Error si nadie se lo da.
 func (e *excavation) restockPicks() error {
 	j := e.j
-	j.Logf("excavar: no me quedan picos sin gastar: voy a por más")
-	if err := e.stash(true); err != nil {
-		return err
-	}
+	j.Logf("excavar: no me quedan picos sin gastar")
 	if j.bestPickSlot(pickReserve) < 0 && !e.waitForPick() {
-		return fmt.Errorf("no quedan picos con más de %d usos (no rompo ninguno): deja picos en el cofre de minar (/mine chest) o dame uno", pickReserve)
+		return fmt.Errorf("no quedan picos con más de %d usos (no rompo ninguno): tírame uno y vuelve a mandar /excavate", pickReserve)
 	}
 	return nil
 }
 
-// waitForPick: sin pico que valga (ni en el cofre ni en el almacén), lo pide
-// por el chat una vez en la tarea y espera storeWait a que se lo den (en la
-// mano, o en el cofre si alguien contesta). Dice si ya tiene uno.
+// waitForPick: sin pico que valga, lo pide por el chat una vez en la tarea y
+// espera pickWait a que se lo tiren. Dice si ya tiene uno.
 func (e *excavation) waitForPick() bool {
 	j := e.j
 	if j.pickAsked {
 		return false
 	}
 	j.pickAsked = true
-	secs := int(storeWait / time.Second)
-	j.say(fmt.Sprintf("No tengo pico (o los que tengo están gastados). Dame uno o déjalo en el cofre de minar (/mine chest); te espero %d s.", secs))
-	asked := j.r.chats.Load()
+	secs := int(pickWait / time.Second)
+	j.say(fmt.Sprintf("No tengo pico (o los que tengo están gastados). Tírame uno; te espero %d s.", secs))
 	for waited := 0; waited < secs; waited++ {
 		j.Status("esperando un pico (%d s de %d)", waited, secs)
 		if err := j.Rest(20); err != nil {
@@ -633,175 +625,48 @@ func (e *excavation) waitForPick() bool {
 			j.Logf("excavar: ya tengo pico: sigo")
 			return true
 		}
-		if n := j.r.chats.Load(); n > asked { // contestaron: quizá lo dejaron en el cofre
-			asked = n
-			if err := e.stash(true); err == nil && j.bestPickSlot(pickReserve) >= 0 {
-				j.Logf("excavar: cogí un pico del cofre: sigo")
-				return true
-			}
-		}
 	}
 	return false
 }
 
-// loot: lo que lleva que se guarda (todo menos herramientas, armadura, comida…).
-func (e *excavation) loot() map[string]int {
-	out := map[string]int{}
-	for n, c := range e.j.Items() {
-		if !excavateKeeps(n) {
-			out[n] = c
-		}
-	}
-	return out
-}
-
-// stash guarda lo cavado (el cofre de minar; si no hay o está lleno, el
-// almacén) y devuelve los picos gastados; con restock coge picos.
+// stash hace sitio cuando el inventario se llena: tira la basura de cavar
+// (se queda con un montón para construir) y conserva lo valioso. Si solo
+// lleva cosas valiosas, lo dice una vez y sigue cavando: lo que cae se queda
+// en el suelo.
 func (e *excavation) stash(restock bool) error {
 	j := e.j
-	if j.storingOff() {
-		return nil // sin cofres (desactivados o no hay dónde): se sigue cavando sin guardar
-	}
-	// (sin recoger antes: lo del suelo, al acabar la pasada)
-	keep := j.filler() // un montón se queda: tapar lava, subir del hoyo
-	dim := j.Dimension()
-	if c, ok := j.nearMineChest(dim); ok {
-		if n := j.Block(c); n != "" && !isChest(n) {
-			if near, ok := j.r.NearestChest(c, 3); ok {
-				j.r.Store.SetMineChest(dim, &near)
-				c = near
-			}
-		}
-		if err := e.chestTrip(c, keep, restock); err != nil {
-			j.Problem("cofre de minar: %v", err)
-		}
-	}
-	// lo que no cupo (o sin cofre de minar): a los cofres de alrededor, el
-	// más cercano primero
-	var denied []world.BlockPos
-	if len(e.loot()) > 0 {
-		kept := 0
-		_, denied = j.StoreNearby(func(n string, s types.ItemStack) bool {
-			if excavateKeeps(n) && !wornTool(s) {
-				return false
-			}
-			if n == keep && kept+int(s.Count) <= excavateKeep {
-				kept += int(s.Count)
-				return false
-			}
-			return true
-		})
-	}
-	// y lo que siga sin sitio: al almacén
-	stuck := ""
-	for it, n := range e.loot() {
-		if it == keep && n <= excavateKeep {
-			continue
-		}
-		if j.r.Store.Base == nil || j.tooFar(*j.r.Store.Base, "la base del almacén") {
-			if j.FreeSlots() >= 3 {
-				break // (hay sitio para seguir: lo que no cupo, encima)
-			}
-			stuck = "el inventario está lleno y ningún cofre de alrededor me deja guardar"
-			break
-		}
-		if err := j.Deposit(it); err != nil {
-			stuck = depositWhy(err)
-			j.Problem("guardar %s en el almacén: %v", it, err)
-			break
-		}
-	}
-	if stuck != "" && j.FreeSlots() < 3 {
-		// se avisa por el chat (una vez) y se sigue cavando: lo que no quepa
-		// se queda en el suelo
-		j.storageStuck(stuck, denied)
+	if j.FreeSlots() >= 3 {
 		return nil
 	}
-	if restock && j.bestPickSlot(pickReserve) < 0 {
-		e.picksFromStorage()
-	}
-	return nil
-}
-
-// chestTrip abre el cofre c: deja lo cavado (menos un montón de keep) y los
-// picos gastados; con restock, coge los buenos.
-func (e *excavation) chestTrip(c world.BlockPos, keep string, restock bool) error {
-	j := e.j
-	j.Status("excavar: al cofre de minar (%v)", c)
-	if err := j.Open(c); err != nil {
-		return err
-	}
-	defer j.CloseScreen()
-	m, ok := j.r.d.Screens.Open()
-	if !ok {
-		return errors.New("no se abrió")
-	}
-	start := m.PlayerStart()
-	slot := func(i int) types.ItemStack {
-		s := j.r.d.Screens
-		s.Lock()
-		defer s.Unlock()
-		return s.Inventory.Slots[i]
-	}
-	kept, stored := 0, 0
+	keep := j.filler() // un montón se queda: tapar lava, subir del hoyo
+	var throw []junkSlot
+	kept := 0
+	s := j.r.d.Screens
+	s.Lock()
 	for i := invStart; i <= invEnd; i++ {
-		s := slot(i)
-		n := strings.TrimPrefix(itemName(int32(s.Item)), "minecraft:")
-		if s.Count <= 0 {
+		sl := s.Inventory.Slots[i]
+		n := strings.TrimPrefix(itemName(int32(sl.Item)), "minecraft:")
+		if sl.Count <= 0 || excavateKeeps(n) || !junk(n) {
 			continue
 		}
-		if excavateKeeps(n) && !wornTool(s) {
+		if n == keep && kept+int(sl.Count) <= excavateKeep {
+			kept += int(sl.Count)
 			continue
 		}
-		if n == keep && kept+int(s.Count) <= excavateKeep { // (un montón como mucho)
-			kept += int(s.Count)
-			continue
-		}
-		if err := j.r.d.Screens.Click(m.ID, start+i-invStart, 0, types.ContainerInputQuickMove); err != nil {
-			return err
-		}
-		stored += int(s.Count)
-		if err := j.Wait(2); err != nil {
-			return err
-		}
+		throw = append(throw, junkSlot{i, n, int(sl.Count)})
 	}
-	if stored > 0 {
-		j.Logf("cofre de minar: dejo %d objetos", stored)
+	s.Unlock()
+	if len(throw) > 0 {
+		j.CloseScreen()
+		if n := j.throwSlots(throw, nil); n > 0 {
+			j.Logf("excavar: tiro %d bloques de basura para hacer sitio", n)
+			_ = j.r.d.Ctl.WaitTicks(j.ctx, 5)
+		}
+		j.ignore = junk // (la basura ya no se recoge)
 	}
-	took := false
-	if restock || j.UsablePicks() == 0 {
-		for _, t := range tiers {
-			if _, err := j.r.ui.Move(j.ctx, full(t+"_pickaxe"), false); err != nil {
-				return err
-			}
-		}
-		took = true
-	}
-	// una pala y un hacha, si no lleva (la tierra y la madera, más rápido y sin gastar picos)
-	for _, kind := range []string{"shovel", "axe"} {
-		if j.toolSlot(kind, toolReserve) >= 0 {
-			continue
-		}
-		for _, t := range tiers {
-			if n, err := j.r.ui.Move(j.ctx, full(t+"_"+kind), false); err != nil {
-				return err
-			} else if n > 0 {
-				took = true
-				if j.toolSlot(kind, toolReserve) >= 0 {
-					break
-				}
-			}
-		}
-	}
-	if took {
-		// los gastados que vinieran con los buenos, de vuelta
-		for i := invStart; i <= invEnd; i++ {
-			if wornTool(slot(i)) {
-				_ = j.r.d.Screens.Click(m.ID, start+i-invStart, 0, types.ContainerInputQuickMove)
-				_ = j.Wait(2)
-			}
-		}
-		j.Logf("cofre de minar: llevo %d picos sin gastar (%d usos)", j.UsablePicks(), j.pickUses())
+	if j.FreeSlots() == 0 && !e.fullWarned {
+		e.fullWarned = true
+		j.say("Llevo el inventario lleno de cosas valiosas: sigo cavando, pero lo que cae se queda en el suelo. Ven a por ello cuando quieras.")
 	}
 	return nil
 }
@@ -819,44 +684,4 @@ func wornTool(s types.ItemStack) bool {
 	}
 	l := pickLeftAs(s, func(string) bool { return true })
 	return l >= 0 && l <= floor
-}
-
-// picksFromStorage coge picos de los cofres del almacén que los guardan.
-func (e *excavation) picksFromStorage() {
-	j := e.j
-	st := j.r.Store
-	st.mu.Lock()
-	var cs []Chest
-	for _, c := range st.Chests {
-		if anyPick(c.Item) {
-			cs = append(cs, c)
-		}
-	}
-	st.mu.Unlock()
-	for _, c := range cs {
-		if j.bestPickSlot(pickReserve) >= 0 {
-			return
-		}
-		if err := j.Open(c.Pos); err != nil {
-			j.Problem("almacén: abrir %v: %v", c.Pos, err)
-			continue
-		}
-		n, _ := j.r.ui.Move(j.ctx, full(c.Item), false)
-		j.CloseScreen()
-		if n > 0 {
-			j.Logf("almacén: cojo %d %s", n, c.Item)
-		}
-	}
-}
-
-// depositWhy: por qué no se pudo guardar en el almacén, en corto (para el chat).
-func depositWhy(err error) string {
-	switch msg := err.Error(); {
-	case strings.Contains(msg, "tablones"), strings.Contains(msg, "troncos"):
-		return "el almacén necesita otro cofre y no tengo madera para hacerlo"
-	case strings.Contains(msg, "sitio"):
-		return "no encuentro sitio para otro cofre en el almacén"
-	default:
-		return "el almacén no me deja guardar"
-	}
 }

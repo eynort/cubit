@@ -55,10 +55,7 @@ func startExcavate(b *Bot, box automation.Box) error {
 		return errf("that box has %d blocks: too many (at most %d); check the coordinates",
 			"esa caja tiene %d bloques: demasiados (como mucho %d); revisa las coordenadas", n, automation.ExcavateMax)
 	}
-	where := "lo cavado al almacén"
-	if c, ok := b.Tasks.Store.MineChest(string(b.Player.Spawn.Dimension)); ok {
-		where = "lo cavado y los picos, en el cofre de minar de " + c.String()
-	}
+	where := "lo valioso me lo quedo y la basura la tiro"
 	log.Printf("excavar %s (%d bloques como mucho): %s (/stop para parar)", box, box.Volume(), where)
 	b.startWork("excavar", automation.Excavate(box))
 	return nil

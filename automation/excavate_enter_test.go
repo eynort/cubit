@@ -26,8 +26,6 @@ func TestExcavateEntersFromPit(t *testing.T) {
 			"fill 0 59 0 0 63 0 minecraft:air",       // el hoyo, fuera de la caja
 		}})
 		r, _ := safeRunner(t, g)
-		chest := world.BlockPos{X: -3, Y: 64, Z: 0}
-		r.Store.SetMineChest("minecraft:overworld", &chest)
 		g.Step(5)
 		g.Teleport(0.5, 59, 0.5)
 		g.Step(20)

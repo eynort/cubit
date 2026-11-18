@@ -25,8 +25,6 @@ func TestExcavateClimbsOutOfPit(t *testing.T) {
 			"fill 7 55 7 7 58 7 minecraft:air", // el hoyo: 4 de hondo, de 1x1
 		}})
 		r, _ := safeRunner(t, g)
-		chest := world.BlockPos{X: -3, Y: 64, Z: 0}
-		r.Store.SetMineChest("minecraft:overworld", &chest)
 		g.Step(5)
 		g.Teleport(7.5, 55, 7.5) // dentro del hoyo
 		g.Step(20)

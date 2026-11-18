@@ -27,8 +27,7 @@ var (
 	nameFlag     = flag.String("name", "", "nombre del bot (3-16 letras, números o _). Vacío = el último usado")
 	ownerFlag    = flag.String("owner", "", "jugadores que pueden mandarle órdenes por /msg, separados por comas (* = cualquiera; se guarda en bot.json)")
 	configFlag   = flag.String("config", "bot.json", "archivo con el último servidor, los dueños y las cuentas de cada servidor")
-	chestsFlag   = flag.String("chests", "", "on: guarda en cofres (el de minar, el almacén, los de alrededor; por defecto); off: no usa cofres, trabaja con lo que le quepa encima (se guarda)")
-	defaultsFlag = flag.Bool("defaults", false, "los flags de configuración (servidor, nombre, dueños, webhook, límites, IA) solo valen la primera vez: después manda bot.json, lo que cambies en el panel (para Docker)")
+	defaultsFlag = flag.Bool("defaults", false, "los flags de configuración (servidor, nombre, dueños) solo valen la primera vez: después manda bot.json, lo que cambies en el panel (para Docker)")
 )
 
 // Lo que sale de la configuración (loadConfig, antes de conectar).
@@ -46,22 +45,11 @@ var remoteOwners []string
 
 // botConfig es bot.json.
 type botConfig struct {
-	Server     string      `json:"server"` // el último
-	Name       string      `json:"name"`   // el último
-	Owners     []string    `json:"owners"`
-	Webhook    string      `json:"webhook,omitempty"`     // avisos (notify.go)
-	PanelToken string      `json:"panel_token,omitempty"` // la clave del panel web (panel.go)
-	Limits     limits      `json:"limits"`                // lo que no hace nunca (limits.go)
-	NoChests   bool        `json:"no_chests,omitempty"`   // no usar cofres (/chests off)
-	AI         *aiSettings `json:"ai,omitempty"`          // la IA (la última; se cambia en el panel)
-	Seeded     bool        `json:"seeded,omitempty"`      // ya se usaron los flags una vez (--defaults)
-}
-
-// aiSettings: --ai, --ai-api y --ai-model, recordados.
-type aiSettings struct {
-	URL   string `json:"url"`
-	API   string `json:"api"`
-	Model string `json:"model"`
+	Server     string   `json:"server"` // el último
+	Name       string   `json:"name"`   // el último
+	Owners     []string `json:"owners"`
+	PanelToken string   `json:"panel_token,omitempty"` // la clave del panel web (panel.go)
+	Seeded     bool     `json:"seeded,omitempty"`      // ya se usaron los flags una vez (--defaults)
 }
 
 var (
@@ -94,10 +82,8 @@ func loadConfig() error {
 	keep := ((*defaultsFlag && cfg.Seeded) || os.Getenv(keepConfigEnv) != "") && !*demoFlag
 	cfg.Seeded = cfg.Seeded || *defaultsFlag
 	if keep {
-		*serverFlag, *nameFlag, *ownerFlag, *webhookFlag = "", "", "", ""
-		*areaFlag, *pvpFlag, *neverBreakFlag, *chestsFlag = "", "", "", ""
+		*serverFlag, *nameFlag, *ownerFlag = "", "", ""
 	}
-	applyAISettings(keep)
 
 	serverAddr = *serverFlag
 	if serverAddr == "" && flag.NArg() > 0 && !(keep && cfg.Server != "") {
@@ -132,17 +118,6 @@ func loadConfig() error {
 		}
 	}
 	remoteOwners = cfg.Owners
-	applyWebhookFlag()
-	applyLimitFlags()
-	switch strings.ToLower(*chestsFlag) {
-	case "on", "true", "si", "sí", "yes":
-		cfg.NoChests = false
-	case "off", "false", "no":
-		cfg.NoChests = true
-	case "":
-	default:
-		return fmt.Errorf("--chests: on u off, no %q", *chestsFlag)
-	}
 	if len(remoteOwners) == 0 {
 		log.Print("sin dueños: nadie puede darle órdenes por /msg (--owner <jugador>)")
 	}
@@ -157,27 +132,6 @@ func loadConfig() error {
 		return err
 	}
 	return nil
-}
-
-// applyAISettings: --ai, --ai-api y --ai-model se recuerdan en bot.json; lo
-// guardado vale si no se ponen a mano (o siempre, con keep).
-func applyAISettings(keep bool) {
-	set := map[string]bool{}
-	if !keep {
-		flag.Visit(func(f *flag.Flag) { set[f.Name] = true })
-	}
-	if a := cfg.AI; a != nil {
-		if !set["ai"] {
-			*aiURLFlag = a.URL
-		}
-		if !set["ai-api"] && a.API != "" {
-			*aiAPIFlag = a.API
-		}
-		if !set["ai-model"] && a.Model != "" {
-			*aiModelFlag = a.Model
-		}
-	}
-	cfg.AI = &aiSettings{URL: *aiURLFlag, API: *aiAPIFlag, Model: *aiModelFlag}
 }
 
 func saveConfigLocked() error {
@@ -213,47 +167,4 @@ func safeDirName(host string) string {
 		return s
 	}
 	return "servidor"
-}
-
-// chestsOn: si el bot usa cofres (bot.json).
-func chestsOn() bool {
-	cfgMu.Lock()
-	defer cfgMu.Unlock()
-	return !cfg.NoChests
-}
-
-// setChests guarda si usa cofres y lo aplica al bot conectado.
-func setChests(on bool) error {
-	cfgMu.Lock()
-	cfg.NoChests = !on
-	err := saveConfigLocked()
-	cfgMu.Unlock()
-	if b := current.Load(); b != nil && b.Tasks != nil {
-		b.Tasks.SetChests(on)
-	}
-	return err
-}
-
-// cmdChests: /chests [on|off].
-func cmdChests(_ *Bot, args []string) error {
-	if len(args) > 0 {
-		switch strings.ToLower(args[0]) {
-		case "on":
-			if err := setChests(true); err != nil {
-				return err
-			}
-		case "off":
-			if err := setChests(false); err != nil {
-				return err
-			}
-		default:
-			return errf("/chests on|off", "/chests on|off")
-		}
-	}
-	if chestsOn() {
-		log.Print(tr("chests: on (it stores what it gathers; if it finds no chest it says so and keeps working)", "cofres: sí (guarda lo que saca; si no encuentra cofre, lo dice y sigue trabajando)"))
-	} else {
-		log.Print(tr("chests: off (it never uses chests: it keeps what fits, the rest stays on the ground)", "cofres: no (no usa cofres: se queda lo que le quepa, lo demás se queda en el suelo)"))
-	}
-	return nil
 }

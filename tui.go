@@ -188,11 +188,6 @@ func (b *Bot) statusLine() string {
 			task = "  🛠 " + t
 		}
 	}
-	if b.Queue != nil {
-		if q := b.Queue.Short(); q != "" {
-			task += "  📋 " + q
-		}
-	}
 	return fmt.Sprintf(" %s  ♥ %.0f  🍗 %d  📍 %.0f %.0f %.0f  ⚔ %s%s ", botName, st.Health, st.Food, p.X, p.Y, p.Z, b.Combat.Status(), task)
 }
 

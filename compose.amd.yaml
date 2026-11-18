@@ -1,8 +1,0 @@
-# GPU AMD (ROCm) para Ollama: ./up.sh lo añade solo si hay /dev/kfd.
-services:
-  ollama:
-    image: ollama/ollama:rocm
-    devices: ["/dev/kfd", "/dev/dri"]
-    group_add: ["video"]
-  ollama-pull:
-    image: ollama/ollama:rocm
