@@ -924,6 +924,9 @@ func junk(n string) bool {
 	return false
 }
 
+// IsJunk: n es basura de cavar (para el bot: lo que se tira para hacer sitio).
+func IsJunk(n string) bool { return junk(n) }
+
 // fillerReserve: en el Nether se queda con esto de netherrack (3 montones)
 // para tapar lava; lo demás de cavar es basura.
 const fillerReserve = 3 * 64

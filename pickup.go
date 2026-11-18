@@ -5,15 +5,26 @@ package main
 // siguiendo/protegiendo a alguien (un desvío corto); no en una pelea, una
 // tarea (/chop) ni un /goto. Lo que sea mejor que lo que lleva puesto se lo
 // pone el módulo de pelea al momento.
+//
+// Si lo que le tiran es útil (un pico, comida…), le cae cerca y no tiene
+// hueco, tira un montón de basura (tierra, piedra, grava…) para que entre,
+// también en mitad de una tarea: así puede seguir picando.
 
 import (
+	"log"
 	"math"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/mj41/go-mc26-kit/bot/entities"
 	"github.com/mj41/go-mc26-kit/bot/world"
+	"github.com/mj41/go-mc26/data/entitydata"
+	"github.com/mj41/go-mc26/data/registryid"
+	"github.com/mj41/go-mc26/protocol/types"
+
+	"minecraft-bot/automation"
 )
 
 // moveKind es la orden de movimiento en curso ("goto", "follow", "guard"; ""
@@ -73,12 +84,13 @@ func (b *Bot) watchThrown() {
 			if b.Ctl.WaitTicks(b.ctx, 10) != nil { // que caiga y se pare
 				return
 			}
-			if !b.canDetour() || dropping() { // (lo que acaba de tirar él no se recoge)
+			e, ok := b.Entities.Get(id)
+			if !ok || dropping() || !nearPlayer(b, e) {
 				continue
 			}
-			e, ok := b.Entities.Get(id)
-			if !ok || b.distanceTo(e) > 6 || b.distanceTo(e) < 1 || !nearPlayer(b, e) {
-				continue
+			b.makeRoomFor(e) // (aunque esté en una tarea: si le cae cerca, entra solo)
+			if !b.canDetour() || b.distanceTo(e) > 6 || b.distanceTo(e) < 1 || automation.IsJunk(entityItemName(e)) {
+				continue // (la basura no se va a buscar: puede ser la que acaba de tirar)
 			}
 			b.pickUp(e)
 		}
@@ -121,4 +133,86 @@ func (b *Bot) pickUp(e entities.Entity) {
 			return // cogido
 		}
 	}
+}
+
+// makeRoomFor: lo que le han tirado cerca es útil y no le cabe: tira el
+// montón más grande de basura para hacerle sitio (lo tirado no se puede
+// recoger en 2 s: para entonces ya ha cogido lo otro).
+func (b *Bot) makeRoomFor(e entities.Entity) {
+	if b.distanceTo(e) <= 3 {
+		b.makeRoomForItem(entityItemName(e))
+	}
+}
+
+// makeRoomForItem: hace sitio para name si no le cabe y es útil (dice si tiró algo).
+func (b *Bot) makeRoomForItem(name string) bool {
+	if name == "" || automation.IsJunk(name) {
+		return false
+	}
+	if _, open := b.Screens.Open(); open {
+		return false // (con un cofre abierto, no se toca el inventario)
+	}
+	s := b.Screens
+	s.Lock()
+	junkSlot, junkCount := -1, 0
+	for i := 9; i <= 44; i++ {
+		sl := s.Inventory.Slots[i]
+		n := slotItemName(sl)
+		switch {
+		case sl.Count <= 0:
+			s.Unlock()
+			return false // (hay hueco)
+		case n == name && !unstackable(n):
+			s.Unlock()
+			return false // (se apila con lo que ya lleva)
+		case automation.IsJunk(n) && int(sl.Count) > junkCount:
+			junkSlot, junkCount = i, int(sl.Count)
+		}
+	}
+	junkName := ""
+	if junkSlot >= 0 {
+		junkName = slotItemName(s.Inventory.Slots[junkSlot])
+	}
+	s.Unlock()
+	if junkSlot < 0 {
+		log.Printf("me tiran %s y no me cabe: no llevo basura que tirar", name)
+		return false
+	}
+	if err := s.Click(0, junkSlot, 1, types.ContainerInputThrow); err != nil {
+		log.Printf("hacer sitio: %v", err)
+		return false
+	}
+	log.Printf("me tiran %s y no me cabe: tiro %d de %s para hacerle sitio", name, junkCount, junkName)
+	return true
+}
+
+// entityItemName: lo que es un objeto en el suelo ("diamond_pickaxe"; "" si no se sabe).
+func entityItemName(e entities.Entity) string {
+	v, ok := e.Data[entitydata.ItemEntityItem]
+	if !ok {
+		return ""
+	}
+	st, ok := v.Value.(*types.ItemStack)
+	if !ok || st == nil {
+		return ""
+	}
+	return slotItemName(*st)
+}
+
+// slotItemName: el nombre (sin "minecraft:") de lo que hay en un hueco.
+func slotItemName(st types.ItemStack) string {
+	if st.Count <= 0 || int(st.Item) < 0 || int(st.Item) >= len(registryid.Item) {
+		return ""
+	}
+	return strings.TrimPrefix(registryid.Item[st.Item], "minecraft:")
+}
+
+// unstackable: herramientas, armas y armadura (de uno en uno).
+func unstackable(n string) bool {
+	for _, suf := range []string{"_pickaxe", "_axe", "_shovel", "_hoe", "_sword", "_helmet", "_chestplate", "_leggings", "_boots", "bow", "crossbow", "trident", "shield", "elytra", "mace", "_spear", "fishing_rod", "shears", "flint_and_steel"} {
+		if strings.HasSuffix(n, suf) {
+			return true
+		}
+	}
+	return false
 }
