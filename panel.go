@@ -282,7 +282,7 @@ func singleState() hubState {
 	owners := append([]string{}, cfg.Owners...)
 	cfgMu.Unlock()
 	st.Bots = []hubBotState{{ID: "self", Name: botName, Server: serverAddr, OnTest: botOnTestServer(), Owners: owners,
-		Running: true, Connected: p.Connected, Health: p.Health, Task: p.Task, Avatar: "/avatar/" + botName}}
+		Running: true, Connected: p.Connected, Health: p.Health, Task: p.Task, Avatar: avatarURL(botName, *microsoftFlag)}}
 	st.Servers = []serverView{}
 	if t := testServerAddr(); t != "" {
 		st.TestServer.Available, st.TestServer.Addr = true, t

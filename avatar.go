@@ -1,10 +1,16 @@
 package main
 
-// La cabeza de la skin de un bot (o de un jugador) para el panel: la cara de
-// su skin de verdad si el nombre es de una cuenta de Minecraft (Mojang), con
-// la capa de encima; si no lo es (servidor sin cuentas premium) o no hay
-// internet, una cabeza pixelada propia sacada del nombre (siempre la misma).
-// Se guardan en avatares/ (las que no existen, un día) para no preguntar cada vez.
+// La cabeza de un bot para el panel, la que corresponde a cómo se le ve:
+//
+//   - en un servidor premium (entra con su cuenta de Microsoft) lleva la skin
+//     de esa cuenta: /avatar/<nombre>?skin=real, la cara de su skin de Mojang
+//     (con la capa de encima);
+//   - en uno sin cuentas premium el servidor no manda skins (cada cliente le
+//     pone una por defecto): una cabeza pixelada propia sacada del nombre
+//     (siempre la misma), para que no parezca que lleva la de esa cuenta.
+//
+// Las de Mojang se guardan en avatares/ (las que no existen, un día) para no
+// preguntar cada vez; sin internet, también la pixelada.
 
 import (
 	"bytes"
@@ -18,6 +24,7 @@ import (
 	"image/png"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,7 +48,11 @@ func serveAvatar(w http.ResponseWriter, r *http.Request, name string) {
 	}
 	w.Header().Set("Content-Type", "image/png")
 	w.Header().Set("Cache-Control", "max-age=3600")
-	_, _ = w.Write(avatarPNG(name))
+	if r.URL.Query().Get("skin") == "real" {
+		_, _ = w.Write(avatarPNG(name))
+		return
+	}
+	_, _ = w.Write(encodeFace(madeUpFace(name)))
 }
 
 // avatarPNG: la cabeza de name (de la caché, de Mojang o inventada).
@@ -209,4 +220,14 @@ func encodeFace(face *image.RGBA) []byte {
 	var buf bytes.Buffer
 	_ = png.Encode(&buf, big)
 	return buf.Bytes()
+}
+
+// avatarURL: la cabeza que toca en el panel a un bot con ese nombre; premium:
+// juega con cuenta de Microsoft (lleva su skin de verdad).
+func avatarURL(name string, premium bool) string {
+	u := "/avatar/" + url.PathEscape(name)
+	if premium {
+		u += "?skin=real"
+	}
+	return u
 }

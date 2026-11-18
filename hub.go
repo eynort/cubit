@@ -492,7 +492,7 @@ func (h *hub) state() hubState {
 	for _, id := range h.ids() {
 		c := h.info(id)
 		b := h.bot(id)
-		bs := hubBotState{ID: id, Name: c.Name, Server: c.Server, ServerID: h.serverOf(c.Server), OnTest: onTestServer(c.Server), Owners: c.Owners, Avatar: "/avatar/" + url.PathEscape(c.Name)}
+		bs := hubBotState{ID: id, Name: c.Name, Server: c.Server, ServerID: h.serverOf(c.Server), OnTest: onTestServer(c.Server), Owners: c.Owners, Avatar: avatarURL(c.Name, h.premiumFor(c.Server))}
 		if b != nil {
 			b.mu.Lock()
 			bs.Running = b.cmd != nil
