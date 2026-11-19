@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/mj41/go-mc26-kit/bot/world"
-	"github.com/mj41/go-mc26/protocol/types"
 )
 
 // /excavate x1 y1 z1 x2 y2 z2: vaciar una caja de bloques entera, capa a capa
@@ -18,13 +17,12 @@ import (
 // La herramienta, la de cada bloque (tierra, pala; madera, hacha; piedra,
 // pico; hojas, azada) del mejor material que lleve; sin ella, la mano.
 //
-// Los picos: los que lleve y los del cofre de minar (/mine chest) o los
-// cofres de picos del almacén, sin romper ninguno (con pickReserve usos se
-// dejan de usar y se devuelven al cofre). Sin pico que valga, se para.
+// Los picos: los que lleve, sin romper ninguno (con pickReserve usos se dejan
+// de usar). Sin pico que valga, lo pide por el chat y espera a que se lo tiren.
 //
-// Lo cavado: cuando el inventario se llena, al cofre de minar de la
-// dimensión; si no hay o se llena, al almacén (que pone cofres nuevos según
-// hagan falta). Se queda un montón de bloques para tapar lava y subir.
+// Lo cavado: sin cofres. Cuando el inventario se llena tira la basura
+// (tierra, piedra, grava…) y se queda lo valioso; se queda también un montón
+// de bloques para tapar lava y subir.
 
 // Box es una caja de bloques (las dos esquinas incluidas).
 type Box struct{ Min, Max world.BlockPos }
@@ -187,7 +185,7 @@ func noExcavate(n string) bool {
 	return strings.HasSuffix(n, "shulker_box")
 }
 
-// excavateKeeps: lo que no se guarda en el cofre (herramientas, armadura, comida…).
+// excavateKeeps: lo que nunca se tira (herramientas, armadura, comida…).
 func excavateKeeps(n string) bool {
 	for _, s := range []string{"_pickaxe", "_axe", "_shovel", "_hoe", "_sword", "_helmet", "_chestplate", "_leggings", "_boots"} {
 		if strings.HasSuffix(n, s) {
@@ -669,19 +667,4 @@ func (e *excavation) stash(restock bool) error {
 		j.say("Llevo el inventario lleno de cosas valiosas: sigo cavando, pero lo que cae se queda en el suelo. Ven a por ello cuando quieras.")
 	}
 	return nil
-}
-
-// wornTool: un pico, pala, hacha o azada ya casi rota (no se usa: al cofre, a repararla).
-func wornTool(s types.ItemStack) bool {
-	n := strings.TrimPrefix(itemName(int32(s.Item)), "minecraft:")
-	floor := toolReserve
-	switch {
-	case anyPick(n):
-		floor = pickReserve
-	case strings.HasSuffix(n, "_shovel"), strings.HasSuffix(n, "_axe"), strings.HasSuffix(n, "_hoe"):
-	default:
-		return false
-	}
-	l := pickLeftAs(s, func(string) bool { return true })
-	return l >= 0 && l <= floor
 }

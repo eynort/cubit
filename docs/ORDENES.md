@@ -23,7 +23,7 @@ Tirar al suelo todo lo que lleva, o un objeto (todo, o la cantidad que se diga: 
 
 `/excavate <x> <y> <z> <x2> <y2> <z2> [<exact>] | chunk <y1> <y2>`
 
-Vaciar una caja de bloques entre dos esquinas (/excavate 10 70 10 30 50 30), de 4 en 4 bloques de alto: cada pasada de 4 en toda la caja antes de bajar a la siguiente (el terreno baja parejo); en cada pasada se pone en el fondo y pica los 4 de alto que alcanza alrededor, y sigue, y al acabarla recoge lo que cayó. Usa los picos que lleve y los del cofre de minar (/mine chest) o del almacén, sin romper ninguno, y cuando se llena lleva lo cavado a los cofres.
+Vaciar una caja de bloques entre dos esquinas (/excavate 10 70 10 30 50 30), de 4 en 4 bloques de alto: cada pasada de 4 en toda la caja antes de bajar a la siguiente (el terreno baja parejo); en cada pasada se pone en el fondo y pica los 4 de alto que alcanza alrededor, y sigue, y al acabarla recoge lo que cayó. Usa los picos que lleve, sin romper ninguno (si no le queda ninguno, lo pide por el chat); no usa cofres: cuando se llena tira la basura (tierra, piedra, grava…) y se queda lo valioso.
 
 - `<x>`: una esquina (~ = donde está el bot)
 - `<y>`: una esquina (~ = donde está el bot)

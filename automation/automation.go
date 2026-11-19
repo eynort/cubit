@@ -345,6 +345,9 @@ func (r *Runner) Status() string {
 	if r.name == "" {
 		return ""
 	}
+	if strings.HasPrefix(r.status, r.name+":") {
+		return r.status // (el estado ya lleva el nombre: "excavar: …")
+	}
 	return r.name + ": " + r.status
 }
 

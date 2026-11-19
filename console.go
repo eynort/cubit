@@ -52,7 +52,7 @@ type arg struct {
 	opt        bool            // se puede no poner
 }
 
-// sub es un subcomando: una palabra fija tras la orden (/mine chest …) con sus argumentos.
+// sub es un subcomando: una palabra fija tras la orden (/excavate chunk …) con sus argumentos.
 type sub struct {
 	name string
 	desc text
@@ -64,7 +64,7 @@ type command struct {
 	args []arg
 	run  func(b *Bot, args []string) error
 	// subs: los subcomandos; la primera palabra es uno de ellos o, si no, el
-	// primer argumento de args (/mine chest … o /mine diamond)
+	// primer argumento de args (/excavate chunk … o /excavate 1 2 3 …)
 	subs []sub
 }
 
@@ -144,8 +144,8 @@ func init() {
 			args: []arg{{name: "mode", kind: argChoice, choices: []string{"on", "off"},
 				descs: map[string]text{"on": {"it may sprint", "puede correr"}, "off": {"it always walks", "siempre camina"}}}}, run: cmdSprint},
 		"excavate": {
-			desc: text{"dig out a whole box of blocks between two corners (/excavate 10 70 10 30 50 30), 4 blocks deep at a time: each 4-block pass through the whole box before going down to the next (the ground goes down evenly); in each pass it stands on the bottom and digs the 4 blocks high it reaches around it, then moves on, and picks up what fell when the pass is done. It uses the pickaxes it carries and the ones in the mining chest (/mine chest) or the storage, never breaking one, and when full it takes what it dug to the chests",
-				"vaciar una caja de bloques entre dos esquinas (/excavate 10 70 10 30 50 30), de 4 en 4 bloques de alto: cada pasada de 4 en toda la caja antes de bajar a la siguiente (el terreno baja parejo); en cada pasada se pone en el fondo y pica los 4 de alto que alcanza alrededor, y sigue, y al acabarla recoge lo que cayó. Usa los picos que lleve y los del cofre de minar (/mine chest) o del almacén, sin romper ninguno, y cuando se llena lleva lo cavado a los cofres"},
+			desc: text{"dig out a whole box of blocks between two corners (/excavate 10 70 10 30 50 30), 4 blocks deep at a time: each 4-block pass through the whole box before going down to the next (the ground goes down evenly); in each pass it stands on the bottom and digs the 4 blocks high it reaches around it, then moves on, and picks up what fell when the pass is done. It uses the pickaxes it carries, never breaking one (with none left, it asks for one in chat); it uses no chests: when full it throws away the junk (dirt, stone, gravel…) and keeps what is valuable",
+				"vaciar una caja de bloques entre dos esquinas (/excavate 10 70 10 30 50 30), de 4 en 4 bloques de alto: cada pasada de 4 en toda la caja antes de bajar a la siguiente (el terreno baja parejo); en cada pasada se pone en el fondo y pica los 4 de alto que alcanza alrededor, y sigue, y al acabarla recoge lo que cayó. Usa los picos que lleve, sin romper ninguno (si no le queda ninguno, lo pide por el chat); no usa cofres: cuando se llena tira la basura (tierra, piedra, grava…) y se queda lo valioso"},
 			args: append(withDesc(xyz(false), text{"one corner (~ = where the bot is)", "una esquina (~ = donde está el bot)"}),
 				append(withDesc([]arg{{name: "x2", kind: argCoord, corner: true}, {name: "y2", kind: argCoord}, {name: "z2", kind: argCoord}}, text{"the opposite corner", "la esquina opuesta"}),
 					arg{name: "exact", kind: argChoice, opt: true, choices: []string{"exact"},
