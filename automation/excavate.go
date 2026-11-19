@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/mj41/go-mc26-kit/bot/world"
+	"github.com/mj41/go-mc26/level"
 )
 
 // /excavate x1 y1 z1 x2 y2 z2: vaciar una caja de bloques entera, capa a capa
@@ -430,8 +431,12 @@ func (e *excavation) next() (world.BlockPos, bool, error) {
 			}
 			return world.BlockPos{}, false, errMoved
 		case unloaded:
-			// lejos: hacia el centro de la capa, que se carguen los chunks
-			c := world.BlockPos{X: (e.box.Min.X + e.box.Max.X) / 2, Y: y, Z: (e.box.Min.Z + e.box.Max.Z) / 2}
+			// lejos: hacia el centro de la caja, por el suelo (no a la altura de
+			// la capa: puede estar en el aire), que se carguen los chunks
+			c := world.BlockPos{X: (e.box.Min.X + e.box.Max.X) / 2, Y: f.Y, Z: (e.box.Min.Z + e.box.Max.Z) / 2}
+			if g, ok := j.r.d.Walker.Ground(c.X, c.Z, f.Y); ok {
+				c = g
+			}
 			j.Status("excavar: voy hacia %v (aún no lo veo)", c)
 			if e.approached++; e.approached > 3 {
 				return world.BlockPos{}, false, fmt.Errorf("no veo los bloques de %v (¿fuera de lo que carga el bot?)", c)
@@ -443,6 +448,61 @@ func (e *excavation) next() (world.BlockPos, bool, error) {
 		}
 	}
 	return world.BlockPos{}, false, nil
+}
+
+// unloadedChunks: cuántos chunks de la caja no ha cargado el bot y el centro
+// (a la altura de sus pies) del más cercano.
+func (e *excavation) unloadedChunks() (int, world.BlockPos) {
+	j := e.j
+	f := j.Feet()
+	n, best, bestD := 0, world.BlockPos{}, math.Inf(1)
+	for cx := e.box.Min.X >> 4; cx <= e.box.Max.X>>4; cx++ {
+		for cz := e.box.Min.Z >> 4; cz <= e.box.Max.Z>>4; cz++ {
+			if j.r.d.World.HasChunk(level.ChunkPos{int32(cx), int32(cz)}) {
+				continue
+			}
+			n++
+			c := world.BlockPos{X: cx*16 + 8, Y: f.Y, Z: cz*16 + 8}
+			if d := math.Hypot(float64(c.X-f.X), float64(c.Z-f.Z)); d < bestD {
+				best, bestD = c, d
+			}
+		}
+	}
+	return n, best
+}
+
+// ensureLoaded: los chunks de la caja tienen que estar cargados antes de
+// cavar (sin cargar, sus bloques parecen aire y las capas se darían por
+// acabadas sin cavar nada). Si faltan, anda hacia ellos por el suelo, a
+// tramos de lo que ya ve, hasta que llegan.
+func (e *excavation) ensureLoaded() error {
+	j := e.j
+	missing := 0
+	for try := 0; try < 16; try++ {
+		var target world.BlockPos
+		if missing, target = e.unloadedChunks(); missing == 0 {
+			return nil
+		}
+		f := j.Feet()
+		j.Status("excavar: voy hacia la caja (aún no veo %d chunks de ella)", missing)
+		if try == 0 {
+			j.Logf("excavar: aún no veo la caja (%d chunks sin cargar): me acerco", missing)
+		}
+		dx, dz := float64(target.X-f.X), float64(target.Z-f.Z)
+		if d := math.Hypot(dx, dz); d > 1 {
+			step := math.Min(d, 32) // (hasta donde ya se ve el suelo)
+			x, z := f.X+int(math.Round(dx/d*step)), f.Z+int(math.Round(dz/d*step))
+			if g, ok := j.r.d.Walker.Ground(x, z, f.Y); ok {
+				if err := j.GoTo(g); err != nil {
+					j.Logf("excavar: acercándome a la caja: %v", err)
+				}
+			}
+		}
+		if err := j.Wait(40); err != nil { // (que lleguen los chunks)
+			return err
+		}
+	}
+	return fmt.Errorf("no veo la zona a excavar (%d chunks sin cargar): llévame más cerca o ponla más cerca de mí", missing)
 }
 
 // stepAside se quita de encima del último bloque de la capa: a una celda de

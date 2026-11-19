@@ -805,9 +805,12 @@ input[type=text],input:not([type]),input[type=number],select{height:36px}
 .bcard{gap:0}
 .bc-acts{display:flex;gap:6px;justify-content:center;padding:var(--s2) 0 0}
 .bc-acts .k{flex:1;max-width:150px}
-.bc-del{flex:none!important;width:var(--hs);padding:0!important;opacity:0;transition:opacity .15s}
+.bc-del{flex:none!important;width:var(--hs);padding:0!important;opacity:.45;transition:opacity .15s}
 .bcard:hover .bc-del,.bcard:focus-within .bc-del,.bc-del:focus-visible{opacity:1}
 @media (pointer:coarse){.bc-del{opacity:1}}
+/* el foco rodea la tarjeta entera (acciones incluidas), no solo la parte que abre el bot */
+.bcard .bc-open:focus-visible{outline:none}
+.bcard:has(.bc-open:focus-visible){outline:2px solid var(--fg);outline-offset:1px}
 .bc-num{position:absolute;left:12px;top:12px}
 /* diálogo con la cabeza del bot */
 #dlg-head{width:48px;height:48px;float:left;margin:0 var(--s4) var(--s2) 0}

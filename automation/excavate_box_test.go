@@ -116,3 +116,48 @@ func TestExcavateNegativeCoords(t *testing.T) {
 		}
 	})
 }
+
+// TestExcavateFarBox: la caja está fuera de lo que el bot ve (vista de 2
+// chunks, la caja a 5 chunks): antes daba todas las capas por acabadas al
+// momento (sus bloques, sin cargar, parecían aire) y al final intentaba subir
+// al aire; ahora anda hacia ella hasta verla y la vacía.
+func TestExcavateFarBox(t *testing.T) {
+	simworld.Run(t, func(t *testing.T) {
+		g := simworld.Start(t, simworld.Options{View: 2, Setup: []string{
+			"give Tester diamond_shovel 1", "give Tester diamond_pickaxe 1",
+		}})
+		r, _ := safeRunner(t, g)
+		g.Step(5)
+		box := automation.NewBox(world.BlockPos{X: 82, Y: 100, Z: 2}, world.BlockPos{X: 86, Y: 61, Z: 6}) // (alta: casi toda aire, como la del usuario)
+		if _, ok := g.B.World.BlockAt(world.BlockPos{X: 84, Y: 62, Z: 4}); ok {
+			t.Fatal("la caja tenía que empezar sin cargar")
+		}
+		var err error
+		r.Start(context.Background(), "excavar", func(j *automation.Job) error {
+			err = automation.Excavate(box)(j)
+			return err
+		})
+		g.Until(3000*20, func() bool { return r.Status() == "" })
+		inside := 0
+		for x := 82; x <= 86; x++ {
+			for y := 61; y <= 63; y++ {
+				for z := 2; z <= 6; z++ {
+					if !block.IsAir(g.S.World.At(x, y, z)) {
+						inside++
+					}
+				}
+			}
+		}
+		p := g.B.Player.Position()
+		t.Logf("error %v; el bot en %.0f %.0f %.0f; quedan %d", err, p.X, p.Y, p.Z, inside)
+		if err != nil {
+			t.Fatalf("excavar: %v", err)
+		}
+		if inside > 4 {
+			t.Errorf("quedan %d bloques en la caja: no la cavó", inside)
+		}
+		if p.Y > 70 {
+			t.Errorf("subió al aire (y %.0f)", p.Y)
+		}
+	})
+}

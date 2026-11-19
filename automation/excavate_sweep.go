@@ -70,6 +70,10 @@ func (e *excavation) sweep() error {
 	defer func() { e.h = passMax }()
 	for k, ps := range plan {
 		L, h := ps[0], ps[1]
+		// sin ver la caja entera, sus bloques parecen aire: primero, que se carguen
+		if err := e.ensureLoaded(); err != nil {
+			return err
+		}
 		// la pasada entera (h de alto) en toda la caja antes de bajar: la caja
 		// baja h bloques pareja
 		e.h = h
