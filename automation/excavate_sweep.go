@@ -801,10 +801,7 @@ func (e *excavation) cell(c world.BlockPos, move bool) error {
 		if e.dropOldProtected(c, err) {
 			return nil
 		}
-		e.fails[c]++
-		if e.fails[c] == excavateFails {
-			j.Problem("excavar: dejo %s en %v: %v", name, c, err)
-		}
+		e.fail(c, name, err)
 		if move {
 			return err
 		}

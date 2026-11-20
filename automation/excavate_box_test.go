@@ -161,3 +161,47 @@ func TestExcavateFarBox(t *testing.T) {
 		}
 	})
 }
+
+// TestExcavateSkipsUnreachable: dentro de la caja, unas hojas sueltas muy
+// arriba y sin bloques para una torre: vacía lo de abajo sin quedarse en
+// ellas. (El caso del servidor, la copa de un árbol al borde de un barranco
+// de badlands, no se reproduce igual aquí; ese lo cubre unreachable().)
+func TestExcavateSkipsUnreachable(t *testing.T) {
+	simworld.Run(t, func(t *testing.T) {
+		g := simworld.Start(t, simworld.Options{Setup: []string{
+			"give Tester diamond_pickaxe 1", "give Tester diamond_shovel 1",
+			"fill 4 72 4 6 72 6 minecraft:oak_leaves",
+		}})
+		r, _ := safeRunner(t, g)
+		g.Step(5)
+		box := automation.NewBox(world.BlockPos{X: 3, Y: 72, Z: 3}, world.BlockPos{X: 7, Y: 61, Z: 7})
+		var err error
+		r.Start(context.Background(), "excavar", func(j *automation.Job) error {
+			err = automation.Excavate(box)(j)
+			return err
+		})
+		start := g.Tick
+		g.Until(3000*20, func() bool { return r.Status() == "" })
+		ground := 0
+		for x := 3; x <= 7; x++ {
+			for y := 61; y <= 63; y++ {
+				for z := 3; z <= 7; z++ {
+					if !block.IsAir(g.S.World.At(x, y, z)) {
+						ground++
+					}
+				}
+			}
+		}
+		took := g.Tick - start
+		t.Logf("error %v; quedan en el suelo %d; %d ticks (%.0f s)", err, ground, took, float64(took)/20)
+		if err != nil {
+			t.Fatalf("excavar: %v", err)
+		}
+		if ground > 4 {
+			t.Errorf("quedan %d bloques en el suelo: tenía que vaciar lo que sí alcanza", ground)
+		}
+		if took > 1200*20 {
+			t.Errorf("tardó %.0f s: se queda probando lo que no alcanza", float64(took)/20)
+		}
+	})
+}

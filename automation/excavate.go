@@ -166,6 +166,40 @@ const ExcavateMax = 256 * 256 * 64
 // excavateFails: un bloque que falla tantas veces se deja (y se dice al acabar).
 const excavateFails = 3
 
+// unreachable: el fallo es que no hay forma de llegar al bloque (sin camino,
+// nada donde pisar, atascado): volver a probar es repetir las mismas búsquedas
+// largas para nada; se deja a la primera y se sigue con lo que sí se puede.
+func unreachable(err error) bool {
+	if err == nil {
+		return false
+	}
+	m := err.Error()
+	for _, s := range []string{"no hay camino", "nada donde pisar", "no llego a", "no avanzo", "atascado", "tardo demasiado", "fuera de alcance", "no lo alcanzo"} {
+		if strings.Contains(m, s) {
+			return true
+		}
+	}
+	return false
+}
+
+// fail apunta un fallo al cavar c: a la de excavateFails se deja (si no se
+// puede llegar a él, a la primera).
+func (e *excavation) fail(c world.BlockPos, name string, err error) {
+	if unreachable(err) {
+		if e.fails[c] < excavateFails {
+			e.fails[c] = excavateFails
+			e.unreached++
+			if e.unreached <= 3 { // (unos pocos en el log; al final, cuántos)
+				e.j.Logf("excavar: dejo %s en %v: no puedo llegar (%v); sigo con lo demás", name, c, err)
+			}
+		}
+		return
+	}
+	if e.fails[c]++; e.fails[c] == excavateFails {
+		e.j.Problem("excavar: dejo %s en %v: %v", name, c, err)
+	}
+}
+
 // toolReserve: con estos usos o menos una pala, hacha o azada ya no se usa
 // (se guarda, para repararla): se cava con la mano.
 const toolReserve = 10
@@ -269,6 +303,9 @@ func Excavate(box Box) func(j *Job) error {
 		if e.revertsLeft > 0 {
 			j.Problem("excavar: dejé %d columnas que el servidor no me dejaba quitar (los bloques volvían a aparecer: terreno de otro, el spawn…)", e.revertsLeft)
 		}
+		if e.unreached > 0 {
+			j.Logf("excavar: dejé %d bloques a los que no había forma de llegar (sueltos en el aire, sin dónde apoyarme)", e.unreached)
+		}
 		if left == "" {
 			j.Logf("excavado %s: %d bloques", box, e.dug)
 		} else {
@@ -281,6 +318,7 @@ func Excavate(box Box) func(j *Job) error {
 type excavation struct {
 	j          *Job
 	fullWarned bool // ya dijo que lleva el inventario lleno de cosas valiosas
+	unreached  int  // bloques dejados porque no hay forma de llegar a ellos
 	// deniedCols: columnas dejadas porque el servidor no da permiso (dropOldProtected)
 	deniedCols int
 	box        Box
@@ -351,10 +389,7 @@ func (e *excavation) run() error {
 			if e.dropOldProtected(target, err) {
 				continue
 			}
-			e.fails[target]++
-			if e.fails[target] == excavateFails {
-				j.Problem("excavar: dejo %s en %v: %v", name, target, err)
-			}
+			e.fail(target, name, err)
 			continue
 		}
 		e.dug++ // (lo que cae se recoge al acabar la pasada: collectPass)
