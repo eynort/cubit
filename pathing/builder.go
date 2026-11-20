@@ -159,7 +159,10 @@ func anySolid(item string) bool {
 func (bd *HandsBuilder) best() (slot, total int) {
 	bd.Screens.Lock()
 	defer bd.Screens.Unlock()
-	slot, bestRank := -1, len(buildBlocks)
+	// (len(buildBlocks)+1: cualquier bloque que valga gana al "ninguno"; los
+	// macizos que no están en la lista tienen rango len(buildBlocks) y antes,
+	// fuera de la barra, no se elegían nunca: se contaban pero no se ponían)
+	slot, bestRank := -1, len(buildBlocks)+1
 	for i := 9; i <= 44; i++ {
 		s := bd.Screens.Inventory.Slots[i]
 		if s.Count <= 0 {

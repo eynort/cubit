@@ -34,6 +34,17 @@ func TestBuild(t *testing.T) {
 			"give Tester stone_pickaxe 1", "give Tester shield 1", "give Tester golden_carrot 8", "give Tester stick 4",
 			"give Tester string 4", "give Tester bone 4", "give Tester feather 4", "give Tester dirt 16"},
 			world.BlockPos{X: 6, Y: 67, Z: 0}, true, 2, 4},
+		// el inventario de ElRichMC (21-11-2026): bloques macizos que no están en
+		// la lista preferida (terracota en el servidor; aquí ladrillos de piedra y
+		// cristal, que simworld sí sabe poner) fuera de la barra, 41 alfombras de
+		// musgo (no valen: no son bloques enteros) y de todo en la barra. Se
+		// contaban pero no se elegían nunca: torres de "10 s sin avanzar" sin
+		// poner nada
+		{"torre-terracota", []string{"fill 4 64 -3 8 66 3 stone", "give Tester netherite_pickaxe 2", "give Tester iron_shovel 1",
+			"give Tester golden_apple 2", "give Tester moss_carpet 41", "give Tester tropical_fish 14", "give Tester wheat_seeds 16",
+			"give Tester arrow 8", "give Tester bone 8", "give Tester feather 12", "give Tester stone_bricks 6",
+			"give Tester glass 4"},
+			world.BlockPos{X: 6, Y: 67, Z: 0}, true, 2, 4},
 		// (un puente sobre lava o agua no se prueba aquí: simworld no modela poner
 		// bloques en líquidos; un servidor de verdad sí lo permite)
 	} {
