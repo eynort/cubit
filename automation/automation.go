@@ -372,6 +372,8 @@ type Job struct {
 	protectR     int
 	// toolFloor: las palas, hachas y azadas con estos usos o menos no se usan (0: cualquiera). /excavate: no se rompe ninguna
 	toolFloor int
+	// goLimit: las vueltas de 2 ticks que GoNear y GoTo esperan antes de rendirse (0: 60 s)
+	goLimit   int
 	plugged   int                     // celdas de lava tapadas (para el resumen)
 	junkPit   bool                    // la basura, a un hoyo tapado (makeRoom), como en el Nether
 	pits      map[world.BlockPos]bool // las celdas de los hoyos de basura: no se cavan

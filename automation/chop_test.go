@@ -162,6 +162,34 @@ func TestChopSeveral(t *testing.T) {
 	})
 }
 
+// TestChopNether: un hongo del Nether (tallo de warped y verruga en la copa) y
+// otro de crimson que no se pide: tala solo el warped.
+func TestChopNether(t *testing.T) {
+	simworld.Run(t, func(t *testing.T) {
+		stem := func(kind, wart string, x, z, h int) []string {
+			top := 63 + h
+			return []string{
+				fmt.Sprintf("fill %d %d %d %d %d %d minecraft:%s", x-2, top-1, z-2, x+2, top, z+2, wart),
+				fmt.Sprintf("fill %d 64 %d %d %d %d minecraft:%s_stem[axis=y]", x, z, x, top, z, kind),
+			}
+		}
+		setup := append(stem("warped", "warped_wart_block", 6, 0, 7), stem("crimson", "nether_wart_block", -6, 3, 6)...)
+		setup = append(setup, "give Tester dirt 16", "give Tester iron_axe 1")
+		g := simworld.Start(t, simworld.Options{Setup: setup})
+		err := runChop(t, g, []string{"warped"}, world.BlockPos{X: 0, Y: 64, Z: 0})
+		t.Logf("error %v; warped_stem %d", err, g.Count("minecraft:warped_stem"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if g.Count("minecraft:warped_stem") != 7 {
+			t.Errorf("recogió %d tallos de warped, eran 7", g.Count("minecraft:warped_stem"))
+		}
+		if st, ok := g.B.World.BlockAt(world.BlockPos{X: -6, Y: 64, Z: 3}); !ok || !strings.Contains(world.StateString(st), "crimson_stem") {
+			t.Errorf("el tallo de crimson no se pedía y ya no está")
+		}
+	})
+}
+
 func TestParseWoods(t *testing.T) {
 	got, err := automation.ParseWoods("oak, birch,oak")
 	if err != nil || len(got) != 2 || got[0] != "oak" || got[1] != "birch" {

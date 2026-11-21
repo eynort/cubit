@@ -139,7 +139,8 @@ type chopper struct {
 func Chop(kinds []string, center world.BlockPos) func(j *Job) error {
 	return func(j *Job) error {
 		j.toolFloor = toolReserve // el hacha no se rompe
-		defer func() { j.toolFloor = 0 }()
+		j.goLimit = 20 * 10       // 20 s por trayecto: más y se pasa el tiempo yendo y viniendo
+		defer func() { j.toolFloor, j.goLimit = 0, 0 }()
 		c := &chopper{j: j, ws: woodSet{}, center: center, skip: map[world.BlockPos]bool{},
 			trees: map[string]int{}, logs: map[string]int{}}
 		for _, k := range kinds {
@@ -165,11 +166,6 @@ func Chop(kinds []string, center world.BlockPos) func(j *Job) error {
 			}
 			if j.Fatal() != nil {
 				return j.Fatal()
-			}
-			if j.Underground() { // los árboles están arriba
-				if err := j.ToSky(); err != nil && j.Fatal() != nil {
-					return j.Fatal()
-				}
 			}
 			j.Status("buscando árboles (%d talados)", c.total(c.trees))
 			t, ok := c.next()
@@ -597,20 +593,53 @@ func (c *chopper) fell(t *chopTree) error {
 			return fmt.Errorf("al hueco del tronco: %w", err)
 		}
 	}
+	c.climbCut(t)
+	c.climbDown(base.Y)
+	return nil
+}
+
+// climbCut sube en el sitio (una torre de bloques, rompiendo lo de encima) y
+// tala lo que alcanza en cada piso, hasta que no queda nada más arriba.
+func (c *chopper) climbCut(t *chopTree) {
+	j := c.j
+	cutAll := func() {
+		for _, l := range t.logs {
+			c.cut(l)
+		}
+	}
 	for floors := 0; floors < 48 && len(c.standing(t.logs)) > 0; floors++ {
-		digReachable()
+		cutAll()
 		if !c.higherLeft(t.logs) {
 			break
 		}
-		j.Status("subiendo por el tronco (%d cortados)", c.total(c.logs))
+		j.Status("subiendo (%d cortados)", c.total(c.logs))
 		if err := c.pillarUp(); err != nil {
 			j.Logf("subir: %v", err)
 			break
 		}
 	}
-	digReachable()
-	c.climbDown(base.Y)
-	return nil
+	cutAll()
+}
+
+// towerTo: a un tronco que no se alcanza andando se llega por debajo: al suelo
+// de su columna y arriba con una torre, rompiendo las hojas de encima.
+func (c *chopper) towerTo(t *chopTree, l world.BlockPos) bool {
+	j := c.j
+	g, ok := j.r.d.Walker.Ground(l.X, l.Z, t.foot.Y)
+	if !ok || g.Y >= l.Y-1 {
+		return false
+	}
+	c.ensureScaffold(l.Y - g.Y)
+	j.Logf("al tronco de %v por debajo: torre desde %v", l, g)
+	if err := c.goTo(g); err != nil {
+		if j.Fatal() != nil {
+			return false
+		}
+		return false
+	}
+	c.climbCut(t)
+	c.climbDown(g.Y)
+	return !c.ws.has(j.Block(l))
 }
 
 // higherLeft: quedan troncos por encima de lo que alcanza (hay que subir).
@@ -665,8 +694,10 @@ func (c *chopper) finish(t *chopTree, ground int) {
 						if j.Fatal() != nil {
 							return
 						}
-						fails++
-						continue
+						if !c.towerTo(t, l) {
+							fails++
+							continue
+						}
 					}
 				}
 			}
@@ -729,6 +760,13 @@ func (c *chopper) removeScaffold(logs []world.BlockPos) {
 			b.Forget(p)
 		}
 	}
+}
+
+// treeBlock: lo que es del árbol aparte de troncos y hojas y se rompe para
+// pasar: las raíces del manglar y, en el Nether, la verruga y las luciérnagas.
+func (c *chopper) treeBlock(n string) bool {
+	return c.ws["mangrove"] && strings.HasSuffix(n, "mangrove_roots") ||
+		(c.ws["crimson"] || c.ws["warped"]) && (strings.HasSuffix(n, "_wart_block") || n == "shroomlight")
 }
 
 // goNear y goTo son los del Job, y si no se mueve (de pie en el borde de un
@@ -841,12 +879,15 @@ func (c *chopper) pillarUp() error {
 		return fmt.Errorf("sin bloques para subir")
 	}
 	f := j.Feet()
+	if j.solid(f) { // sobre barro, arena de almas…: el suelo está en esta celda, los pies en la de encima
+		f.Y++
+	}
 	for _, dy := range []int{2, 3} { // la cabeza al saltar llega a +3
 		over := world.BlockPos{X: f.X, Y: f.Y + dy, Z: f.Z}
 		name := j.Block(over)
 		switch {
 		case name == "air" || name == "" || name == "cave_air":
-		case pathing.Soft(name) || strings.Contains(name, "vine") || isLogBlock(name) || strings.HasSuffix(name, "_wart_block") || name == "shroomlight":
+		case pathing.Soft(name) || strings.Contains(name, "vine") || c.ws.has(name) || c.treeBlock(name):
 			if err := j.Dig(over); err != nil {
 				return fmt.Errorf("lo de encima (%s): %w", name, err)
 			}
@@ -998,7 +1039,7 @@ func (c *chopper) gatherScaffold(n int) {
 func (c *chopper) clearWayTo(target world.BlockPos, done func() bool) error {
 	j := c.j
 	soft := func(n string) bool {
-		return pathing.Soft(n) || strings.HasSuffix(n, "_wart_block") || n == "shroomlight" || strings.Contains(n, "vine")
+		return pathing.Soft(n) || c.treeBlock(n) || strings.Contains(n, "vine")
 	}
 	for steps := 0; steps < 32; steps++ {
 		if done() {

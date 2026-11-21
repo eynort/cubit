@@ -66,10 +66,19 @@ func (j *Job) GoNear(p world.BlockPos) error {
 		case st == "stopped": // una pelea paró el walker: retomar
 			w.Goto(p)
 		}
-		if t > 60*10 { // 60 s
+		if t > j.walkLimit() { // 60 s
 			return fmt.Errorf("tardo demasiado en llegar a %v (%s)", p, j.fromHere(p))
 		}
 	}
+}
+
+// walkLimit: las vueltas (de 2 ticks) que GoNear y GoTo esperan antes de
+// rendirse: 60 s, o lo que diga goLimit (chop: 20 s).
+func (j *Job) walkLimit() int {
+	if j.goLimit > 0 {
+		return j.goLimit
+	}
+	return 60 * 10
 }
 
 // GoTo camina hasta la celda p (para estar en ella).
@@ -97,7 +106,7 @@ func (j *Job) GoTo(p world.BlockPos) error {
 		case st == "stopped":
 			w.Goto(p)
 		}
-		if t > 60*10 {
+		if t > j.walkLimit() {
 			return fmt.Errorf("tardo demasiado en llegar a %v (%s)", p, j.fromHere(p))
 		}
 	}
