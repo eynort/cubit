@@ -60,7 +60,7 @@ The orders you will use most:
 
 | | |
 |---|---|
-| `/follow <player>` · `/goto <x> <z>` | follow you, or go somewhere |
+| `/follow <player>` · `/goto <x> <y> <z>` | follow you, or go somewhere |
 | `/fight <player>` · `/guard <player>` | fight someone, or guard someone |
 | `/excavate <x1> <y1> <z1> <x2> <y2> <z2>` | dig out that box |
 | `/excavate chests <x> <y> <z>` | where it stores the loot and finds pickaxes |

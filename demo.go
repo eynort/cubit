@@ -4,7 +4,7 @@ package main
 // Minecraft falso dentro del propio programa (un mundo plano, el de los tests
 // del kit), entra en él y abre la consola y el panel web. En ese mundo no
 // pasa nada por sí solo (no hay mobs ni se rompen bloques): es para ver la
-// consola, el autocompletado, el panel y moverse (/goto 10 10, /status…).
+// consola, el autocompletado, el panel y moverse (/goto 10 ~ 10, /status…).
 // Todo lo que guarda va a una carpeta temporal.
 
 import (
@@ -39,7 +39,7 @@ func runDemo() {
 	if *monitorFlag == "" {
 		set("monitor", "127.0.0.1:8080")
 	}
-	log.Printf("demo: servidor de prueba en %s (datos en %s). Prueba /help, /status, /goto 0 14, /inventory; Ctrl+C para salir", s.Addr, dir)
+	log.Printf("demo: servidor de prueba en %s (datos en %s). Prueba /help, /status, /goto 0 ~ 14, /inventory; Ctrl+C para salir", s.Addr, dir)
 	go func() { // Tester saluda al entrar
 		for i := 0; i < 100 && len(s.Players()) == 0; i++ {
 			time.Sleep(100 * time.Millisecond)

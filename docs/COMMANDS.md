@@ -103,11 +103,12 @@ Follow a player non-stop (until /stop)
 
 ## /goto
 
-`/goto <player> | <x> <z>`
+`/goto <player> | <x> <y> <z>`
 
-Go to a player or to some coordinates.
+Go to a player or to the block at some coordinates (if that height is air or solid, the nearest standable spot in the column)
 
-- `<player>`: <x> <z>: coordinates (~ = where the bot is)
+- `<player>`: <x> <y> <z>: coordinates (~ = where the bot is)
+- `<y>`: the y coordinate (the height of the cell to stand in)
 - `<z>`: the z coordinate
 
 **Examples**

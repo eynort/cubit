@@ -277,7 +277,8 @@ func completePlayer(c command, a arg, i int, parts []string, cur, base, more str
 		h := strings.SplitN(a.hint.String(), ":", 2)
 		out = append(out, suggestion{label: h[0], desc: strings.TrimSpace(h[len(h)-1])})
 		if cur == "" {
-			out = append(out, suggestion{value: base + "~ ~", label: "~ ~", desc: tr("where the bot is (change it: ~10 ~-5 …)", "donde está el bot (cámbialo: ~10 ~-5 …)")})
+			tildes := strings.TrimSpace(strings.Repeat("~ ", strings.Count(h[0], "<"))) // una por coordenada de la pista
+			out = append(out, suggestion{value: base + tildes, label: tildes, desc: tr("where the bot is (change it: ~10 ~ ~-5 …)", "donde está el bot (cámbialo: ~10 ~ ~-5 …)")})
 		}
 	}
 	if len(out) == 0 && a.items {

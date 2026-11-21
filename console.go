@@ -71,7 +71,7 @@ type command struct {
 // usages son formas de uso escritas a mano, para órdenes con variantes.
 var usages = map[string]string{
 	"fight": "/fight <player> | in <x> <z> [<x2> <z2>]",
-	"goto":  "/goto <player> | <x> <z>",
+	"goto":  "/goto <player> | <x> <y> <z>",
 	"drop":  "/drop [<item> [<amount>] [<player>] | <player>]",
 }
 
@@ -126,8 +126,9 @@ func init() {
 			run: cmdFight,
 		},
 		"goto": {
-			desc: text{"go to a player or to some coordinates", "ir hasta un jugador o hasta unas coordenadas"},
-			args: []arg{{name: "player", kind: argPlayer, hint: text{"<x> <z>: coordinates (~ = where the bot is)", "<x> <z>: unas coordenadas (~ = donde está el bot)"}},
+			desc: text{"go to a player or to the block at some coordinates (if that height is air or solid, the nearest standable spot in the column)", "ir hasta un jugador o hasta el bloque de unas coordenadas (si esa altura es aire o sólido, el suelo más cercano de la columna)"},
+			args: []arg{{name: "player", kind: argPlayer, hint: text{"<x> <y> <z>: coordinates (~ = where the bot is)", "<x> <y> <z>: unas coordenadas (~ = donde está el bot)"}},
+				{name: "y", kind: argCoord, desc: text{"the y coordinate (the height of the cell to stand in)", "la coordenada y (la altura de la celda donde ponerse)"}},
 				{name: "z", kind: argCoord, desc: text{"the z coordinate", "la coordenada z"}}},
 			run: cmdGoto,
 		},
@@ -314,11 +315,11 @@ func (b *Bot) cancelMove() {
 }
 
 func cmdGoto(b *Bot, args []string) error {
-	if len(args) == 2 {
+	if len(args) == 3 {
 		return cmdGotoCoords(b, args)
 	}
 	if len(args) != 1 {
-		return errf("usage: /goto <player>  or  /goto <x> <z>", "uso: /goto <player>  o  /goto <x> <z>")
+		return errf("usage: /goto <player>  or  /goto <x> <y> <z>  (e.g. /goto ~10 ~ ~-5; the old /goto <x> <z> no longer works)", "uso: /goto <player>  o  /goto <x> <y> <z>  (ej: /goto ~10 ~ ~-5; el viejo /goto <x> <z> ya no vale)")
 	}
 	name := args[0]
 	if strings.EqualFold(name, botName) {
@@ -702,28 +703,88 @@ func cmdGuard(b *Bot, args []string) error {
 	return nil
 }
 
-// cmdGotoCoords: /goto <x> <z> ("~" es la posición del bot, "~n" relativa).
+// cmdGotoCoords: /goto <x> <y> <z> ("~" es la posición del bot, "~n" relativa).
+// La y es la celda donde ponerse (los pies); ver gotoCell si no se puede estar ahí.
 func cmdGotoCoords(b *Bot, args []string) error {
 	p := b.Player.Position()
 	x, err := coord(args[0], p.X)
 	if err != nil {
 		return err
 	}
-	z, err := coord(args[1], p.Z)
+	y, err := coord(args[1], p.Y)
+	if err != nil {
+		return err
+	}
+	z, err := coord(args[2], p.Z)
 	if err != nil {
 		return err
 	}
 	ctx, cancel := b.startMove(b.ctx)
 	gen := setMoveKind("goto")
-	log.Printf("yendo a %.0f %.0f (a %.0f bloques)", x, z, math.Hypot(x-p.X, z-p.Z))
+	log.Printf("yendo a %.0f %.0f %.0f (a %.0f bloques)", x, y, z, math.Hypot(x-p.X, z-p.Z))
 	go func() {
 		defer cancel()
 		defer clearMove(gen)
-		if b.gotoCoords(ctx, x, z, nil) {
-			log.Printf("goto: llegué a %.0f %.0f", x, z)
+		if b.gotoCell(ctx, x, y, z, nil) {
+			log.Printf("goto: llegué a %.0f %.0f %.0f", x, y, z)
 		}
 	}()
 	return nil
+}
+
+// gotoCell camina hasta la celda (x, y, z) (y: la altura de los pies). Primero
+// se acerca en horizontal con gotoCoordsY; ya cerca (con los chunks cargados)
+// mira la columna con Walker.Ground: si en esa y se puede estar de pie, va a
+// esa celda exacta; si no (aire o dentro de un bloque), va al suelo más
+// cercano en altura de esa columna (hasta 24 bloques arriba o abajo; en un
+// empate gana el de arriba). Si en la columna no hay dónde pisar, lo dice en
+// el log y devuelve false.
+func (b *Bot) gotoCell(ctx context.Context, x, y, z float64, stop func() bool) bool {
+	if !b.gotoCoordsY(ctx, x, y, z, stop) {
+		return false
+	}
+	cx, cy, cz := int(math.Floor(x)), int(math.Floor(y)), int(math.Floor(z))
+	cell, ok := b.Walker.Ground(cx, cz, cy)
+	if !ok {
+		log.Printf("goto: no hay dónde pisar en la columna %d %d cerca de y=%d (±24)", cx, cz, cy)
+		return false
+	}
+	if cell.Y != cy {
+		log.Printf("goto: en %d %d %d no se puede estar de pie; voy al suelo más cercano: y=%d", cx, cy, cz, cell.Y)
+	}
+	defer b.Walker.Stop()
+	for fails := 0; fails <= 3; {
+		b.Walker.SetSprint(true)
+		b.Walker.Goto(cell)
+		for {
+			if err := b.Ctl.WaitTicks(ctx, 5); err != nil {
+				return false
+			}
+			if b.Combat.Fighting() {
+				if !b.waitFight(ctx) {
+					return false
+				}
+				b.Walker.SetSprint(true)
+				b.Walker.Goto(cell)
+				continue
+			}
+			if stop != nil && stop() {
+				return false
+			}
+			st := b.Walker.Status()
+			if st == "arrived" {
+				return true
+			}
+			if st != "walking" {
+				fails++
+				if strings.HasPrefix(st, "failed") {
+					log.Printf("goto: no llego a %d %d %d (%s)", cell.X, cell.Y, cell.Z, st)
+				}
+				break
+			}
+		}
+	}
+	return false
 }
 
 // gotoCoords camina hasta (x, z). El bot solo conoce los bloques de los chunks
@@ -738,7 +799,7 @@ func (b *Bot) gotoCoords(ctx context.Context, x, z float64, stop func() bool) bo
 }
 
 // gotoCoordsY es gotoCoords sabiendo (si y no es NaN) a qué altura está la
-// meta: volando, se aterriza lo más cerca posible de esa altura.
+// meta: el último tramo (a 40 bloques o menos) busca suelo cerca de esa altura.
 func (b *Bot) gotoCoordsY(ctx context.Context, x, y, z float64, stop func() bool) bool {
 	defer b.Walker.Stop()
 	const done = 1.5
@@ -752,7 +813,11 @@ func (b *Bot) gotoCoordsY(ctx context.Context, x, y, z float64, stop func() bool
 		if stop != nil && stop() {
 			return false
 		}
-		goal, ok := b.segment(p, x, z, d, fails)
+		nearY := int(math.Floor(p.Y))
+		if !math.IsNaN(y) && d <= 40 {
+			nearY = int(math.Floor(y)) // el último tramo: el suelo de esa altura
+		}
+		goal, ok := b.segment(p, x, z, d, fails, nearY)
 		if !ok {
 			log.Printf("goto: no encuentro por dónde seguir hacia %.0f %.0f (a %.0f bloques)", x, z, d)
 			return false
@@ -794,7 +859,7 @@ func (b *Bot) gotoCoordsY(ctx context.Context, x, y, z float64, stop func() bool
 
 // segment elige el siguiente tramo hacia (x, z): un sitio donde pisar a lo
 // sumo 40 bloques más allá; tras fallos, más corto y desviado a los lados.
-func (b *Bot) segment(p basic.Position, x, z, d float64, fails int) (world.BlockPos, bool) {
+func (b *Bot) segment(p basic.Position, x, z, d float64, fails, nearY int) (world.BlockPos, bool) {
 	dx, dz := (x-p.X)/d, (z-p.Z)/d
 	for _, step := range []float64{40, 24, 12, 6, 3} {
 		step = math.Min(step, d) / float64(1+fails/3)
@@ -805,7 +870,7 @@ func (b *Bot) segment(p basic.Position, x, z, d float64, fails int) (world.Block
 			c, s := math.Cos(off), math.Sin(off)
 			tx := p.X + (dx*c-dz*s)*step
 			tz := p.Z + (dx*s+dz*c)*step
-			if g, ok := b.Walker.Ground(int(math.Floor(tx)), int(math.Floor(tz)), int(math.Floor(p.Y))); ok {
+			if g, ok := b.Walker.Ground(int(math.Floor(tx)), int(math.Floor(tz)), nearY); ok {
 				return g, true
 			}
 		}
