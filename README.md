@@ -63,11 +63,11 @@ Type commands in the bot's **console in the panel**. In game, whisper them as an
 /follow Steve
 ```
 
-**`/goto <player>` · `/goto <x> <z>`**: walks to a player or to some coordinates, building towers and bridges if it needs them.
+**`/goto <player>` · `/goto <x> <y> <z>`**: walks to a player or to a block, building towers and bridges if it needs them. If that block is in the air or inside the ground, it stops on the nearest floor in that column.
 ```
 /goto Steve
-/goto 120 -340
-/goto ~50 ~       → 50 blocks east of where it is now
+/goto 120 64 -340
+/goto ~50 ~ ~     → 50 blocks east of where it is now
 ```
 
 **`/fight <player>` · `/fight in <x> <z> [<x2> <z2>]`**: fights a player until one of them dies, or every player who enters an area (a point gets a radius of 8 blocks, or give two corners).

@@ -63,11 +63,11 @@ Escribe las órdenes en la **consola del bot en el panel**. En el juego, mándas
 /follow Steve
 ```
 
-**`/goto <jugador>` · `/goto <x> <z>`**: va hasta un jugador o unas coordenadas, y hace torres y puentes si le hacen falta.
+**`/goto <jugador>` · `/goto <x> <y> <z>`**: va hasta un jugador o hasta un bloque, y hace torres y puentes si le hacen falta. Si ese bloque está en el aire o bajo tierra, se para en el suelo más cercano de esa columna.
 ```
 /goto Steve
-/goto 120 -340
-/goto ~50 ~       → 50 bloques al este de donde está
+/goto 120 64 -340
+/goto ~50 ~ ~     → 50 bloques al este de donde está
 ```
 
 **`/fight <jugador>` · `/fight in <x> <z> [<x2> <z2>]`**: pelea con un jugador hasta que uno de los dos muere, o con todo el que entre en una zona (un punto tiene un radio de 8 bloques, o da dos esquinas).
