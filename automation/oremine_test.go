@@ -387,3 +387,41 @@ func TestMineFloorOre(t *testing.T) {
 		}
 	})
 }
+
+// TestMineReturnCave: una cueva cerca de la superficie atraviesa la escalera;
+// tras ir al cofre (cada 1) vuelve a la mina por su propia escalera, sin
+// empezar otra.
+func TestMineReturnCave(t *testing.T) {
+	simworld.Run(t, func(t *testing.T) {
+		g := simworld.Start(t, simworld.Options{Setup: []string{
+			"setblock -3 64 0 minecraft:chest[facing=north,type=single,waterlogged=false]",
+			"give Tester diamond_pickaxe 1", "give Tester cobblestone 16",
+			"fill 2 57 -3 8 62 3 minecraft:air",
+			// el suelo de los escalones de la escalera, de hojas (la copa de un árbol, como en el servidor real)
+			"setblock 2 61 0 minecraft:oak_leaves[persistent=true]", "setblock 3 60 0 minecraft:oak_leaves[persistent=true]",
+			"setblock 1 62 0 minecraft:oak_leaves[persistent=true]",
+			"give Tester raw_iron 1",
+		}})
+		l := layerY
+		err, out := mine(t, g, automation.MineConfig{
+			Ores: ores(t, "iron"), Chest: world.BlockPos{X: -3, Y: 64, Z: 0},
+			Layer: &l, MainLen: 6, BranchLen: 4, Every: 1,
+		}, 30000*20)
+		t.Log(out)
+		if err != nil {
+			t.Fatalf("minar: %v", err)
+		}
+		if strings.Contains(out, "construir:") {
+			t.Errorf("el pathfinding construyó dentro de la escalera (hojas de suelo):\n%s", out)
+		}
+		if strings.Contains(out, "otra escalera") {
+			t.Errorf("empezó otra escalera en vez de volver por la suya")
+		}
+		if n := g.ChestCount(-3, 64, 0, "minecraft:raw_iron"); n != 1 {
+			t.Errorf("hierro en el cofre: %d, tenía que ser 1", n)
+		}
+		if !strings.Contains(out, "vuelvo a la mina") || !strings.Contains(out, "túnel principal llegó") {
+			t.Errorf("no volvió a la mina y siguió:\n%s", out)
+		}
+	})
+}

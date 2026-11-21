@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mj41/go-mc26-kit/bot/act"
+	"github.com/mj41/go-mc26-kit/bot/control"
 	"github.com/mj41/go-mc26-kit/bot/entities"
 	"github.com/mj41/go-mc26-kit/bot/world"
 	"github.com/mj41/go-mc26/data/entitydata"
@@ -226,10 +228,19 @@ func (m *oreMine) summary() {
 
 // note apunta la celda por la que se pasa (el camino de vuelta al cofre).
 func (m *oreMine) note(p world.BlockPos) {
-	if len(m.trail) == 0 || m.trail[len(m.trail)-1] != p {
+	// (solo celdas donde se puede estar: con el bot en el aire, en un salto o una
+	// caída, la celda de los pies no es camino y luego no hay dónde pisar: ése era
+	// el fallo de la vuelta por la escalera)
+	if (len(m.trail) == 0 || m.trail[len(m.trail)-1] != p) && (len(m.trail) == 0 || m.standable(p)) {
 		m.trail = append(m.trail, p)
 	}
 	m.cur = p
+}
+
+// standable: en p se puede estar de pie (suelo macizo debajo, y p y la cabeza libres).
+func (m *oreMine) standable(p world.BlockPos) bool {
+	j := m.j
+	return j.solid(world.BlockPos{X: p.X, Y: p.Y - 1, Z: p.Z}) && !strings.HasSuffix(j.Block(world.BlockPos{X: p.X, Y: p.Y - 1, Z: p.Z}), "_leaves") && !j.solid(p) && !j.solid(world.BlockPos{X: p.X, Y: p.Y + 1, Z: p.Z})
 }
 
 // loopTrail quita las vueltas de un recorrido (de una celda a la misma otra vez).
@@ -356,25 +367,37 @@ func (m *oreMine) relocate(why error) error {
 			return fmt.Errorf("subir por la escalera: %w", err)
 		}
 	}
-	d := turns[m.relocs%4]
-	x, z := origin.X+d[0]*10, origin.Z+d[1]*10
-	spot, found := world.BlockPos{}, false
-	for y := origin.Y + 6; y >= origin.Y-6; y-- { // el suelo de esa columna (la superficie que se ve)
-		p := world.BlockPos{X: x, Y: y, Z: z}
-		if j.solid(world.BlockPos{X: x, Y: y - 1, Z: z}) && !j.liquid(world.BlockPos{X: x, Y: y - 1, Z: z}) && j.airCell(p) && j.airCell(world.BlockPos{X: x, Y: y + 1, Z: z}) {
-			spot, found = p, true
-			break
+	// el sitio: a 10 (o 14) bloques, en la dirección que toca y, si no, en las otras; el
+	// suelo de esa columna, sin hojas (la copa de un árbol no vale) y sin agua
+	var lastErr error = why
+	for k := 0; k < 8; k++ {
+		d := turns[(m.relocs+k)%4]
+		dist := 10 + 4*(k/4)
+		x, z := origin.X+d[0]*dist, origin.Z+d[1]*dist
+		spot, found := world.BlockPos{}, false
+		for y := origin.Y + 6; y >= origin.Y-24; y-- {
+			p := world.BlockPos{X: x, Y: y, Z: z}
+			below := world.BlockPos{X: x, Y: y - 1, Z: z}
+			if j.solid(below) && !j.liquid(below) && !strings.HasSuffix(j.Block(below), "_leaves") && j.airCell(p) && j.airCell(world.BlockPos{X: x, Y: y + 1, Z: z}) {
+				spot, found = p, true
+				break
+			}
 		}
+		if !found {
+			continue
+		}
+		if err := j.GoTo(spot); err != nil {
+			if j.Fatal() != nil {
+				return j.Fatal()
+			}
+			lastErr = err
+			continue
+		}
+		m.trail = []world.BlockPos{spot}
+		m.cur = spot
+		return nil
 	}
-	if !found {
-		return fmt.Errorf("no veo dónde pisar a 10 bloques de la escalera: %w", why)
-	}
-	if err := j.GoTo(spot); err != nil {
-		return fmt.Errorf("ir a %v para otra escalera: %w", spot, err)
-	}
-	m.trail = []world.BlockPos{spot}
-	m.cur = spot
-	return nil
+	return fmt.Errorf("no encuentro dónde empezar otra escalera cerca (%v)", lastErr)
 }
 
 // openPath deja libres las celdas (de arriba abajo) con suelo firme en
@@ -383,6 +406,12 @@ func (m *oreMine) openPath(cells []world.BlockPos, floor world.BlockPos) error {
 	j := m.j
 	if j.liquid(floor) {
 		return fmt.Errorf("agua o lava bajo %v", floor)
+	}
+	// hojas de suelo (la copa de un árbol): el pathfinding no anda sobre ellas, y
+	// la vuelta por la escalera construía torres dentro de ella o se quedaba
+	// parada en el borde. La escalera, siempre sobre roca o tierra.
+	if strings.HasSuffix(j.Block(floor), "_leaves") {
+		return fmt.Errorf("el suelo de %v son hojas", floor)
 	}
 	if !j.solid(floor) { // sin suelo: un bloque si lleva; si no, no se sigue
 		fill := j.filler()
@@ -690,7 +719,7 @@ func (m *oreMine) trip(why string, final bool) error {
 		return nil
 	}
 	if len(m.trail) > 1 {
-		j.Logf("minar: vuelvo a la mina")
+		j.Logf("minar: vuelvo a la mina (%d celdas)", len(loopTrail(m.trail)))
 		fwd := loopTrail(m.trail)
 		if err := j.GoTo(fwd[0]); err != nil && j.Feet() != fwd[0] {
 			return fmt.Errorf("volver a la mina (%v): %w", fwd[0], err)
@@ -706,6 +735,37 @@ func (m *oreMine) trip(why string, final bool) error {
 	return nil
 }
 
+// settle espera (hasta 1 s) a tener los pies en el suelo y quieto.
+func (m *oreMine) settle() {
+	for t := 0; t < 20 && !m.j.r.d.Ctl.State().OnGround; t++ {
+		if m.j.Wait(1) != nil {
+			return
+		}
+	}
+}
+
+// nudge: el bot se queda "colgado" del borde de un escalón (apoyado en la
+// esquina del bloque de arriba, con el centro ya sobre el hueco): el pathfinding
+// da la celda por alcanzada o no sabe salir del aire, y la vuelta por la
+// escalera se paraba ahí. Se le empuja andando hacia el centro de la celda
+// (hasta 12 ticks) para que caiga al escalón.
+func (m *oreMine) nudge(p world.BlockPos) {
+	j := m.j
+	f := j.Feet()
+	if f == p || f.Y <= p.Y || abs(f.X-p.X)+abs(f.Z-p.Z) > 1 {
+		return
+	}
+	defer j.r.d.Ctl.SetInput(control.Input{})
+	for t := 0; t < 12 && j.Feet() != p; t++ {
+		act.LookAt(j.r.d.Player, false, float64(p.X)+0.5, float64(p.Y)+1.62, float64(p.Z)+0.5)
+		j.r.d.Ctl.SetInput(control.Input{Forward: true})
+		if j.r.d.Ctl.WaitTicks(j.ctx, 1) != nil {
+			return
+		}
+	}
+	m.settle()
+}
+
 // walkTrail anda por las celdas del recorrido en ese orden. Si una no se
 // alcanza (algo cambió: una pelea lo apartó, cayó grava), prueba con las
 // siguientes: lo que importa es llegar al final.
@@ -715,8 +775,21 @@ func (m *oreMine) walkTrail(cells []world.BlockPos) error {
 	j.pickFloor = 0 // (el camino es todo aire: aunque el pico esté casi gastado)
 	defer func() { j.pickFloor = pf }()
 	for i := 0; i < len(cells); {
+		m.settle() // (llegar a una celda sin haber aterrizado: el siguiente paso sale del aire y el camino no lo ve)
 		err := j.walkCells(cells[i : i+1])
+		if j.Feet() != cells[i] {
+			m.nudge(cells[i])
+			if err == nil && j.Feet() != cells[i] {
+				err = j.walkCells(cells[i : i+1])
+			}
+		}
 		if err == nil {
+			i++
+			continue
+		}
+		m.settle()
+		m.nudge(cells[i])
+		if j.walkCells(cells[i:i+1]) == nil {
 			i++
 			continue
 		}
