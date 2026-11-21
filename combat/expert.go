@@ -410,7 +410,7 @@ func (f *Fighter) crystalStep(ctx context.Context, t *foe, st basic.Status) bool
 		f.d.Hands.PlaceOn(b, below, f.busy("la obsidiana no se puso"))
 		f.logf("obsidiana junto a %s para el cristal", t.name)
 		f.ex.obby, f.ex.obbyUntil, f.ex.obbyNext = b, f.steps+12, f.steps+20
-		return true                  // (el cristal, el paso siguiente: con la obsidiana ya puesta)
+		return true // (el cristal, el paso siguiente: con la obsidiana ya puesta)
 	}
 	slot, _ := f.slotOf("minecraft:end_crystal")
 	if !f.holdChecked(ctx, slot, "minecraft:end_crystal") {
