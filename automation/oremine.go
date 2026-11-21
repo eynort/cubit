@@ -132,9 +132,17 @@ func MineOres(cfg MineConfig) func(j *Job) error {
 				return err
 			}
 		}
-		err = m.goToLayer()
-		if err == nil {
-			err = m.run()
+		for restarts := 0; ; restarts++ {
+			if err = m.goToLayer(); err == nil {
+				err = m.run()
+			}
+			if !errors.Is(err, errLostMine) || restarts >= 3 || j.Fatal() != nil {
+				break
+			}
+			// el túnel de vuelta no se pudo andar (se cerró, una cueva, un derrumbe): otra escalera desde donde esté
+			f := j.Feet()
+			j.Logf("minar: %v; empiezo otra escalera desde aquí (%v)", err, f)
+			m.trail, m.cur = []world.BlockPos{f}, f
 		}
 		if errors.Is(err, errMineDone) {
 			err = nil
@@ -148,6 +156,9 @@ func MineOres(cfg MineConfig) func(j *Job) error {
 		return err
 	}
 }
+
+// errLostMine: no se pudo volver a la mina por el túnel (trip).
+var errLostMine = errors.New("perdí el túnel de la mina")
 
 // errMineDone: se juntó lo pedido (total).
 var errMineDone = errors.New("hecho")
@@ -417,7 +428,10 @@ func (m *oreMine) advance(next world.BlockPos) error {
 		return err
 	}
 	if err := j.GoTo(next); err != nil {
-		return err
+		// (agua que entró, grava que cayó…: una vez más, cavando hasta la celda)
+		if j.Fatal() != nil || j.standAt(next) != nil || j.Feet() != next {
+			return err
+		}
 	}
 	m.note(next)
 	m.torch(prev)
@@ -485,6 +499,9 @@ func (m *oreMine) branch(at func(i, s int) world.BlockPos, i, s int) error {
 		if err := m.advance(at(i, k*s)); err != nil {
 			if j.Fatal() != nil {
 				return j.Fatal()
+			}
+			if errors.Is(err, errLostMine) {
+				return err
 			}
 			j.Logf("minar: la rama %d (lado %+d) acaba en %d: %v", i, s, k-1, err)
 			break
@@ -600,7 +617,9 @@ func (m *oreMine) harvest() error {
 			if j.Fatal() != nil {
 				return j.Fatal()
 			}
-			return fmt.Errorf("no vuelvo al túnel (%v): %w", m.cur, err)
+			// (no se vuelve a la celda: se sigue desde donde esté; el recorrido sigue contiguo)
+			j.Logf("minar: no vuelvo a %v (%v): sigo desde %v", m.cur, err, j.Feet())
+			m.note(j.Feet())
 		}
 	}
 	return nil
@@ -677,7 +696,10 @@ func (m *oreMine) trip(why string, final bool) error {
 			return fmt.Errorf("volver a la mina (%v): %w", fwd[0], err)
 		}
 		if err := m.walkTrail(fwd); err != nil {
-			return fmt.Errorf("volver por el túnel: %w", err)
+			if j.Fatal() != nil {
+				return j.Fatal()
+			}
+			return fmt.Errorf("volver por el túnel: %v: %w", err, errLostMine)
 		}
 	}
 	m.cur = back
@@ -700,6 +722,15 @@ func (m *oreMine) walkTrail(cells []world.BlockPos) error {
 		}
 		if j.Fatal() != nil {
 			return j.Fatal()
+		}
+		// una celda del recorrido que falta (un escalón sin apuntar): el que hay entre
+		// los dos, en la columna de la celda de destino, un nivel más abajo de donde está
+		if f := j.Feet(); f.Y-cells[i].Y >= 2 && abs(f.X-cells[i].X)+abs(f.Z-cells[i].Z) <= 1 {
+			mid := world.BlockPos{X: cells[i].X, Y: f.Y - 1, Z: cells[i].Z}
+			if j.walkCells([]world.BlockPos{mid}) == nil && j.walkCells(cells[i:i+1]) == nil {
+				i++
+				continue
+			}
 		}
 		// algo se cerró (grava, un bloque que puso el pathfinding): cavar hasta la celda
 		if serr := j.standAt(cells[i]); serr == nil && j.Feet() == cells[i] {
