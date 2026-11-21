@@ -52,7 +52,8 @@ func (g *Game) useBucket(u play.UseItem) error {
 		if len(block.CollisionShape(s)) > 0 {
 			// (a fluid goes where the player stands too: BucketItem.emptyContents checks no entity — a
 			// bucket at one's feet puts a fire out)
-			if held.item == "minecraft:water_bucket" && g.S.World.At(prev[0], prev[1], prev[2]) == 0 {
+			// PATCH (arsenal.go): also into lava (a lava source can be replaced by water: the bucket on lava at one's feet)
+			if at := g.S.World.At(prev[0], prev[1], prev[2]); held.item == "minecraft:water_bucket" && (at == 0 || at == fakeserver.State("minecraft:lava")) {
 				g.S.World.SetState(prev[0], prev[1], prev[2], water)
 				if err := g.S.Send(play.BlockUpdate{Pos: pk.Position{X: prev[0], Y: prev[1], Z: prev[2]}, BlockState: pk.VarInt(water)}); err != nil {
 					return err

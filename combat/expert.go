@@ -70,6 +70,7 @@ type expertState struct {
 	pops        map[int32]int
 	popAt       uint64         // el paso en que se gastó un tótem del bot (0: nada pendiente)
 	blastSkip   world.BlockPos // la celda que la explosión quita antes de estallar (el ancla): no tapa
+	trapNext    uint64         // hasta este paso no se mira otra vez si le encerraron (defense.go)
 }
 
 // initExpert: los ganchos de los élitros en la física (si no los puso nadie)
@@ -699,9 +700,7 @@ func (f *Fighter) counterMace(ctx context.Context, t *foe) bool {
 		return false
 	}
 	f.ex.waterAt = f.steps
-	if f.ars.lavaAt == nil {
-		f.ars.lavaAt = map[world.BlockPos]uint64{}
-	}
+	f.markOwnFluid(cellOf(p.X, p.Y, p.Z)) // (su agua: clearFluids no se la quita)
 	f.d.Hands.UseItemLooking(p.Yaw, 90, nil)
 	f.logf("%s viene cayendo con la maza: agua a mis pies", t.name)
 	return true

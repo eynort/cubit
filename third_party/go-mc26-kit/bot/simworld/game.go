@@ -174,6 +174,8 @@ type Game struct {
 	shift          bool       // PATCH (build): the shift key held (ServerboundPlayerInput)
 	rockets        []*rocket  // PATCH: the firework rockets in flight (elytra.go)
 	ars            arsenalSim // PATCH: spear, mace, wind charges, lava, webs, trident (arsenal.go)
+	dirty          DirtyStats // PATCH: what the dirty duelists did (tricks.go)
+	lavaHurts      int        // PATCH: ticks the player was hurt in lava
 }
 
 // Start serves a game and joins a bot of the kit to it, on a stepped clock; the
@@ -449,6 +451,9 @@ func (g *Game) serverTick() {
 		g.T.Fatal(err)
 	}
 	if err := g.arsenalTick(); err != nil { // PATCH (arsenal.go)
+		g.T.Fatal(err)
+	}
+	if err := g.lavaTick(); err != nil { // PATCH (tricks.go)
 		g.T.Fatal(err)
 	}
 	if err := g.itemsTick(); err != nil {

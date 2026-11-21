@@ -37,7 +37,13 @@ type Lava struct {
 	// Extinguish apaga el fuego de p (pegarle: se rompe al instante, como hace un
 	// jugador). nil: sin manos, solo se huye.
 	Extinguish func(p world.BlockPos)
+	// Scoop quita la fuente de lava de p con un cubo (recogerla con uno vacío o
+	// echar agua encima, mirando a los pies): dice si lo intenta. Es lo que hace
+	// un jugador al que le echan lava: un clic, al instante; salir andando de una
+	// fuente lleva más de un segundo dentro. nil: solo se huye.
+	Scoop func(p world.BlockPos) bool
 
+	scooping int // ticks quitando la lava de los pies (Scoop)
 	mu       sync.Mutex
 	trail    []world.BlockPos // las últimas celdas seguras por las que pasó (la última, la más reciente)
 	escaping bool
@@ -194,6 +200,30 @@ func (l *Lava) Think(s *control.State, bp *basic.Player) bool {
 
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	// dentro de una fuente de lava (la que le echaron): quitarla con el cubo,
+	// quieto, antes que salir andando. 8 ticks como mucho (la ida y vuelta
+	// del servidor); si sigue ahí, a huir
+	if !inLava {
+		l.scooping = 0
+	}
+	if inLava && l.Scoop != nil && l.scooping < 8 {
+		for _, c := range bodyCells(pos) {
+			if l.source(c) {
+				if l.scooping == 0 {
+					if !l.Scoop(c) {
+						l.scooping = 8 // (sin cubo: a huir)
+						break
+					}
+					l.logf("¡lava encima! la quito con el cubo (%v)", c)
+					l.escapes.Add(1)
+				}
+				l.scooping++
+				l.escaping = true
+				s.Input = control.Input{}
+				return true
+			}
+		}
+	}
 	// en fuego (y no en lava): apagarlo a golpes es lo más rápido (un tick por
 	// llama); si en 12 ticks sigue dentro, a huir
 	if !inFire {
@@ -338,4 +368,10 @@ func abs(x int) int {
 		return -x
 	}
 	return x
+}
+
+// source: en p hay una fuente de lava (no lava que corre).
+func (l *Lava) source(p world.BlockPos) bool {
+	n := l.name(p)
+	return strings.HasPrefix(n, "minecraft:lava") && (!strings.Contains(n, "level=") || strings.Contains(n, "level=0"))
 }

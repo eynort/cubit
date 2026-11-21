@@ -35,6 +35,8 @@ type Kit struct {
 	// BreakTicks: with no sight of the player and near it, the ticks it takes to break the block between
 	// (a pickaxe out, the block mined); 0: it never does
 	BreakTicks int
+	// PATCH (tricks.go): what it does beyond its blows
+	Tricks Tricks
 }
 
 // enchants is a stack's enchantments as "name=level,…" (comparable, as a slotItem is).
@@ -156,6 +158,9 @@ func (g *Game) SummonDuelistKit(dx, dz float64, k Kit) error {
 	m.k.damage = float32(dmg)
 	m.k.interval = int(math.Ceil(20 / speed))
 	m.breakTicks = k.BreakTicks
+	if k.Tricks != (Tricks{}) {
+		m.tricks = &tricks{mace: k.Tricks.Mace, lava: k.Tricks.Lava, trap: k.Tricks.Trap}
+	}
 	if k.Still || k.Eating {
 		m.k.speed = 0
 	}

@@ -157,6 +157,7 @@ type mob struct {
 	def        defense
 	breakTicks int
 	blind      int
+	tricks     *tricks // PATCH (tricks.go): a dirty duelist's
 }
 
 // Summon puts a mob of the kind on the ground at x, z (its top block), as the harness's "summon … over
@@ -275,6 +276,10 @@ func (g *Game) mobsTick() error {
 		} else if died {
 			continue
 		}
+		ownBlow, err := g.trickTick(m) // PATCH (tricks.go)
+		if err != nil {
+			return err
+		}
 		// the walk: toward the player, while it lives — the push of a step is the speed a tick at rest; a
 		// creeper lit stands, a skeleton in range strafes
 		const drag = 0.546 // the ground's friction (0.6) times the air's (0.91)
@@ -371,7 +376,7 @@ func (g *Game) mobsTick() error {
 				m.blind = 0
 			}
 		}
-		if !g.dead && m.cooldown == 0 && m.k.damage > 0 {
+		if !g.dead && m.cooldown == 0 && m.k.damage > 0 && !ownBlow {
 			d := math.Sqrt(sq(g.pos[0]-m.x) + sq(g.pos[1]-m.y) + sq(g.pos[2]-m.z))
 			if d <= m.k.reach && g.seesPlayer(m) {
 				m.cooldown = 20

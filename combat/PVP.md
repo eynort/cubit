@@ -419,6 +419,44 @@ Escoger cuándo pegar y encadenar empujones no se pueden medir en el
 simulador: su rival no reacciona a los empujones ni espera como una persona
 (en el banco de espada sola, la diferencia queda dentro del ruido).
 
+### Defensa (`defense.go`, `safety/lava.go`)
+
+Contra un rival del simulador que juega sucio (`simworld` Tricks: salta con
+carga de viento y cae con la maza; echa lava a los pies; encierra con bloques
+y echa lava dentro), con los reflejos conectados como en el bot de verdad
+(`TestDefend*`):
+
+| Ataque | Antes | Ahora |
+|---|---|---|
+| Mazazo desde arriba | los 2 entran, muerto | los 2 parados con el escudo; le mata (vida 14-17) |
+| Lava a los pies | 26 ticks en la lava | 6 (la ida y vuelta del servidor) |
+| Encerrado y lava dentro | muerto | sale, se quita la lava, le mata (vida 6,9) |
+
+- **Lava encima**: el reflejo de la lava, antes de salir andando (en una
+  fuente se avanza muy despacio: más de un segundo dentro), la quita con el
+  cubo mirando a los pies: recogerla con uno vacío (y se queda su lava) o
+  agua encima. Luego se apaga con el agua, como siempre.
+- **Un mazazo en camino** (el rival con maza por encima y a menos de 5): el
+  escudo arriba y de cara a él (para la maza) y de lado, fuera de donde cae.
+  Sin escudo, agua a los pies (marcada como suya: antes `clearFluids` la
+  recogía creyendo que era del rival) o fuera de debajo de él.
+- **Encerrado** por bloques que no son suyos y con él cerca: rompe la pared
+  de atrás y sale a pelear (por la de su lado, él espera pegado y pega con el
+  pico aún en la mano: de 20 a 6 de vida saliendo así).
+- **Saliendo de su búnker**, si le pegan (o le espera pegado a un hueco ya
+  abierto): deja de picar y pelea.
+- **Curarse a tiempo**: a dos golpes suyos de morir (su arma, con crítico,
+  contra la armadura del bot), a curarse aunque "le gane" (con 6 de vida y
+  "le gano", muerto en 1,3 s). Y la dorada no se come al descubierto si él
+  llega antes de acabarla (1,6 s): antes, el búnker.
+- **Los otros bots del panel** no son rivales: ni guardia, ni pelea, ni zona.
+  La guardia contra uno que se queda cerca sin atacar dura 10 s.
+
+Sin escudo, contra el rival del simulador, el bot pierde siempre (`TestDuelBench`):
+el rival vive dentro del servidor, sin retraso, y el bot ve y pega con 4 ticks
+de retraso en cada sentido. Contra un jugador (que también tiene retraso) no
+es así; por eso el banco no sirve para afinar los combos.
+
 ## 3. Medidas (simulador, 4 ticks de retraso)
 
 Duelista: corre a 0.28 bloques/tick y pega con espada de hierro (6) en cuanto

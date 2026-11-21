@@ -137,6 +137,7 @@ type plan struct {
 	smash        bool    // en el aire con la maza: pegar en cuanto esté a tiro (arsenal.go)
 	fly          int     // con élitros: 1 subiendo, 2 en picado (expert.go)
 	guard        bool    // un cristal cerca: el escudo de cara a él (expert.go)
+	dodge        bool    // con guard: de lado en vez de atrás (un mazazo que cae: defense.go)
 	gx, gy, gz   float64 // dónde está
 }
 
@@ -481,6 +482,14 @@ func (f *Fighter) step(ctx context.Context) {
 			return
 		}
 	}
+	// saliendo del búnker y le esperan: a pelear (defense.go)
+	f.exitAmbush(foes)
+	// encerrado por él: romper su pared y salir a pelear (defense.go)
+	for i := range foes {
+		if foes[i].e.Type == "minecraft:player" && f.trapped(&foes[i]) {
+			break
+		}
+	}
 	// el búnker (bunker.go): mientras dura, manda él
 	if f.bunkerStep(ctx, st, foes, f.match.stance) {
 		return
@@ -603,6 +612,14 @@ func (f *Fighter) step(ctx context.Context) {
 		case stanceAvoid:
 			low += 6
 		}
+		// a dos golpes suyos de morir (con su arma y la armadura del bot), a
+		// curarse aunque se gane el intercambio: el cálculo es de media, y dos
+		// golpes con suerte (un crítico) acaban la pelea (en el simulador, con 6
+		// de vida y "le gano", muerto en 1,3 s)
+		armor, tough := f.myArmor()
+		if two := 2 * afterArmor(theirHit(target.e)*1.5, armor, tough); float64(low) < two {
+			low = float32(min(two, 14))
+		}
 	}
 
 	// la torre: contra zombis y los suyos, arriba no llegan (pillar.go)
@@ -610,11 +627,26 @@ func (f *Fighter) step(ctx context.Context) {
 	if f.usePotions(ctx, st, target, near) {
 		return
 	}
-	// manzana dorada en plena pelea si no hay nadie encima
+	// manzana dorada en plena pelea si no hay nadie encima. Comer son 1,6 s
+	// quieto: a uno que viene corriendo (a 0,28 por tick llega en 32 ticks
+	// desde 9) le da tiempo a llegar y pegar dos veces. Contra un jugador que
+	// viene, antes el búnker (dentro se come); si no, solo con él lejos
 	_, regen := st.Effects["minecraft:regeneration"]
 	if hasGap && st.Health <= 12 && !regen && near >= 3.5 {
-		f.eat(ctx, gap, cx, cz)
-		return
+		coming := false
+		if target != nil && target.e.Type == "minecraft:player" {
+			p := f.d.Player.Position()
+			coming = target.dist-math.Max(0, f.closingSpeed(p, target.e, f.t.seenVel[0], f.t.seenVel[1]))*34 < 3
+		}
+		switch {
+		case !coming:
+			f.logf("como una dorada (vida %.1f)", st.Health)
+			f.eat(ctx, gap, cx, cz)
+			return
+		case f.wantBunker(target) && time.Now().After(f.standUntil):
+			f.startBunker(target, fmt.Sprintf("vida %.1f: dentro me como la dorada", st.Health))
+			return
+		}
 	}
 
 	switch cur.mode {
@@ -718,6 +750,10 @@ func (f *Fighter) step(ctx context.Context) {
 	}
 	// en una telaraña: romperla (expert.go)
 	if f.escapeWeb(ctx) {
+		return
+	}
+	// un mazazo en camino: el escudo de cara a él, o el agua, o apartarse (defense.go)
+	if isPlayer && f.defendMace(ctx, target, shield) {
 		return
 	}
 	// el picado con élitros y maza (expert.go)

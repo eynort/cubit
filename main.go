@@ -299,6 +299,7 @@ func (b *Bot) setupModules() {
 		Builder: b.Builder,
 	})
 
+	b.Lava.Scoop = b.Combat.ScoopLava // (lava encima: quitarla con el cubo, al instante)
 	b.Combat.Reflex = func() bool { return b.Fire.Active() || b.Fall.Active() }
 	b.Fire.BeforeUse = b.Combat.ReleaseHands
 	b.Combat.Burning = b.Fire.Burning                         // ardiendo sin cubo: al agua que haya cerca

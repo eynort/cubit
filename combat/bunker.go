@@ -53,11 +53,13 @@ type bunkerState struct {
 	lastPlace uint64           // el paso del último
 	jump      bool             // saltar para poner (la cara de arriba de una pared)
 	// la salida (exit.go no: aquí): por qué lado, intentos y qué hacer al abrir
-	side      int    // el lado que se abre (0 el del rival … 3 el de atrás)
-	tries     int    // golpes de pico seguidos al mismo bloque sin romperlo
-	sides     int    // lados probados
-	thenFight bool   // abierto, a por él (aunque no haya pegado: venía armado a por el bot)
-	planned   string // el plan que dijo (para no repetirlo)
+	side      int              // el lado que se abre (0 el del rival … 3 el de atrás)
+	tries     int              // golpes de pico seguidos al mismo bloque sin romperlo
+	sides     int              // lados probados
+	thenFight bool             // abierto, a por él (aunque no haya pegado: venía armado a por el bot)
+	opened    []world.BlockPos // la salida entera (lo que se rompe: opening se va vaciando)
+	trap      bool             // no es su búnker: le encerró el rival (defense.go); se rompe hacia él
+	planned   string           // el plan que dijo (para no repetirlo)
 }
 
 // cell es un bloque del búnker y contra qué se pone.
@@ -479,7 +481,7 @@ func (f *Fighter) openWall(cells []cell, side int) {
 			out = append(out, c)
 		}
 	}
-	f.bk.opening = out
+	f.bk.opening, f.bk.opened = out, append([]world.BlockPos(nil), out...)
 	if len(out) == 0 {
 		f.endBunker()
 	}

@@ -190,6 +190,9 @@ func (f *Fighter) thinkFight(s *control.State, bp *basic.Player, pl *plan) {
 		f.aim(bp, pl.gx, pl.gy, pl.gz)
 		f.raiseShield(tick, pos)
 		in := control.Input{Backward: true}
+		if pl.dodge { // (un mazazo que cae: de lado, fuera de donde cae, sin dejar de mirarle)
+			in = control.Input{Left: f.t.strafeDir <= 0, Right: f.t.strafeDir > 0}
+		}
 		f.terrain(s, bp, &in)
 		s.Input = in
 		return
