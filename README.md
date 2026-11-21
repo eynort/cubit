@@ -25,6 +25,7 @@ It runs anywhere: Linux, macOS, Windows, a Raspberry Pi, a $5 VPS, or an old And
 
 - **PvP.** It fights like an expert: shield, crits and combos, the mace, crystals, pearls and totems. It never runs away.
 - **Excavate.** It empties whole areas layer by layer, stores the loot in your chests and never breaks a pickaxe.
+- **Mine.** Strip mining like a real player: down a staircase to the best layer for each ore, no x-ray.
 - **Move.** It finds its own way with A*, building towers and bridges when it needs them.
 
 You run all your bots from a **web panel**. Each bot has its own command console there, and the panel includes a test server you can play on right away.
@@ -97,6 +98,13 @@ Type commands in the bot's **console in the panel**. In game, whisper them as an
 /excavate chests list         → show them
 /excavate chests remove 104 103 -224
 /excavate chests clear        → forget them all
+```
+
+**`/mine <ores> <x> <y> <z> [every <n>] [total <n>]`**: strip mining like a real player, with no x-ray. It digs a staircase down to the best layer for that ore (diamond at y -59, iron at 16…), then a main tunnel with side branches every 3 blocks, and only mines ore it can actually see. `x y z` is the chest where it drops the ore (every 8 by default) and takes pickaxes from. The mine starts where the bot stands.
+```
+/mine diamond 104 64 -224              → diamonds, drop them in that chest every 8
+/mine iron,copper ~ ~ ~ every 16       → a layer good for both, chest where it stands
+/mine diamond 104 64 -224 total 32     → stop after 32
 ```
 
 **`/inventory [grid]`**: shows what it carries: armor, hotbar and inventory.

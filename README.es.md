@@ -25,6 +25,7 @@ Corre en cualquier sitio: Linux, macOS, Windows, una Raspberry Pi, un VPS de 5 $
 
 - **PvP.** Pelea como un experto: escudo, críticos y combos, la maza, cristales, perlas y tótems. Nunca huye.
 - **Excavar.** Vacía zonas enteras capa a capa, guarda lo que saca en tus cofres y nunca rompe un pico.
+- **Minar.** En ramas, como un jugador de verdad: baja por una escalera a la mejor capa para cada mineral, sin xray.
 - **Moverse.** Encuentra el camino solo con A*, y hace torres y puentes si le hacen falta.
 
 Todos tus bots se manejan desde un **panel web**. Ahí cada bot tiene su propia consola de órdenes, y el panel incluye un servidor de pruebas en el que puedes jugar al momento.
@@ -97,6 +98,13 @@ Escribe las órdenes en la **consola del bot en el panel**. En el juego, mándas
 /excavate chests list         → verlos
 /excavate chests remove 104 103 -224
 /excavate chests clear        → olvidarlos todos
+```
+
+**`/mine <minerales> <x> <y> <z> [every <n>] [total <n>]`**: mina en ramas como un jugador de verdad, sin xray. Baja por una escalera a la mejor capa para ese mineral (diamante en y -59, hierro en 16…), hace un túnel con ramas cada 3 bloques y solo pica los minerales que de verdad ve. `x y z` es el cofre donde deja lo minado (cada 8 por defecto) y de donde coge picos. La mina empieza donde está el bot.
+```
+/mine diamond 104 64 -224              → diamantes, a ese cofre cada 8
+/mine iron,copper ~ ~ ~ every 16       → una capa que vale para los dos, cofre donde está
+/mine diamond 104 64 -224 total 32     → parar al llegar a 32
 ```
 
 **`/inventory [grid]`**: enseña lo que lleva: armadura, barra e inventario.
