@@ -1,6 +1,4 @@
-package main
-
-// La cabeza de un bot para el panel, la que corresponde a cómo se le ve:
+// Package avatar: la cabeza de un bot para el panel, la que corresponde a cómo se le ve:
 //
 //   - en un servidor premium (entra con su cuenta de Microsoft) lleva la skin
 //     de esa cuenta: /avatar/<nombre>?skin=real, la cara de su skin de Mojang
@@ -11,6 +9,7 @@ package main
 //
 // Las de Mojang se guardan en avatares/ (las que no existen, un día) para no
 // preguntar cada vez; sin internet, también la pixelada.
+package avatar
 
 import (
 	"bytes"
@@ -30,6 +29,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"cubit/internal/mc"
 )
 
 const (
@@ -40,9 +41,11 @@ const (
 
 var avatarMu sync.Mutex // (una descarga a la vez)
 
-func serveAvatar(w http.ResponseWriter, r *http.Request, name string) {
+// Serve responde a /avatar/<name> con la cabeza de name (?skin=real: la de
+// su cuenta de Mojang).
+func Serve(w http.ResponseWriter, r *http.Request, name string) {
 	name = strings.TrimSuffix(name, ".png")
-	if !validName.MatchString(name) {
+	if !mc.ValidName.MatchString(name) {
 		http.Error(w, "nombre", http.StatusBadRequest)
 		return
 	}
@@ -222,9 +225,9 @@ func encodeFace(face *image.RGBA) []byte {
 	return buf.Bytes()
 }
 
-// avatarURL: la cabeza que toca en el panel a un bot con ese nombre; premium:
+// URL: la cabeza que toca en el panel a un bot con ese nombre; premium:
 // juega con cuenta de Microsoft (lleva su skin de verdad).
-func avatarURL(name string, premium bool) string {
+func URL(name string, premium bool) string {
 	u := "/avatar/" + url.PathEscape(name)
 	if premium {
 		u += "?skin=real"

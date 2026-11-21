@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"regexp"
 	"sort"
 	"strings"
 	"unicode/utf8"
@@ -267,11 +266,6 @@ func cmdInventory(b *Bot, args []string) error {
 	log.Print("\n" + renderInventoryList(title, slots, held, stats))
 	return nil
 }
-
-// ansi son los códigos de color de la terminal (fuera del log en archivo).
-var ansi = regexp.MustCompile("\x1b\\[[0-9;]*m")
-
-func stripANSI(s string) string { return ansi.ReplaceAllString(s, "") }
 
 // invCounts cuenta lo que lleva: "iron_chestplate (puesta)" para la armadura
 // y el escudo de la otra mano, el resto por nombre.

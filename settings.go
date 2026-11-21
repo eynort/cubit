@@ -13,6 +13,10 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"cubit/internal/i18n"
+	"cubit/internal/mc"
+	"cubit/internal/rcon"
 )
 
 // keepConfigEnv: al reiniciarse desde el panel, manda bot.json (no los flags
@@ -30,7 +34,7 @@ type panelSettings struct {
 func currentSettings() panelSettings {
 	cfgMu.Lock()
 	defer cfgMu.Unlock()
-	return panelSettings{Server: cfg.Server, Name: cfg.Name, Owners: append([]string{}, cfg.Owners...), RCON: rconAddr() != "", Lang: lang()}
+	return panelSettings{Server: cfg.Server, Name: cfg.Name, Owners: append([]string{}, cfg.Owners...), RCON: rcon.Addr() != "", Lang: lang()}
 }
 
 // applySettings guarda los ajustes; restart: hace falta reiniciar.
@@ -44,20 +48,20 @@ func applySettings(s panelSettings) (restart bool, err error) {
 		s.Name = cfg.Name
 	}
 	cfgMu.Unlock()
-	if !validName.MatchString(s.Name) {
-		return false, bi("invalid name %q: 3-16 letters, digits or _", "nombre %q inválido: 3-16 letras, números o _", s.Name)
+	if !mc.ValidName.MatchString(s.Name) {
+		return false, i18n.Errorf("invalid name %q: 3-16 letters, digits or _", "nombre %q inválido: 3-16 letras, números o _", s.Name)
 	}
 	var owners []string
 	for _, o := range s.Owners {
 		if o = strings.TrimSpace(o); o != "" && !slices.Contains(owners, o) {
-			if o != "*" && !validName.MatchString(o) {
-				return false, bi("invalid owner %q: 3-16 letters, digits or _ (or *)", "dueño %q inválido: 3-16 letras, números o _ (o *)", o)
+			if o != "*" && !mc.ValidName.MatchString(o) {
+				return false, i18n.Errorf("invalid owner %q: 3-16 letters, digits or _ (or *)", "dueño %q inválido: 3-16 letras, números o _ (o *)", o)
 			}
 			owners = append(owners, o)
 		}
 	}
 	if s.Lang != "" && languages[s.Lang] == "" {
-		return false, bi("language %q: en or es", "idioma %q: en o es", s.Lang)
+		return false, i18n.Errorf("language %q: en or es", "idioma %q: en o es", s.Lang)
 	}
 
 	cfgMu.Lock()
@@ -75,7 +79,7 @@ func applySettings(s panelSettings) (restart bool, err error) {
 		setLang(s.Lang)
 	}
 	if newOwners {
-		opOwners(owners)
+		rcon.OpOwners(owners)
 	}
 	return restart, nil
 }
@@ -106,8 +110,8 @@ func restartSelf() {
 // renameBot cambia solo el nombre del bot (y lo reinicia, si cambió).
 func renameBot(name string) (restart bool, err error) {
 	name = strings.TrimSpace(name)
-	if !validName.MatchString(name) {
-		return false, bi("invalid name %q: 3-16 letters, digits or _", "nombre %q inválido: 3-16 letras, números o _", name)
+	if !mc.ValidName.MatchString(name) {
+		return false, i18n.Errorf("invalid name %q: 3-16 letters, digits or _", "nombre %q inválido: 3-16 letras, números o _", name)
 	}
 	cfgMu.Lock()
 	if cfg.Name == name {
@@ -138,12 +142,12 @@ func settingsRoutes(mux *http.ServeMux, ok func(http.ResponseWriter, *http.Reque
 			Name string `json:"name"`
 		}
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024)).Decode(&req); err != nil {
-			httpMsg(w, r, http.StatusBadRequest, "unreadable request", "petición ilegible")
+			i18n.HTTPMsg(w, r, http.StatusBadRequest, "unreadable request", "petición ilegible")
 			return
 		}
 		restart, err := renameBot(req.Name)
 		if err != nil {
-			httpErr(w, r, http.StatusBadRequest, err)
+			i18n.HTTPError(w, r, http.StatusBadRequest, err)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -163,12 +167,12 @@ func settingsRoutes(mux *http.ServeMux, ok func(http.ResponseWriter, *http.Reque
 		case http.MethodPost:
 			var s panelSettings
 			if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10)).Decode(&s); err != nil {
-				httpMsg(w, r, http.StatusBadRequest, "unreadable settings", "ajustes ilegibles")
+				i18n.HTTPMsg(w, r, http.StatusBadRequest, "unreadable settings", "ajustes ilegibles")
 				return
 			}
 			restart, err := applySettings(s)
 			if err != nil {
-				httpErr(w, r, http.StatusBadRequest, err)
+				i18n.HTTPError(w, r, http.StatusBadRequest, err)
 				return
 			}
 			w.Header().Set("Content-Type", "application/json")
@@ -203,13 +207,13 @@ func settingsRoutes(mux *http.ServeMux, ok func(http.ResponseWriter, *http.Reque
 			Line string `json:"line"`
 		}
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil || strings.TrimSpace(req.Line) == "" {
-			httpMsg(w, r, http.StatusBadRequest, "missing command", "falta el comando")
+			i18n.HTTPMsg(w, r, http.StatusBadRequest, "missing command", "falta el comando")
 			return
 		}
 		log.Printf("[servidor] > %s", strings.TrimSpace(req.Line))
-		out, err := rconCmd(req.Line)
+		out, err := rcon.Cmd(req.Line)
 		if err != nil {
-			httpErr(w, r, http.StatusBadGateway, err)
+			i18n.HTTPError(w, r, http.StatusBadGateway, err)
 			return
 		}
 		if out != "" {

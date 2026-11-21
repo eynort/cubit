@@ -1,6 +1,4 @@
-package main
-
-// El hub (--hub :8080): el panel web siempre encendido, aunque no haya ningún
+// Package hub: el hub (--hub :8080): el panel web siempre encendido, aunque no haya ningún
 // bot en marcha, para varios bots a la vez. Cada bot es este mismo programa
 // en su propio proceso, con su carpeta (bots/<id>/: bot.json, datos/…) y su
 // panel interno en 127.0.0.1; el hub los arranca, los para, los vuelve a
@@ -11,20 +9,19 @@ package main
 //	/api/bots           crear un bot (POST)
 //	/api/bots/<id>/…    start, stop, open, delete (POST; delete lo borra del todo)
 //	/b/<id>/…           el panel de ese bot (json, log, cmd, settings…)
-//	/server…            el servidor de pruebas (server.go, server_power.go)
-//	/avatar/<nombre>    la cabeza de su skin (avatar.go)
+//	/server…            el servidor de pruebas (internal/mcserver)
+//	/avatar/<nombre>    la cabeza de su skin (internal/avatar)
 //
 // Ligero (sin Docker): vale igual en un móvil, cada bot es un proceso más.
+package hub
 
 import (
 	"bufio"
 	"context"
 	"crypto/rand"
-	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -41,9 +38,17 @@ import (
 	"sync"
 	"syscall"
 	"time"
-)
 
-var hubFlag = flag.String("hub", "", "modo hub: el panel en esta dirección (ej: :8080), siempre encendido, para varios bots (cada uno en bots/<id>/); los bots se crean y se arrancan desde el panel")
+	"cubit/brand"
+	"cubit/internal/ansi"
+	"cubit/internal/avatar"
+	"cubit/internal/config"
+	"cubit/internal/i18n"
+	"cubit/internal/mc"
+	"cubit/internal/mcserver"
+	"cubit/internal/rcon"
+	"cubit/internal/web"
+)
 
 const (
 	hubFile = "hub.json"
@@ -56,7 +61,7 @@ type hubConfig struct {
 	Bots    []string    `json:"bots"`              // los ids, en orden
 	Run     []string    `json:"run"`               // los que estaban en marcha (se arrancan al empezar)
 	Last    string      `json:"last,omitempty"`    // el último que se abrió en el panel
-	Servers []hubServer `json:"servers,omitempty"` // los externos (hub_servers.go)
+	Servers []hubServer `json:"servers,omitempty"` // los externos (servers.go)
 }
 
 type hubBot struct {
@@ -78,9 +83,13 @@ type hub struct {
 	cfg  hubConfig
 	bots map[string]*hubBot
 	ctx  context.Context
+	opts Options
 }
 
-var theHub *hub
+// Options: lo que el hub toma del programa que lo arranca.
+type Options struct {
+	DefaultOwner string // el dueño que propone el asistente (--owner)
+}
 
 func (h *hub) save() {
 	b, _ := json.MarshalIndent(h.cfg, "", "  ")
@@ -90,10 +99,9 @@ func (h *hub) save() {
 	}
 }
 
-// runHub: el modo hub (no vuelve hasta Ctrl-C).
-func runHub(addr string) {
-	h := &hub{bots: map[string]*hubBot{}}
-	theHub = h
+// Run: el modo hub, con el panel en addr (no vuelve hasta Ctrl-C).
+func Run(addr string, opts Options) {
+	h := &hub{bots: map[string]*hubBot{}, opts: opts}
 	if b, err := os.ReadFile(hubFile); err == nil {
 		if err := json.Unmarshal(b, &h.cfg); err != nil {
 			log.Fatalf("%s: %v", hubFile, err)
@@ -121,7 +129,7 @@ func runHub(addr string) {
 	h.adoptServers()
 	h.save()
 
-	isBotName = func(n string) bool {
+	mcserver.IsBotName = func(n string) bool {
 		for _, id := range h.ids() {
 			if strings.EqualFold(h.info(id).Name, n) {
 				return true
@@ -129,7 +137,7 @@ func runHub(addr string) {
 		}
 		return false
 	}
-	serverUpHook = h.serverUp
+	mcserver.OnUp = h.serverUp
 
 	ln, err := net.Listen("tcp", addr) // (antes que los bots: si no se puede, no se arranca nada)
 	if err != nil {
@@ -145,7 +153,7 @@ func runHub(addr string) {
 	}
 	host := ln.Addr().String()
 	if hh, port, err := net.SplitHostPort(host); err == nil && (hh == "::" || hh == "0.0.0.0") {
-		host = net.JoinHostPort(localIP(), port)
+		host = net.JoinHostPort(web.LocalIP(), port)
 	}
 	log.Printf("hub: panel en http://%s/?t=%s (%d bots)", host, h.cfg.Token, len(h.cfg.Bots))
 	srv := &http.Server{Handler: h.routes(), ReadHeaderTimeout: 5 * time.Second}
@@ -186,7 +194,7 @@ func (h *hub) migrate() {
 	if err != nil {
 		return
 	}
-	var old botConfig
+	var old config.Bot
 	if json.Unmarshal(b, &old) != nil || old.Name == "" {
 		return
 	}
@@ -241,8 +249,8 @@ func (h *hub) bot(id string) *hubBot {
 }
 
 // info lee el bot.json de un bot (lo que importa para el panel).
-func (h *hub) info(id string) botConfig {
-	var c botConfig
+func (h *hub) info(id string) config.Bot {
+	var c config.Bot
 	if b, err := os.ReadFile(filepath.Join(botsDir, id, "bot.json")); err == nil {
 		_ = json.Unmarshal(b, &c)
 	}
@@ -305,7 +313,7 @@ func (h *hub) spawn(b *hubBot) error {
 	target, _ := url.Parse(fmt.Sprintf("http://127.0.0.1:%d", port))
 	px := httputil.NewSingleHostReverseProxy(target)
 	px.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-		httpMsg(w, r, http.StatusBadGateway, "the bot is not answering (starting or stopped)", "el bot no responde (está arrancando o se ha parado)")
+		i18n.HTTPMsg(w, r, http.StatusBadGateway, "the bot is not answering (starting or stopped)", "el bot no responde (está arrancando o se ha parado)")
 	}
 	b.mu.Lock()
 	b.cmd, b.port, b.started, b.proxy = cmd, port, time.Now(), px
@@ -316,7 +324,7 @@ func (h *hub) spawn(b *hubBot) error {
 		sc := bufio.NewScanner(out)
 		sc.Buffer(make([]byte, 64<<10), 1<<20)
 		for sc.Scan() {
-			l := stripANSI(sc.Text())
+			l := ansi.Strip(sc.Text())
 			fmt.Fprintf(os.Stdout, "[%s] %s\n", name, l)
 			b.mu.Lock()
 			b.tail = append(b.tail, l)
@@ -425,7 +433,7 @@ func (h *hub) remember(id string, run bool) {
 func (h *hub) serverUp() {
 	for _, id := range h.ids() {
 		b := h.bot(id)
-		if b == nil || !b.running() || !onTestServer(h.info(id).Server) {
+		if b == nil || !b.running() || !mcserver.OnTestServer(h.info(id).Server) {
 			continue
 		}
 		b.mu.Lock()
@@ -438,20 +446,10 @@ func (h *hub) serverUp() {
 	}
 }
 
-// onTestServer: addr es el servidor de pruebas.
-func onTestServer(addr string) bool {
-	t := testServerAddr()
-	if t == "" || addr == "" {
-		return false
-	}
-	h, p := splitAddr(addr)
-	th, tp := splitAddr(t)
-	return strings.EqualFold(h, th) && p == tp
-}
-
 // ---- lo que ve el panel ----
 
-type hubBotState struct {
+// BotState: un bot tal como lo ve el panel.
+type BotState struct {
 	ID        string   `json:"id"`
 	Name      string   `json:"name"`
 	Server    string   `json:"server"`          // la dirección
@@ -467,11 +465,12 @@ type hubBotState struct {
 	Avatar    string   `json:"avatar"`
 }
 
-type hubState struct {
-	Mode       string        `json:"mode"` // "hub" o "single" (un bot solo, --monitor)
-	Bots       []hubBotState `json:"bots"`
-	Servers    []serverView  `json:"servers"`
-	Last       string        `json:"last,omitempty"`
+// State: /api/state, lo que ve el panel (del hub o de un bot solo).
+type State struct {
+	Mode       string       `json:"mode"` // "hub" o "single" (un bot solo, --monitor)
+	Bots       []BotState   `json:"bots"`
+	Servers    []ServerView `json:"servers"`
+	Last       string       `json:"last,omitempty"`
 	TestServer struct {
 		Available bool   `json:"available"`
 		Addr      string `json:"addr,omitempty"`
@@ -483,8 +482,8 @@ type hubState struct {
 	} `json:"defaults"`
 }
 
-func (h *hub) state() hubState {
-	st := hubState{Mode: "hub", Bots: []hubBotState{}}
+func (h *hub) state() State {
+	st := State{Mode: "hub", Bots: []BotState{}}
 	h.mu.Lock()
 	st.Last = h.cfg.Last
 	h.mu.Unlock()
@@ -492,7 +491,7 @@ func (h *hub) state() hubState {
 	for _, id := range h.ids() {
 		c := h.info(id)
 		b := h.bot(id)
-		bs := hubBotState{ID: id, Name: c.Name, Server: c.Server, ServerID: h.serverOf(c.Server), OnTest: onTestServer(c.Server), Owners: c.Owners, Avatar: avatarURL(c.Name, h.premiumFor(c.Server))}
+		bs := BotState{ID: id, Name: c.Name, Server: c.Server, ServerID: h.serverOf(c.Server), OnTest: mcserver.OnTestServer(c.Server), Owners: c.Owners, Avatar: avatar.URL(c.Name, h.premiumFor(c.Server))}
 		if b != nil {
 			b.mu.Lock()
 			bs.Running = b.cmd != nil
@@ -512,24 +511,24 @@ func (h *hub) state() hubState {
 		}
 		st.Bots = append(st.Bots, bs)
 	}
-	if t := testServerAddr(); t != "" {
+	if t := mcserver.TestServerAddr(); t != "" {
 		st.TestServer.Available, st.TestServer.Addr = true, t
 		st.TestServer.Power = "on"
-		if serverOff() {
-			st.TestServer.Power = powerState(false)
-		} else if _, err := rconCmd("list"); err != nil {
-			st.TestServer.Power = powerState(false)
+		if mcserver.Off() {
+			st.TestServer.Power = mcserver.PowerState(false)
+		} else if _, err := rcon.Cmd("list"); err != nil {
+			st.TestServer.Power = mcserver.PowerState(false)
 		}
 	}
 	st.Servers = h.servers()
 	st.Setup = len(st.Bots) == 0 // (sin bots: el asistente; con bots, la lista aunque estén apagados)
 	_ = anyRunning
-	st.Defaults.Owner = *ownerFlag
+	st.Defaults.Owner = h.opts.DefaultOwner
 	return st
 }
 
 // peek: el estado de un bot en marcha (su /json), rápido.
-func (h *hub) peek(port int, bs *hubBotState) {
+func (h *hub) peek(port int, bs *BotState) {
 	c := http.Client{Timeout: 600 * time.Millisecond}
 	resp, err := c.Get(fmt.Sprintf("http://127.0.0.1:%d/json?t=%s", port, h.cfg.Token))
 	if err != nil {
@@ -559,24 +558,24 @@ type newBotReq struct {
 
 func (h *hub) create(r newBotReq) (string, error) {
 	r.Name = strings.TrimSpace(r.Name)
-	if !validName.MatchString(r.Name) {
-		return "", bi("invalid name %q: 3-16 letters, digits or _", "nombre %q inválido: 3-16 letras, números o _", r.Name)
+	if !mc.ValidName.MatchString(r.Name) {
+		return "", i18n.Errorf("invalid name %q: 3-16 letters, digits or _", "nombre %q inválido: 3-16 letras, números o _", r.Name)
 	}
 	for _, id := range h.ids() {
 		if strings.EqualFold(h.info(id).Name, r.Name) {
-			return "", bi("there is already a bot called %s", "ya hay un bot que se llama %s", r.Name)
+			return "", i18n.Errorf("there is already a bot called %s", "ya hay un bot que se llama %s", r.Name)
 		}
 	}
 	if r.ServerID != "" {
 		s, ok := h.server(r.ServerID)
 		if !ok {
-			return "", bi("there is no server %s", "no hay ningún servidor %s", r.ServerID)
+			return "", i18n.Errorf("there is no server %s", "no hay ningún servidor %s", r.ServerID)
 		}
 		r.Server = s.Addr
 	}
 	if r.Server = strings.TrimSpace(r.Server); r.Server == "" {
-		if r.Server = testServerAddr(); r.Server == "" {
-			return "", bi("missing server (there is no test server)", "falta el servidor (no hay servidor de pruebas)")
+		if r.Server = mcserver.TestServerAddr(); r.Server == "" {
+			return "", i18n.Errorf("missing server (there is no test server)", "falta el servidor (no hay servidor de pruebas)")
 		}
 	}
 	if h.serverOf(r.Server) == "" {
@@ -587,13 +586,13 @@ func (h *hub) create(r newBotReq) (string, error) {
 	var owners []string
 	for _, o := range r.Owners {
 		if o = strings.TrimSpace(o); o != "" && !slices.Contains(owners, o) {
-			if o != "*" && !validName.MatchString(o) {
-				return "", bi("invalid owner %q", "dueño %q inválido", o)
+			if o != "*" && !mc.ValidName.MatchString(o) {
+				return "", i18n.Errorf("invalid owner %q", "dueño %q inválido", o)
 			}
 			owners = append(owners, o)
 		}
 	}
-	c := botConfig{Server: r.Server, Name: r.Name, Owners: owners, Seeded: true}
+	c := config.Bot{Server: r.Server, Name: r.Name, Owners: owners, Seeded: true}
 	h.mu.Lock()
 	id := h.newID(r.Name)
 	h.mu.Unlock()
@@ -606,7 +605,7 @@ func (h *hub) create(r newBotReq) (string, error) {
 		return "", err
 	}
 	if r.Lang == "es" || r.Lang == "en" {
-		_ = os.WriteFile(filepath.Join(dir, langFile), []byte(r.Lang+"\n"), 0o644)
+		_ = os.WriteFile(filepath.Join(dir, i18n.LangFile), []byte(r.Lang+"\n"), 0o644)
 	}
 	h.mu.Lock()
 	h.cfg.Bots = append(h.cfg.Bots, id)
@@ -616,10 +615,10 @@ func (h *hub) create(r newBotReq) (string, error) {
 	h.mu.Unlock()
 	log.Printf("hub: bot nuevo %s (bots/%s) → %s", r.Name, id, r.Server)
 	if owners != nil {
-		opOwners(owners)
+		rcon.OpOwners(owners)
 	}
-	if r.TestOn && onTestServer(r.Server) && serverOff() {
-		_ = startServer()
+	if r.TestOn && mcserver.OnTestServer(r.Server) && mcserver.Off() {
+		_ = mcserver.Start()
 	}
 	if r.Start {
 		if err := h.start(h.bot(id)); err != nil {
@@ -634,13 +633,13 @@ func (h *hub) create(r newBotReq) (string, error) {
 func (h *hub) remove(id string) error {
 	b := h.bot(id)
 	if b == nil {
-		return bi("there is no bot %s", "no hay ningún bot %s", id)
+		return i18n.Errorf("there is no bot %s", "no hay ningún bot %s", id)
 	}
 	name := h.info(id).Name
 	h.stop(b)
 	dir := filepath.Join(botsDir, id)
 	if filepath.Dir(dir) != botsDir || id == "" || strings.ContainsAny(id, `/\.`) {
-		return bi("invalid bot id", "id de bot inválido") // (por si acaso: nunca fuera de bots/)
+		return i18n.Errorf("invalid bot id", "id de bot inválido") // (por si acaso: nunca fuera de bots/)
 	}
 	if err := os.RemoveAll(dir); err != nil {
 		return err
@@ -661,26 +660,13 @@ func (h *hub) remove(id string) error {
 // ---- rutas ----
 
 func (h *hub) routes() http.Handler {
-	ok := func(w http.ResponseWriter, r *http.Request) bool {
-		t := r.URL.Query().Get("t")
-		if t == "" {
-			if c, err := r.Cookie("mcbot"); err == nil {
-				t = c.Value
-			}
-		}
-		if subtle.ConstantTimeCompare([]byte(t), []byte(h.cfg.Token)) != 1 {
-			httpMsg(w, r, http.StatusUnauthorized, "missing key: open the URL shown in the hub log (…/?t=…)", "falta la clave: abre la URL que sale en el log del hub (…/?t=…)")
-			return false
-		}
-		http.SetCookie(w, &http.Cookie{Name: "mcbot", Value: h.cfg.Token, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: 30 * 24 * 3600})
-		return true
-	}
+	ok := web.KeyCheck(h.cfg.Token, "missing key: open the URL shown in the hub log (…/?t=…)", "falta la clave: abre la URL que sale en el log del hub (…/?t=…)")
 	jsonOut := func(w http.ResponseWriter, v any) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(v)
 	}
 	mux := http.NewServeMux()
-	brandRoutes(mux)
+	brand.Routes(mux)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
@@ -690,7 +676,7 @@ func (h *hub) routes() http.Handler {
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = w.Write(panelHTML)
+		_, _ = w.Write(web.PanelHTML)
 	})
 	mux.HandleFunc("/api/state", func(w http.ResponseWriter, r *http.Request) {
 		if ok(w, r) {
@@ -707,17 +693,17 @@ func (h *hub) routes() http.Handler {
 		}
 		var req newBotReq
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10)).Decode(&req); err != nil {
-			httpMsg(w, r, http.StatusBadRequest, "unreadable request", "petición ilegible")
+			i18n.HTTPMsg(w, r, http.StatusBadRequest, "unreadable request", "petición ilegible")
 			return
 		}
 		id, err := h.create(req)
 		if err != nil && id == "" {
-			httpErr(w, r, http.StatusBadRequest, err)
+			i18n.HTTPError(w, r, http.StatusBadRequest, err)
 			return
 		}
 		res := map[string]string{"id": id}
 		if err != nil {
-			res["error"] = errText(r, err)
+			res["error"] = i18n.ErrText(r, err)
 		}
 		jsonOut(w, res)
 	})
@@ -732,7 +718,7 @@ func (h *hub) routes() http.Handler {
 		id, action, _ := strings.Cut(strings.TrimPrefix(r.URL.Path, "/api/bots/"), "/")
 		b := h.bot(id)
 		if b == nil {
-			httpMsg(w, r, http.StatusNotFound, "there is no bot "+id, "no hay ningún bot "+id)
+			i18n.HTTPMsg(w, r, http.StatusNotFound, "there is no bot "+id, "no hay ningún bot "+id)
 			return
 		}
 		var err error
@@ -753,7 +739,7 @@ func (h *hub) routes() http.Handler {
 				ServerID string `json:"server_id"`
 			}
 			if e := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024)).Decode(&req); e != nil {
-				httpMsg(w, r, http.StatusBadRequest, "unreadable request", "petición ilegible")
+				i18n.HTTPMsg(w, r, http.StatusBadRequest, "unreadable request", "petición ilegible")
 				return
 			}
 			err = h.moveBot(id, req.ServerID)
@@ -762,7 +748,7 @@ func (h *hub) routes() http.Handler {
 			return
 		}
 		if err != nil {
-			httpErr(w, r, http.StatusBadRequest, err)
+			i18n.HTTPError(w, r, http.StatusBadRequest, err)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -775,14 +761,14 @@ func (h *hub) routes() http.Handler {
 		id, rest, _ := strings.Cut(strings.TrimPrefix(r.URL.Path, "/b/"), "/")
 		b := h.bot(id)
 		if b == nil {
-			httpMsg(w, r, http.StatusNotFound, "there is no bot "+id, "no hay ningún bot "+id)
+			i18n.HTTPMsg(w, r, http.StatusNotFound, "there is no bot "+id, "no hay ningún bot "+id)
 			return
 		}
 		b.mu.Lock()
 		px := b.proxy
 		b.mu.Unlock()
 		if px == nil {
-			httpMsg(w, r, http.StatusServiceUnavailable, "the bot is off", "el bot está apagado")
+			i18n.HTTPMsg(w, r, http.StatusServiceUnavailable, "the bot is off", "el bot está apagado")
 			return
 		}
 		r2 := r.Clone(r.Context())
@@ -794,10 +780,10 @@ func (h *hub) routes() http.Handler {
 	})
 	mux.HandleFunc("/avatar/", func(w http.ResponseWriter, r *http.Request) {
 		if ok(w, r) {
-			serveAvatar(w, r, strings.TrimPrefix(r.URL.Path, "/avatar/"))
+			avatar.Serve(w, r, strings.TrimPrefix(r.URL.Path, "/avatar/"))
 		}
 	})
-	serverRoutes(mux, ok)
+	mcserver.Routes(mux, ok)
 	h.serverRoutesAPI(mux, ok)
 	return mux
 }

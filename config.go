@@ -15,11 +15,13 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"cubit/internal/config"
+	"cubit/internal/mc"
 )
 
 var (
@@ -43,28 +45,11 @@ var (
 // cualquier jugador puede hacerle pelear, escribir en el chat o desconectarlo.
 var remoteOwners []string
 
-// botConfig es bot.json.
-type botConfig struct {
-	Server     string   `json:"server"` // el último
-	Name       string   `json:"name"`   // el último
-	Owners     []string `json:"owners"`
-	PanelToken string   `json:"panel_token,omitempty"` // la clave del panel web (panel.go)
-	Seeded     bool     `json:"seeded,omitempty"`      // ya se usaron los flags una vez (--defaults)
-}
-
 var (
 	cfgMu   sync.Mutex
-	cfg     botConfig
+	cfg     config.Bot // bot.json
 	cfgPath string
 )
-
-// hostOf quita el puerto.
-func hostOf(addr string) string {
-	if h, _, err := net.SplitHostPort(addr); err == nil {
-		return h
-	}
-	return strings.Trim(addr, "[]")
-}
 
 // loadConfig lee bot.json y los flags, y deja listos serverAddr, botName,
 // remoteOwners y dataDir. Guarda lo nuevo.
@@ -96,7 +81,7 @@ func loadConfig() error {
 		msg := "¿a qué servidor? cubit [--name <nombre>] [--owner <jugador>] <host[:puerto]>; la próxima vez sin nada entra al último"
 		return errors.New(msg)
 	}
-	serverHost = hostOf(serverAddr)
+	serverHost = mc.HostOf(serverAddr)
 
 	botName = *nameFlag
 	if botName == "" {
@@ -105,7 +90,7 @@ func loadConfig() error {
 	if botName == "" {
 		return errors.New("¿con qué nombre? --name <nombre> (se recuerda para la próxima)")
 	}
-	if !validName.MatchString(botName) {
+	if !mc.ValidName.MatchString(botName) {
 		return fmt.Errorf("nombre %q inválido: deben ser 3-16 caracteres (letras, números o _), tiene %d", botName, len(botName))
 	}
 

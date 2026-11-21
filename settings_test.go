@@ -1,13 +1,17 @@
 package main
 
-import "testing"
+import (
+	"testing"
+
+	"cubit/internal/config"
+)
 
 // TestRenameWithoutServer: cambiar el nombre no obliga a escribir el servidor
 // (vacío = el de siempre), ni por /settings ni por /settings/name.
 func TestRenameWithoutServer(t *testing.T) {
 	cfgMu.Lock()
 	oldCfg, oldPath, oldOwners := cfg, cfgPath, remoteOwners
-	cfg, cfgPath = botConfig{Server: "minecraft", Name: "Viejo_Bot"}, ""
+	cfg, cfgPath = config.Bot{Server: "minecraft", Name: "Viejo_Bot"}, ""
 	cfgMu.Unlock()
 	defer func() { cfgMu.Lock(); cfg, cfgPath, remoteOwners = oldCfg, oldPath, oldOwners; cfgMu.Unlock() }()
 

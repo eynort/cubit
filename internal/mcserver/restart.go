@@ -1,4 +1,4 @@
-package main
+package mcserver
 
 // El reinicio del servidor de Minecraft desde el panel, seguido de principio a
 // fin para que la página pueda decir "de nuevo en línea en N segundos":
@@ -19,6 +19,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"cubit/internal/i18n"
+	"cubit/internal/rcon"
 )
 
 const (
@@ -82,7 +85,7 @@ func round1(x float64) float64 { return math.Round(x*10) / 10 }
 
 // lastRestartTook: lo que tardó el último reinicio (o defaultRestart).
 func lastRestartTook() time.Duration {
-	b, err := os.ReadFile(dataFile(restartTimesFile))
+	b, err := os.ReadFile(DataFile(restartTimesFile))
 	if err != nil {
 		return defaultRestart
 	}
@@ -102,7 +105,7 @@ func restartServer() error {
 		return errRestarting
 	}
 	srvRestart.Unlock()
-	if _, err := rconCmd("say El servidor se reinicia en 5 segundos"); err != nil {
+	if _, err := rcon.Cmd("say El servidor se reinicia en 5 segundos"); err != nil {
 		return err
 	}
 	srvRestart.Lock()
@@ -114,7 +117,7 @@ func restartServer() error {
 	return nil
 }
 
-var errRestarting = bi("the server is already restarting", "el servidor ya se está reiniciando")
+var errRestarting = i18n.Errorf("the server is already restarting", "el servidor ya se está reiniciando")
 
 func setPhase(p restartPhase) {
 	srvRestart.Lock()
@@ -125,12 +128,12 @@ func setPhase(p restartPhase) {
 func watchRestart() {
 	time.Sleep(warnDelay)
 	setPhase(phaseStopping)
-	_, _ = rconCmd("stop")
+	_, _ = rcon.Cmd("stop")
 	start := time.Now()
 	wentDown := false
 	for time.Since(start) < restartGiveUp {
 		time.Sleep(time.Second)
-		_, err := rconCmd("list")
+		_, err := rcon.Cmd("list")
 		switch {
 		case err != nil && !wentDown:
 			wentDown = true
@@ -140,7 +143,7 @@ func watchRestart() {
 			took := time.Since(srvRestart.since)
 			srvRestart.since, srvRestart.backAt, srvRestart.took = time.Time{}, time.Now(), took
 			srvRestart.Unlock()
-			_ = os.WriteFile(dataFile(restartTimesFile), []byte(strconv.FormatFloat(took.Seconds(), 'f', 1, 64)+"\n"), 0o644)
+			_ = os.WriteFile(DataFile(restartTimesFile), []byte(strconv.FormatFloat(took.Seconds(), 'f', 1, 64)+"\n"), 0o644)
 			log.Printf("[panel] el servidor de Minecraft vuelve a estar en línea (tardó %s)", took.Round(time.Second))
 			return
 		}

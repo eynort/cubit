@@ -1,4 +1,4 @@
-package main
+package mcserver
 
 import (
 	"os"
@@ -34,5 +34,19 @@ func TestServerPropsRoundTrip(t *testing.T) {
 	}
 	if _, err := setServerProps(map[string]string{"rcon.password": "x"}); err == nil {
 		t.Fatal("rcon.password no se puede tocar")
+	}
+}
+
+// TestLabelsInEnglish: el panel enseña las propiedades y gamerules en su idioma.
+func TestLabelsInEnglish(t *testing.T) {
+	for _, d := range serverProps {
+		if d.LabelEn == "" {
+			t.Errorf("%s sin etiqueta en inglés", d.Key)
+		}
+	}
+	for _, g := range gamerules {
+		if g.LabelEn == "" {
+			t.Errorf("%s sin etiqueta en inglés", g.Name)
+		}
 	}
 }

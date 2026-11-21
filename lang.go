@@ -6,13 +6,13 @@ import (
 	"os"
 	"strings"
 	"sync/atomic"
+
+	"cubit/internal/i18n"
 )
 
 // Idioma de las explicaciones (ayuda, sugerencias, errores de uso de las
 // órdenes): inglés por defecto, español con /lang es. Las órdenes y sus
-// parámetros se escriben siempre en inglés.
-
-const langFile = ".lang"
+// parámetros se escriben siempre en inglés. Se guarda en i18n.LangFile.
 
 var curLang atomic.Pointer[string]
 
@@ -24,7 +24,7 @@ func lang() string {
 		return *l
 	}
 	l := "en"
-	if b, err := os.ReadFile(langFile); err == nil {
+	if b, err := os.ReadFile(i18n.LangFile); err == nil {
 		if s := strings.TrimSpace(string(b)); languages[s] != "" {
 			l = s
 		}
@@ -35,7 +35,7 @@ func lang() string {
 
 func setLang(l string) {
 	curLang.Store(&l)
-	_ = os.WriteFile(langFile, []byte(l+"\n"), 0o644)
+	_ = os.WriteFile(i18n.LangFile, []byte(l+"\n"), 0o644)
 }
 
 // text es una explicación en los dos idiomas.

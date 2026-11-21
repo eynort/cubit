@@ -1,12 +1,11 @@
-package main
-
-// RCON: la consola del servidor de Minecraft, para cuando el servidor es
+// Package rcon: la consola del servidor de Minecraft, para cuando el servidor es
 // tuyo (el local de compose.yaml). Con ella el panel manda comandos de
 // servidor (/gamemode, /time, /op…) y hace op a los dueños.
 //
 //	MCBOT_RCON=minecraft:25575 MCBOT_RCON_PASSWORD=… cubit …
 //
 // Sin MCBOT_RCON, nada de esto: el bot es un jugador más.
+package rcon
 
 import (
 	"bytes"
@@ -17,42 +16,47 @@ import (
 	"log"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"cubit/internal/mc"
+	"cubit/internal/properties"
 )
 
-var rconMu sync.Mutex // (una orden a la vez)
+var mu sync.Mutex // (una orden a la vez)
 
-func rconAddr() string { return os.Getenv("MCBOT_RCON") }
+// Addr: la dirección de la consola (MCBOT_RCON; "" = sin RCON).
+func Addr() string { return os.Getenv("MCBOT_RCON") }
 
-// rconCmd manda un comando a la consola del servidor y devuelve lo que dice.
-func rconCmd(cmd string) (string, error) {
-	out, err := rconCmds(cmd)
+// Cmd manda un comando a la consola del servidor y devuelve lo que dice.
+func Cmd(cmd string) (string, error) {
+	out, err := Cmds(cmd)
 	if err != nil {
 		return "", err
 	}
 	return out[0], nil
 }
 
-// rconCmds manda varios comandos por la misma conexión.
-func rconCmds(cmds ...string) ([]string, error) {
-	addr := rconAddr()
+// Cmds manda varios comandos por la misma conexión.
+func Cmds(cmds ...string) ([]string, error) {
+	addr := Addr()
 	if addr == "" {
 		return nil, errors.New("sin RCON (MCBOT_RCON)")
 	}
-	rconMu.Lock()
-	defer rconMu.Unlock()
+	mu.Lock()
+	defer mu.Unlock()
 	c, err := net.DialTimeout("tcp", addr, 5*time.Second)
 	if err != nil {
 		return nil, err
 	}
 	defer c.Close()
 	_ = c.SetDeadline(time.Now().Add(15 * time.Second))
-	if err := rconWrite(c, 1, 3, rconPassword()); err != nil {
+	if err := write(c, 1, 3, password()); err != nil {
 		return nil, err
 	}
-	id, _, err := rconRead(c)
+	id, _, err := read(c)
 	if err != nil {
 		return nil, err
 	}
@@ -61,28 +65,30 @@ func rconCmds(cmds ...string) ([]string, error) {
 	}
 	out := make([]string, len(cmds))
 	for i, cmd := range cmds {
-		if err := rconWrite(c, int32(i+2), 2, strings.TrimPrefix(strings.TrimSpace(cmd), "/")); err != nil {
+		if err := write(c, int32(i+2), 2, strings.TrimPrefix(strings.TrimSpace(cmd), "/")); err != nil {
 			return nil, err
 		}
-		_, body, err := rconRead(c)
+		_, body, err := read(c)
 		if err != nil {
 			return nil, err
 		}
-		out[i] = stripMCColors(body)
+		out[i] = stripColors(body)
 	}
 	return out, nil
 }
 
-// rconPassword: la de server.properties si el bot la ve (MCBOT_SERVER_DIR;
+// password: la de server.properties si el bot la ve (MCBOT_SERVER_DIR;
 // es la que vale), si no MCBOT_RCON_PASSWORD.
-func rconPassword() string {
-	if p, err := readServerProps(); err == nil && p["rcon.password"] != "" {
-		return p["rcon.password"]
+func password() string {
+	if dir := os.Getenv("MCBOT_SERVER_DIR"); dir != "" {
+		if p, err := properties.Read(filepath.Join(dir, "server.properties")); err == nil && p["rcon.password"] != "" {
+			return p["rcon.password"]
+		}
 	}
 	return os.Getenv("MCBOT_RCON_PASSWORD")
 }
 
-func rconWrite(w io.Writer, id, typ int32, body string) error {
+func write(w io.Writer, id, typ int32, body string) error {
 	var b bytes.Buffer
 	_ = binary.Write(&b, binary.LittleEndian, int32(10+len(body)))
 	_ = binary.Write(&b, binary.LittleEndian, id)
@@ -93,7 +99,7 @@ func rconWrite(w io.Writer, id, typ int32, body string) error {
 	return err
 }
 
-func rconRead(r io.Reader) (id int32, body string, err error) {
+func read(r io.Reader) (id int32, body string, err error) {
 	var n int32
 	if err = binary.Read(r, binary.LittleEndian, &n); err != nil {
 		return
@@ -109,8 +115,8 @@ func rconRead(r io.Reader) (id int32, body string, err error) {
 	return id, string(bytes.TrimRight(buf[8:], "\x00")), nil
 }
 
-// stripMCColors quita los códigos § de los colores.
-func stripMCColors(s string) string {
+// stripColors quita los códigos § de los colores.
+func stripColors(s string) string {
 	var sb strings.Builder
 	for i := 0; i < len(s); i++ {
 		if strings.HasPrefix(s[i:], "§") {
@@ -122,20 +128,20 @@ func stripMCColors(s string) string {
 	return sb.String()
 }
 
-// opOwners: con RCON, los dueños son op en el servidor (para /gamemode…).
+// OpOwners: con RCON, los dueños son op en el servidor (para /gamemode…).
 // Reintenta un rato: al arrancar todo junto, el servidor tarda en abrirlo.
-func opOwners(owners []string) {
-	if rconAddr() == "" {
+func OpOwners(owners []string) {
+	if Addr() == "" {
 		return
 	}
 	go func() {
 		for try := 0; try < 20; try++ {
 			ok := true
 			for _, o := range owners {
-				if o == "*" || !validName.MatchString(o) {
+				if o == "*" || !mc.ValidName.MatchString(o) {
 					continue
 				}
-				out, err := rconCmd("op " + o)
+				out, err := Cmd("op " + o)
 				if err != nil {
 					ok = false
 					break
@@ -149,6 +155,6 @@ func opOwners(owners []string) {
 			}
 			time.Sleep(15 * time.Second)
 		}
-		log.Printf("RCON: no responde en %s (no hago op a los dueños)", rconAddr())
+		log.Printf("RCON: no responde en %s (no hago op a los dueños)", Addr())
 	}()
 }

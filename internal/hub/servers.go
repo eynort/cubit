@@ -1,4 +1,4 @@
-package main
+package hub
 
 // Los servidores del hub, aparte de los bots: el bot es quién juega, el
 // servidor es dónde. El servidor de pruebas (el local de Docker) está siempre
@@ -20,11 +20,18 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
+
+	"github.com/mj41/go-mc26/data/version"
+
+	"cubit/internal/i18n"
+	"cubit/internal/mc"
+	"cubit/internal/mcserver"
+	"cubit/internal/rcon"
 )
 
-const testServerID = "test"
+// TestServerID: el id del servidor de pruebas en la lista.
+const TestServerID = "test"
 
 // hubServer: un servidor externo guardado.
 type hubServer struct {
@@ -34,8 +41,8 @@ type hubServer struct {
 	Premium bool   `json:"premium,omitempty"` // con cuenta de Microsoft (online-mode)
 }
 
-// serverView: un servidor tal como lo ve el panel.
-type serverView struct {
+// ServerView: un servidor tal como lo ve el panel.
+type ServerView struct {
 	ID      string `json:"id"`
 	Name    string `json:"name"`
 	Addr    string `json:"addr"`
@@ -55,15 +62,15 @@ func sameAddr(a, b string) bool {
 	if a == "" || b == "" {
 		return false
 	}
-	ha, pa := splitAddr(strings.TrimSpace(a))
-	hb, pb := splitAddr(strings.TrimSpace(b))
+	ha, pa := mc.SplitAddr(strings.TrimSpace(a))
+	hb, pb := mc.SplitAddr(strings.TrimSpace(b))
 	return strings.EqualFold(ha, hb) && pa == pb
 }
 
 // serverOf: el id del servidor de la dirección addr ("" si no está dado de alta).
 func (h *hub) serverOf(addr string) string {
-	if onTestServer(addr) {
-		return testServerID
+	if mcserver.OnTestServer(addr) {
+		return TestServerID
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -77,9 +84,9 @@ func (h *hub) serverOf(addr string) string {
 
 // server: el servidor id (el de pruebas incluido). ok false si no existe.
 func (h *hub) server(id string) (hubServer, bool) {
-	if id == testServerID {
-		t := testServerAddr()
-		return hubServer{ID: testServerID, Name: "Test server", Addr: t}, t != ""
+	if id == TestServerID {
+		t := mcserver.TestServerAddr()
+		return hubServer{ID: TestServerID, Name: "Test server", Addr: t}, t != ""
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -109,24 +116,24 @@ func (h *hub) adoptServers() {
 func (h *hub) addServer(s hubServer) (hubServer, error) {
 	s.Name, s.Addr = strings.TrimSpace(s.Name), strings.TrimSpace(s.Addr)
 	if s.Addr == "" {
-		return s, bi("missing the server address", "falta la dirección del servidor")
+		return s, i18n.Errorf("missing the server address", "falta la dirección del servidor")
 	}
 	if strings.ContainsAny(s.Addr, " /") {
-		return s, bi("invalid address %q: host or host:port", "dirección %q inválida: host o host:puerto", s.Addr)
+		return s, i18n.Errorf("invalid address %q: host or host:port", "dirección %q inválida: host o host:puerto", s.Addr)
 	}
 	if s.Name == "" {
 		s.Name = s.Addr
 	}
-	if onTestServer(s.Addr) {
-		return s, bi("that is the test server: it is already in the list", "ese es el servidor de pruebas: ya está en la lista")
+	if mcserver.OnTestServer(s.Addr) {
+		return s, i18n.Errorf("that is the test server: it is already in the list", "ese es el servidor de pruebas: ya está en la lista")
 	}
 	if h.serverOf(s.Addr) != "" {
-		return s, bi("there is already a server with the address %s", "ya hay un servidor con la dirección %s", s.Addr)
+		return s, i18n.Errorf("there is already a server with the address %s", "ya hay un servidor con la dirección %s", s.Addr)
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	base := idChars.ReplaceAllString(strings.ToLower(s.Name), "")
-	if base == "" || base == testServerID {
+	if base == "" || base == TestServerID {
 		base = "srv"
 	}
 	s.ID = base
@@ -149,15 +156,15 @@ func (h *hub) botsOn(id string) []string {
 	return out
 }
 
-func (h *hub) servers() []serverView {
-	var out []serverView
-	if t := testServerAddr(); t != "" {
-		v := serverView{ID: testServerID, Name: "Test server", Addr: t, Kind: "test", Bots: h.botsOn(testServerID), JoinPort: testJoinPort(), Version: versionName()}
+func (h *hub) servers() []ServerView {
+	var out []ServerView
+	if t := mcserver.TestServerAddr(); t != "" {
+		v := ServerView{ID: TestServerID, Name: "Test server", Addr: t, Kind: "test", Bots: h.botsOn(TestServerID), JoinPort: mcserver.TestJoinPort(), Version: version.Name}
 		v.Power = "on"
-		if serverOff() {
-			v.Power = powerState(false)
-		} else if _, err := rconCmd("list"); err != nil {
-			v.Power = powerState(false)
+		if mcserver.Off() {
+			v.Power = mcserver.PowerState(false)
+		} else if _, err := rcon.Cmd("list"); err != nil {
+			v.Power = mcserver.PowerState(false)
 		}
 		out = append(out, v)
 	}
@@ -165,10 +172,10 @@ func (h *hub) servers() []serverView {
 	ext := slices.Clone(h.cfg.Servers)
 	h.mu.Unlock()
 	for _, s := range ext {
-		out = append(out, serverView{ID: s.ID, Name: s.Name, Addr: s.Addr, Kind: "external", Premium: s.Premium, Bots: h.botsOn(s.ID), Version: versionName()})
+		out = append(out, ServerView{ID: s.ID, Name: s.Name, Addr: s.Addr, Kind: "external", Premium: s.Premium, Bots: h.botsOn(s.ID), Version: version.Name})
 	}
 	if out == nil {
-		out = []serverView{}
+		out = []ServerView{}
 	}
 	return out
 }
@@ -177,8 +184,8 @@ func (h *hub) servers() []serverView {
 // yendo (se les cambia la dirección y, si están en marcha, se reinician).
 func (h *hub) updateServer(id string, n hubServer) error {
 	old, ok := h.server(id)
-	if !ok || id == testServerID {
-		return bi("there is no external server %s", "no hay ningún servidor externo %s", id)
+	if !ok || id == TestServerID {
+		return i18n.Errorf("there is no external server %s", "no hay ningún servidor externo %s", id)
 	}
 	n.Name, n.Addr = strings.TrimSpace(n.Name), strings.TrimSpace(n.Addr)
 	if n.Addr == "" {
@@ -188,11 +195,11 @@ func (h *hub) updateServer(id string, n hubServer) error {
 		n.Name = n.Addr
 	}
 	if !sameAddr(n.Addr, old.Addr) {
-		if onTestServer(n.Addr) {
-			return bi("that is the test server", "ese es el servidor de pruebas")
+		if mcserver.OnTestServer(n.Addr) {
+			return i18n.Errorf("that is the test server", "ese es el servidor de pruebas")
 		}
 		if other := h.serverOf(n.Addr); other != "" && other != id {
-			return bi("there is already a server with the address %s", "ya hay un servidor con la dirección %s", n.Addr)
+			return i18n.Errorf("there is already a server with the address %s", "ya hay un servidor con la dirección %s", n.Addr)
 		}
 	}
 	bots := h.botsOn(id)
@@ -215,18 +222,18 @@ func (h *hub) updateServer(id string, n hubServer) error {
 }
 
 func (h *hub) deleteServer(id string) error {
-	if id == testServerID {
-		return bi("the test server cannot be removed", "el servidor de pruebas no se puede quitar")
+	if id == TestServerID {
+		return i18n.Errorf("the test server cannot be removed", "el servidor de pruebas no se puede quitar")
 	}
 	if _, ok := h.server(id); !ok {
-		return bi("there is no server %s", "no hay ningún servidor %s", id)
+		return i18n.Errorf("there is no server %s", "no hay ningún servidor %s", id)
 	}
 	if bots := h.botsOn(id); len(bots) > 0 {
 		var names []string
 		for _, b := range bots {
 			names = append(names, h.info(b).Name)
 		}
-		return bi("%s still play on it: move them to another server first", "aún juegan en él %s: muévelos antes a otro servidor", strings.Join(names, ", "))
+		return i18n.Errorf("%s still play on it: move them to another server first", "aún juegan en él %s: muévelos antes a otro servidor", strings.Join(names, ", "))
 	}
 	h.mu.Lock()
 	h.cfg.Servers = slices.DeleteFunc(h.cfg.Servers, func(s hubServer) bool { return s.ID == id })
@@ -266,11 +273,11 @@ func (h *hub) setBotServer(id, addr string) error {
 // moveBot: el bot pasa a jugar en el servidor serverID.
 func (h *hub) moveBot(id, serverID string) error {
 	if h.bot(id) == nil {
-		return bi("there is no bot %s", "no hay ningún bot %s", id)
+		return i18n.Errorf("there is no bot %s", "no hay ningún bot %s", id)
 	}
 	s, ok := h.server(serverID)
 	if !ok {
-		return bi("there is no server %s", "no hay ningún servidor %s", serverID)
+		return i18n.Errorf("there is no server %s", "no hay ningún servidor %s", serverID)
 	}
 	log.Printf("hub: %s pasa a %s (%s)", h.info(id).Name, s.Name, s.Addr)
 	return h.setBotServer(id, s.Addr)
@@ -279,7 +286,7 @@ func (h *hub) moveBot(id, serverID string) error {
 // premiumFor: el bot va a un servidor premium (entra con cuenta de Microsoft).
 func (h *hub) premiumFor(addr string) bool {
 	id := h.serverOf(addr)
-	if id == "" || id == testServerID {
+	if id == "" || id == TestServerID {
 		return false
 	}
 	s, _ := h.server(id)
@@ -296,7 +303,7 @@ func (h *hub) serverRoutesAPI(mux *http.ServeMux, ok func(http.ResponseWriter, *
 			return false
 		}
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<10)).Decode(v); err != nil {
-			httpMsg(w, r, http.StatusBadRequest, "unreadable request", "petición ilegible")
+			i18n.HTTPMsg(w, r, http.StatusBadRequest, "unreadable request", "petición ilegible")
 			return false
 		}
 		return true
@@ -308,7 +315,7 @@ func (h *hub) serverRoutesAPI(mux *http.ServeMux, ok func(http.ResponseWriter, *
 		}
 		ns, err := h.addServer(s)
 		if err != nil {
-			httpErr(w, r, http.StatusBadRequest, err)
+			i18n.HTTPError(w, r, http.StatusBadRequest, err)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -343,7 +350,7 @@ func (h *hub) serverRoutesAPI(mux *http.ServeMux, ok func(http.ResponseWriter, *
 			return
 		}
 		if err != nil {
-			httpErr(w, r, http.StatusConflict, err)
+			i18n.HTTPError(w, r, http.StatusConflict, err)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -369,13 +376,4 @@ func loginFrom(tail []string) *msLogin {
 		}
 	}
 	return nil
-}
-
-// testJoinPort: el puerto del servidor de pruebas en el equipo del hub
-// (MCBOT_TEST_PORT, el MC_PORT de compose; 25565 si no se dice).
-func testJoinPort() int {
-	if p, err := strconv.Atoi(os.Getenv("MCBOT_TEST_PORT")); err == nil && p > 0 && p < 65536 {
-		return p
-	}
-	return 25565
 }
