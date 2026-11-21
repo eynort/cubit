@@ -59,11 +59,12 @@ Seguir a un jugador sin parar (hasta /stop)
 
 ## /goto
 
-`/goto <player> | <x> <z>`
+`/goto <player> | <x> <y> <z>`
 
-Ir hasta un jugador o hasta unas coordenadas.
+Ir hasta un jugador o hasta el bloque de unas coordenadas (si esa altura es aire o sólido, el suelo más cercano de la columna)
 
-- `<player>`: <x> <z>: unas coordenadas (~ = donde está el bot)
+- `<player>`: <x> <y> <z>: unas coordenadas (~ = donde está el bot)
+- `<y>`: la coordenada y (la altura de la celda donde ponerse)
 - `<z>`: la coordenada z
 
 ## /guard

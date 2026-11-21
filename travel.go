@@ -158,7 +158,7 @@ func (b *Bot) gotoPlayer(ctx context.Context, name string, uid uuid.UUID) {
 			// no se sabe dónde está: preguntarle (una vez) y esperar
 			if askedAt.IsZero() || time.Since(askedAt) > 60*time.Second {
 				if !askedAt.IsZero() {
-					log.Printf("goto: %s no me dijo dónde está; usa /goto <x> <z>", name)
+					log.Printf("goto: %s no me dijo dónde está; usa /goto <x> <y> <z>", name)
 					return
 				}
 				b.askWhere(name, uid)

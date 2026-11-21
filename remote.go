@@ -54,7 +54,7 @@ func (b *Bot) onWhisper(from, text string) {
 
 // looksLikeCommand: el privado es una orden directa (sin pasar por la IA):
 // empieza por "/", o empieza por una orden del bot y no tiene más palabras que
-// argumentos ("stop", "follow yo", "goto 100 200", "say hola a todos").
+// argumentos ("stop", "follow yo", "goto 100 64 200", "say hola a todos").
 func looksLikeCommand(text string) bool {
 	text = strings.TrimSpace(text)
 	if strings.HasPrefix(text, "/") {

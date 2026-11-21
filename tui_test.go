@@ -141,11 +141,14 @@ func TestGotoSuggestions(t *testing.T) {
 	names := []string{"Alex"}
 	onlineNames.Store(&names)
 	got := suggestions("/goto ")
-	if strings.Join(labels(got), ",") != "Alex,<x> <z>,~ ~" || got[2].value != "/goto ~ ~" {
+	if strings.Join(labels(got), ",") != "Alex,<x> <y> <z>,~ ~ ~" || got[2].value != "/goto ~ ~ ~" {
 		t.Errorf(`"/goto ": %+v`, got)
 	}
-	if got := suggestions("/goto 10 "); len(got) != 1 || got[0].value != "" {
-		t.Errorf(`"/goto 10 ": una pista, da %+v`, got)
+	if got := suggestions("/goto 10 "); len(got) != 2 || got[0].label != "<y>" || got[1].value != "/goto 10 ~ ~" {
+		t.Errorf(`"/goto 10 ": la y y "~ ~", da %+v`, got)
+	}
+	if got := suggestions("/goto 10 64 "); len(got) != 1 || got[0].label != "<z>" {
+		t.Errorf(`"/goto 10 64 ": la z, da %+v`, got)
 	}
 }
 

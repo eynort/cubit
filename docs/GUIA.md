@@ -60,7 +60,7 @@ Las órdenes que más vas a usar:
 
 | | |
 |---|---|
-| `/follow <jugador>` · `/goto <x> <z>` | que te siga, o que vaya a un sitio |
+| `/follow <jugador>` · `/goto <x> <y> <z>` | que te siga, o que vaya a un sitio |
 | `/fight <jugador>` · `/guard <jugador>` | pelear con alguien, o protegerle |
 | `/excavate <x1> <y1> <z1> <x2> <y2> <z2>` | vaciar esa caja |
 | `/excavate chests <x> <y> <z>` | dónde guarda lo que saca y de dónde coge picos |
