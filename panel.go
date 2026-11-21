@@ -140,6 +140,7 @@ func startMonitor(ctx context.Context) {
 		return true
 	}
 	mux := http.NewServeMux()
+	brandRoutes(mux)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)

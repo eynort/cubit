@@ -680,6 +680,7 @@ func (h *hub) routes() http.Handler {
 		_ = json.NewEncoder(w).Encode(v)
 	}
 	mux := http.NewServeMux()
+	brandRoutes(mux)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)

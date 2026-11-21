@@ -1,3 +1,5 @@
+<p align="center"><img src="brand/logo.svg" alt="minecraft-bot" width="520"></p>
+
 # minecraft-bot
 
 **Un bot de Minecraft que hace tres cosas, y bien: pelear, excavar y moverse.** Le mandas órdenes por el chat (o desde un panel web) y vacía zonas capa a capa, te sigue o va donde le digas, y pelea con mobs y jugadores.
@@ -7,7 +9,7 @@
 ## Qué hace
 
 - **PvP**: pelea con un jugador o con todos los de una zona, o hace de guardaespaldas. De un jugador nunca huye: gana, o se encierra con bloques a curarse y vuelve. Usa todo lo que lleve: espada y escudo con críticos, la lanza (pincha desde donde no le llegan, embiste), la maza (saltando con una carga de viento o en picado con élitros), cristales del End y anclas (solo si la explosión te quita mucho más que a él), tridentes, arcos, caña de pescar, perlas para alcanzar al que huye, cubos de lava, telarañas, mechero, cargas de viento junto a un precipicio y pociones arrojadizas dañinas. Escoge cuándo pegar, encadena empujones, se vuelve a poner el tótem al momento y aprovecha los encantamientos. Los detalles, en [combat/PVP.md](combat/PVP.md).
-- **Excavar**: vacía una caja entre dos esquinas, de 4 en 4 bloques de alto, sin romper nunca un pico. No usa cofres: se queda lo valioso y tira la basura (tierra, piedra, grava…). Si le das un chunk escrito con sus bordes (Z -48 a -63), lo ajusta al chunk entero.
+- **Excavar**: vacía una caja entre dos esquinas, de 4 en 4 bloques de alto, sin romper nunca un pico. Tira la basura (tierra, piedra, grava…) y se queda lo valioso, o lo guarda en los cofres que le digas. Si le das un chunk escrito con sus bordes (Z -48 a -63), lo ajusta al chunk entero.
 - **Moverse**: va a coordenadas o hasta un jugador, y te sigue. Busca el camino con A*, pone bloques para hacer torres y puentes si hace falta, y se salva de la lava, las caídas y el fuego.
 - **Solo vanilla**: no usa comandos de plugins (ni /tpa, ni /home, ni /login).
 - **Pequeño**: un solo programa en Go, sin Java ni Node, que cabe en unos 150 MB de RAM: puede vivir en un Android viejo (Termux), una Raspberry Pi o un VPS barato.
@@ -19,6 +21,7 @@
 | `/fight <jugador>` · `/fight in <x> <z> [<x2> <z2>]` | Pelear con un jugador, o con todos los de una zona |
 | `/guard <jugador> [<minutos>]` | Seguir a un jugador y atacar a quien le pegue |
 | `/excavate <x1> <y1> <z1> <x2> <y2> <z2> [exact]` | Vaciar esa caja (`/excavate chunk <y1> <y2>`: el chunk donde está) |
+| `/excavate chests <x> <y> <z>` · `list` · `remove` · `clear` | Cofres donde `/excavate` guarda lo valioso al llenarse |
 | `/goto <jugador>` · `/goto <x> <z>` | Ir hasta un jugador o unas coordenadas |
 | `/follow <jugador>` | Seguir a un jugador hasta `/stop` |
 | `/inventory` · `/drop [<objeto> [<cantidad>]] [<jugador>]` | Ver lo que lleva; tirar o dar cosas |

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="2 2 28 28" role="img" aria-label="minecraft-bot">
+ <title>minecraft-bot</title>
+ <defs>
+  <linearGradient id="sf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#dddeda"/><stop offset="1" stop-color="#b8b9b5"/></linearGradient>
+  <linearGradient id="sr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#90918d"/><stop offset="1" stop-color="#6a6b68"/></linearGradient>
+ </defs>
+ <path d="M2 8 8 2H30L24 8Z" fill="#f4f4f1"/>
+ <path d="M5.5 7 9.5 3H27.5L23.5 7Z" fill="none" stroke="#000" stroke-opacity=".07" stroke-width=".25"/>
+ <path d="M2 8H24V30H2Z" fill="url(#sf)"/>
+ <path d="M24 8 30 2V24L24 30Z" fill="url(#sr)"/>
+ <path d="M2 8.12H24" stroke="#fff" stroke-width=".25"/>
+ <path d="M24.1 7.9 30 2" stroke="#fff" stroke-opacity=".45" stroke-width=".25"/>
+ <path d="M2 14H24V20H2Z" fill="#131417"/>
+ <path d="M24 14 30 8V14L24 20Z" fill="#0a0b0d"/>
+ <path d="M2 14.12H24" stroke="#fff" stroke-opacity=".12" stroke-width=".25"/>
+ <path d="M6 16h4v2H6zM16 16h4v2h-4z" fill="#a8cfae"/>
+ <path d="M6 16h1v1H6zM16 16h1v1h-1z" fill="#e2f2e5"/>
+ <path d="M2 24.12H24" stroke="#000" stroke-opacity=".2" stroke-width=".25"/>
+ <path d="M2 24.38H24" stroke="#fff" stroke-opacity=".35" stroke-width=".25"/>
+ <path d="M9 26h1v2H9zM12 26h1v2h-1zM15 26h1v2h-1z" fill="#131417" fill-opacity=".5"/>
+ <path d="M4 26h1v1H4zM21 26h1v1h-1z" fill="#000" fill-opacity=".3"/>
+ <path d="M26 21.5l2-2M26 23.5l2-2M26 25.5l2-2" stroke="#000" stroke-opacity=".28" stroke-width=".5"/>
+</svg>

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" role="img" aria-label="minecraft-bot">
+ <title>minecraft-bot</title>
+ <path d="M3.5 0H16V12.5L12.5 16H0V3.5Z" fill="#17191d"/>
+ <path d="M1 4 4 1H15L12 4Z" fill="#f4f4f1"/>
+ <path d="M1 4H12V15H1Z" fill="#cfd0cc"/>
+ <path d="M12 4 15 1V12L12 15Z" fill="#83847f"/>
+ <path d="M1 7H12V10H1Z" fill="#131417"/>
+ <path d="M12 7 15 4V7L12 10Z" fill="#0a0b0d"/>
+ <path d="M3 8h2v1H3zM8 8h2v1H8z" fill="#a8cfae"/>
+ <path d="M1 12H12V15H1Z" fill="#b6b7b3"/>
+</svg>

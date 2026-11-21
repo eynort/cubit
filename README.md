@@ -1,3 +1,5 @@
+<p align="center"><img src="brand/logo.svg" alt="minecraft-bot" width="520"></p>
+
 # minecraft-bot
 
 **A Minecraft bot that does three things, and does them well: fight, dig and move.** Give it orders in chat (or from a web panel) and it digs out areas layer by layer, follows you or goes where you tell it, and fights mobs and players.
@@ -7,7 +9,7 @@
 ## What it does
 
 - **PvP**: fights one player or everyone in an area, or works as a bodyguard. It never runs from a player: it wins, or walls itself in to heal and comes back. It uses everything it carries: sword and shield with crits, the spear (jabs from out of reach, charges), the mace (from a wind-charge jump or an elytra dive), end crystals and respawn anchors (only when the blast hurts you much more than it), tridents, bows, fishing rods, ender pearls to catch runners, lava buckets, cobwebs, flint and steel, wind charges near edges and harmful splash potions. It picks its moment to hit, chains knockback, re-totems instantly and plays its enchantments. Details in [combat/PVP.md](combat/PVP.md).
-- **Excavate**: empties a box between two corners, 4 blocks high at a time, never breaking a pickaxe. No chests: it keeps what's valuable and throws away the junk (dirt, stone, gravel…). Give it a chunk written with its edges (Z -48 to -63) and it fits the whole chunk.
+- **Excavate**: empties a box between two corners, 4 blocks high at a time, never breaking a pickaxe. It throws away the junk (dirt, stone, gravel…) and keeps what's valuable, or stores it in the chests you give it. Give it a chunk written with its edges (Z -48 to -63) and it fits the whole chunk.
 - **Move**: goes to coordinates or to a player, and follows you. It plans paths with A*, places blocks for towers and bridges when needed, and saves itself from lava, falls and fire.
 - **Vanilla only**: no plugin commands (no /tpa, /home or /login).
 - **Small**: one Go binary, no Java or Node, about 150 MB of RAM: it can live on an old Android phone (Termux), a Raspberry Pi or a cheap VPS.
@@ -19,6 +21,7 @@
 | `/fight <player>` · `/fight in <x> <z> [<x2> <z2>]` | Fight a player, or everyone in an area |
 | `/guard <player> [<minutes>]` | Follow a player and attack whoever hits them |
 | `/excavate <x1> <y1> <z1> <x2> <y2> <z2> [exact]` | Dig out that box (`/excavate chunk <y1> <y2>`: the chunk it stands in) |
+| `/excavate chests <x> <y> <z>` · `list` · `remove` · `clear` | Chests where `/excavate` stores the valuables when full |
 | `/goto <player>` · `/goto <x> <z>` | Go to a player or to coordinates |
 | `/follow <player>` | Follow a player until `/stop` |
 | `/inventory` · `/drop [<item> [<amount>]] [<player>]` | See what it carries; drop or give things |
