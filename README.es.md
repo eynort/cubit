@@ -54,6 +54,102 @@ Al terminar, te escribe el enlace de tu panel:
 
 También puedes usar el programa suelto, sin Docker: descárgalo en [Releases](../../releases). Todo lo demás está en la **[Guía](docs/GUIA.md)**: cómo controlar el bot, el panel, los servidores y los móviles.
 
+## Instrucciones para usar el bot
+
+Escribe las órdenes en la **consola del bot en el panel**. En el juego, mándaselas por privado siendo su dueño: `/msg MiBot follow Steve`. `~` es "donde está el bot", como en Minecraft.
+
+**`/follow <jugador>`**: sigue a un jugador sin parar, hasta `/stop`.
+```
+/follow Steve
+```
+
+**`/goto <jugador>` · `/goto <x> <z>`**: va hasta un jugador o unas coordenadas, y hace torres y puentes si le hacen falta.
+```
+/goto Steve
+/goto 120 -340
+/goto ~50 ~       → 50 bloques al este de donde está
+```
+
+**`/fight <jugador>` · `/fight in <x> <z> [<x2> <z2>]`**: pelea con un jugador hasta que uno de los dos muere, o con todo el que entre en una zona (un punto tiene un radio de 8 bloques, o da dos esquinas).
+```
+/fight Alex
+/fight in 100 200             → todos a menos de 8 bloques de 100 200
+/fight in 0 0 50 50           → todos dentro de ese cuadrado
+```
+
+**`/guard <jugador> [<minutos>]`**: modo guardaespaldas. Sigue a un jugador y ataca a quien le pegue.
+```
+/guard Steve
+/guard Steve 30               → durante 30 minutos
+```
+
+**`/excavate <x1> <y1> <z1> <x2> <y2> <z2> [exact]`**: vacía la caja entera entre dos esquinas, de 4 en 4 bloques desde arriba. Nunca rompe un pico.
+```
+/excavate 10 70 10 30 50 30   → la caja entre esas dos esquinas
+/excavate ~ ~ ~ ~15 ~-20 ~15  → un hoyo de 16×21×16 desde donde está
+/excavate 0 60 0 15 40 15 exact → justo esos bloques (sin exact, ajusta la caja a chunks enteros)
+/excavate chunk 0 64          → el chunk entero donde está, de la altura 0 a la 64
+```
+
+**`/excavate chests …`**: los cofres donde `/excavate` guarda lo valioso cuando se llena y de donde coge picos. Si le das uno de una pared de cofres, cuenta la pared entera.
+```
+/excavate chests 104 103 -224 → apuntar ese cofre
+/excavate chests list         → verlos
+/excavate chests remove 104 103 -224
+/excavate chests clear        → olvidarlos todos
+```
+
+**`/inventory [grid]`**: enseña lo que lleva: armadura, barra e inventario.
+```
+/inventory
+/inventory grid               → colocado como en la pantalla del juego
+```
+
+**`/drop [<objeto> [<cantidad>]] [<jugador>]`**: tira todo, o un objeto, o va hasta un jugador y se lo tira.
+```
+/drop                         → todo, al suelo
+/drop diamond                 → todos sus diamantes
+/drop cobblestone 32          → 32 de piedra
+/drop Steve                   → todo, tirado a Steve
+/drop diamond 5 Steve         → 5 diamantes, tirados a Steve
+```
+
+**`/stop`**: deja lo que esté haciendo: pelear, andar o excavar.
+```
+/stop
+```
+
+**`/status`**: vida, comida, posición y con quién pelea.
+```
+/status
+```
+
+**`/say <texto>`** (o escribe sin `/`): escribe en el chat del juego.
+```
+/say hola a todos
+hola a todos
+```
+
+**`/cmd <comando>`**: ejecuta un comando del servidor como el bot (para la mayoría tiene que ser op).
+```
+/cmd time set day
+/cmd tp Steve
+```
+
+**`/sprint on|off`**: le deja correr, o hace que ande siempre.
+```
+/sprint off
+```
+
+**`/lang en|es`**: el idioma de sus mensajes. Las órdenes son siempre en inglés.
+```
+/lang es
+```
+
+**`/help`**: la lista de órdenes. **`/quit`**: desconecta el bot y lo cierra.
+
+La referencia completa, con todas las opciones, está en [docs/ORDENES.md](docs/ORDENES.md).
+
 ---
 
 <sub>MIT. No es un producto oficial de Minecraft. No está aprobado por Mojang ni Microsoft, ni asociado con ellos.</sub>

@@ -54,6 +54,102 @@ When it finishes, it prints your panel link:
 
 You can also skip Docker and run the binary on its own: download it from [Releases](../../releases). The **[Guide](docs/GUIDE.md)** covers everything else: controlling the bot, the panel, servers and phones.
 
+## How to use the bot
+
+Type commands in the bot's **console in the panel**. In game, whisper them as an owner: `/msg MyBot follow Steve`. `~` means "where the bot is", just like in Minecraft.
+
+**`/follow <player>`**: follows a player non-stop, until `/stop`.
+```
+/follow Steve
+```
+
+**`/goto <player>` · `/goto <x> <z>`**: walks to a player or to some coordinates, building towers and bridges if it needs them.
+```
+/goto Steve
+/goto 120 -340
+/goto ~50 ~       → 50 blocks east of where it is now
+```
+
+**`/fight <player>` · `/fight in <x> <z> [<x2> <z2>]`**: fights a player until one of them dies, or every player who enters an area (a point gets a radius of 8 blocks, or give two corners).
+```
+/fight Alex
+/fight in 100 200             → everyone within 8 blocks of 100 200
+/fight in 0 0 50 50           → everyone inside that square
+```
+
+**`/guard <player> [<minutes>]`**: bodyguard mode. It follows a player and attacks whoever hits them.
+```
+/guard Steve
+/guard Steve 30               → for 30 minutes
+```
+
+**`/excavate <x1> <y1> <z1> <x2> <y2> <z2> [exact]`**: digs out the whole box between two corners, 4 blocks at a time from the top down. It never breaks a pickaxe.
+```
+/excavate 10 70 10 30 50 30   → the box between those two corners
+/excavate ~ ~ ~ ~15 ~-20 ~15  → a 16×21×16 hole starting where it stands
+/excavate 0 60 0 15 40 15 exact → exactly those blocks (otherwise it fits the box to whole chunks)
+/excavate chunk 0 64          → the whole chunk it stands in, from y 0 to 64
+```
+
+**`/excavate chests …`**: the chests where `/excavate` stores the valuables when it is full, and takes pickaxes from. A whole wall of chests counts if you give it any one of them.
+```
+/excavate chests 104 103 -224 → add that chest
+/excavate chests list         → show them
+/excavate chests remove 104 103 -224
+/excavate chests clear        → forget them all
+```
+
+**`/inventory [grid]`**: shows what it carries: armor, hotbar and inventory.
+```
+/inventory
+/inventory grid               → laid out like the game screen
+```
+
+**`/drop [<item> [<amount>]] [<player>]`**: drops everything, or one item, or walks to a player and throws it to them.
+```
+/drop                         → everything, on the ground
+/drop diamond                 → all its diamonds
+/drop cobblestone 32          → 32 cobblestone
+/drop Steve                   → everything, thrown to Steve
+/drop diamond 5 Steve         → 5 diamonds, thrown to Steve
+```
+
+**`/stop`**: stops whatever it is doing: fighting, walking or digging.
+```
+/stop
+```
+
+**`/status`**: health, food, position and what it is fighting.
+```
+/status
+```
+
+**`/say <text>`** (or just type with no `/`): writes in the game chat.
+```
+/say hello everyone
+hello everyone
+```
+
+**`/cmd <command>`**: runs a server command as the bot (it needs to be op for most of them).
+```
+/cmd time set day
+/cmd tp Steve
+```
+
+**`/sprint on|off`**: lets it run, or makes it always walk.
+```
+/sprint off
+```
+
+**`/lang en|es`**: the language of its messages. Commands are always in English.
+```
+/lang es
+```
+
+**`/help`**: lists every command. **`/quit`** disconnects the bot and closes it.
+
+The full reference, with every option, is in [docs/COMMANDS.md](docs/COMMANDS.md).
+
 ---
 
 <sub>MIT. Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.</sub>
