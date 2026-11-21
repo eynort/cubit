@@ -325,3 +325,65 @@ func TestMineSafety(t *testing.T) {
 		}
 	})
 }
+
+// TestMineCave: una cueva enorme corta la escalera por todos lados: sube y
+// empieza otra a 10 bloques, y acaba sacando el hierro de la pared.
+func TestMineCave(t *testing.T) {
+	simworld.Run(t, func(t *testing.T) {
+		g := simworld.Start(t, simworld.Options{Setup: []string{
+			"setblock -3 64 0 minecraft:chest[facing=north,type=single,waterlogged=false]",
+			"give Tester diamond_pickaxe 1", "give Tester cobblestone 16",
+			"fill -3 40 -3 40 56 10 minecraft:air",
+			"setblock -2 50 28 minecraft:iron_ore",
+		}})
+		l := layerY
+		err, out := mine(t, g, automation.MineConfig{
+			Ores: ores(t, "iron"), Chest: world.BlockPos{X: -3, Y: 64, Z: 0},
+			Layer: &l, MainLen: 6, BranchLen: 4, Every: 100,
+		}, 20000*20)
+		t.Log(out)
+		if err != nil {
+			t.Fatalf("minar: %v", err)
+		}
+		if !strings.Contains(out, "empiezo otra") {
+			t.Errorf("no cambió de sitio la escalera")
+		}
+		if n := g.ChestCount(-3, 64, 0, "minecraft:raw_iron"); n != 1 {
+			t.Errorf("hierro en el cofre: %d, tenía que ser 1", n)
+		}
+	})
+}
+
+// TestMineFloorOre: una veta bajo el suelo de la rama, a la vista desde el
+// túnel: no se pica (dejaría un hueco en el camino; nunca se cava hacia
+// abajo), y la rama llega hasta el final con el suelo entero.
+func TestMineFloorOre(t *testing.T) {
+	simworld.Run(t, func(t *testing.T) {
+		g := simworld.Start(t, simworld.Options{Setup: []string{
+			"setblock -3 64 0 minecraft:chest[facing=north,type=single,waterlogged=false]",
+			"give Tester diamond_pickaxe 1", "give Tester cobblestone 16",
+			"setblock 17 49 2 minecraft:iron_ore", "setblock 17 48 2 minecraft:iron_ore",
+			"setblock 18 49 4 minecraft:iron_ore", "setblock 18 51 4 minecraft:iron_ore", // (una en la pared y otra encima del suelo sí)
+		}})
+		l := layerY
+		err, out := mine(t, g, automation.MineConfig{
+			Ores: ores(t, "iron"), Chest: world.BlockPos{X: -3, Y: 64, Z: 0},
+			Layer: &l, MainLen: 3, BranchLen: 5, Every: 100,
+		}, 12000*20)
+		t.Log(out)
+		if err != nil {
+			t.Fatalf("minar: %v", err)
+		}
+		if n := g.ChestCount(-3, 64, 0, "minecraft:raw_iron"); n != 1 {
+			t.Errorf("hierro: %d, tenía que ser 1 (el de la pared; los del suelo no)", n)
+		}
+		for _, p := range [][3]int{{17, 49, 2}, {17, 48, 2}, {18, 49, 4}} {
+			if n := at(g, p[0], p[1], p[2]); n != "iron_ore" {
+				t.Errorf("picó el mineral del suelo %v (%s)", p, n)
+			}
+		}
+		if at(g, 17, 50, 5) != "air" {
+			t.Errorf("la rama no llegó al final")
+		}
+	})
+}

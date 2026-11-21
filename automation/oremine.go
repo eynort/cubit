@@ -65,6 +65,7 @@ type oreMine struct {
 	base    map[string]int // lo que ya llevaba al empezar
 	dep     map[string]int // lo dejado en el cofre
 	trips   int
+	relocs  int  // las veces que cambió de sitio la escalera (una cueva la cortó)
 	asked   bool // ya pidió un pico por el chat
 	torched bool
 	dug     int // minerales picados
@@ -125,7 +126,7 @@ func MineOres(cfg MineConfig) func(j *Job) error {
 
 		// sin pico: primero al cofre
 		if !m.hasPick() {
-			if err := m.trip("sin pico"); err != nil {
+			if err := m.trip("sin pico", false); err != nil {
 				return err
 			}
 		}
@@ -138,7 +139,7 @@ func MineOres(cfg MineConfig) func(j *Job) error {
 		}
 		// pare como pare (menos /stop): lo minado, al cofre
 		if j.Fatal() == nil && m.carried() > 0 {
-			if terr := m.trip("al acabar"); terr != nil && err == nil {
+			if terr := m.trip("al acabar", true); terr != nil && err == nil {
 				err = terr
 			}
 		}
@@ -253,12 +254,15 @@ func (m *oreMine) goToLayer() error {
 			return err
 		}
 		f := j.Feet()
+		if len(m.trail) > 0 && m.trail[len(m.trail)-1] != f { // (una pelea lo movió, un tropiezo: el recorrido tiene que seguir siendo contiguo)
+			m.note(f)
+		}
 		if f.Y == m.layer {
 			m.dir = turns[turn%4]
 			return nil
 		}
 		if !m.hasPick() {
-			if err := m.trip("sin pico"); err != nil {
+			if err := m.trip("sin pico", false); err != nil {
 				return err
 			}
 			continue
@@ -284,7 +288,7 @@ func (m *oreMine) goToLayer() error {
 				return j.Fatal()
 			}
 			if errors.Is(err, ErrNoPicks) {
-				if terr := m.trip("sin pico"); terr != nil {
+				if terr := m.trip("sin pico", false); terr != nil {
 					return terr
 				}
 				continue
@@ -292,7 +296,10 @@ func (m *oreMine) goToLayer() error {
 			j.Logf("minar: la escalera no sigue hacia %v (%v): giro", d, err)
 			turn++
 			if bad++; bad >= 8 {
-				return fmt.Errorf("no consigo bajar a y=%d (estoy en %v): %w", m.layer, f, err)
+				if rerr := m.relocate(err); rerr != nil {
+					return rerr
+				}
+				turn, bad = m.relocs, 0
 			}
 			continue
 		}
@@ -303,7 +310,10 @@ func (m *oreMine) goToLayer() error {
 			j.Logf("minar: no llego al escalón %v (%v): giro", n, err)
 			turn++
 			if bad++; bad >= 8 {
-				return fmt.Errorf("no consigo bajar a y=%d: %w", m.layer, err)
+				if rerr := m.relocate(err); rerr != nil {
+					return rerr
+				}
+				turn, bad = m.relocs, 0
 			}
 			continue
 		}
@@ -316,6 +326,44 @@ func (m *oreMine) goToLayer() error {
 	}
 }
 
+// relocate: una cueva, lava o agua corta la escalera por todos lados: sube por
+// ella y empieza otra a 10 bloques, en otra dirección (como mucho 3 veces).
+func (m *oreMine) relocate(why error) error {
+	j := m.j
+	if m.relocs >= 3 {
+		return fmt.Errorf("no consigo bajar a y=%d (estoy en %v, y ya probé otros 3 sitios): %w", m.layer, j.Feet(), why)
+	}
+	m.relocs++
+	origin := m.trail[0]
+	j.Logf("minar: la escalera se corta en %v (cueva, lava o agua): subo y empiezo otra a 10 bloques hacia %v", j.Feet(), turns[m.relocs%4])
+	if len(m.trail) > 1 {
+		out := loopTrail(m.trail)
+		slices.Reverse(out)
+		if err := m.walkTrail(out); err != nil {
+			return fmt.Errorf("subir por la escalera: %w", err)
+		}
+	}
+	d := turns[m.relocs%4]
+	x, z := origin.X+d[0]*10, origin.Z+d[1]*10
+	spot, found := world.BlockPos{}, false
+	for y := origin.Y + 6; y >= origin.Y-6; y-- { // el suelo de esa columna (la superficie que se ve)
+		p := world.BlockPos{X: x, Y: y, Z: z}
+		if j.solid(world.BlockPos{X: x, Y: y - 1, Z: z}) && !j.liquid(world.BlockPos{X: x, Y: y - 1, Z: z}) && j.airCell(p) && j.airCell(world.BlockPos{X: x, Y: y + 1, Z: z}) {
+			spot, found = p, true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("no veo dónde pisar a 10 bloques de la escalera: %w", why)
+	}
+	if err := j.GoTo(spot); err != nil {
+		return fmt.Errorf("ir a %v para otra escalera: %w", spot, err)
+	}
+	m.trail = []world.BlockPos{spot}
+	m.cur = spot
+	return nil
+}
+
 // openPath deja libres las celdas (de arriba abajo) con suelo firme en
 // floor: sin agua ni lava (se tapa antes de abrir), sin hueco debajo.
 func (m *oreMine) openPath(cells []world.BlockPos, floor world.BlockPos) error {
@@ -325,8 +373,11 @@ func (m *oreMine) openPath(cells []world.BlockPos, floor world.BlockPos) error {
 	}
 	if !j.solid(floor) { // sin suelo: un bloque si lleva; si no, no se sigue
 		fill := j.filler()
-		if fill == "" || j.Place(fill, floor) != nil || !j.solid(floor) {
-			return fmt.Errorf("sin suelo en %v", floor)
+		if fill == "" {
+			return fmt.Errorf("sin suelo en %v y nada con qué taparlo", floor)
+		}
+		if perr := j.Place(fill, floor); perr != nil || !j.solid(floor) {
+			return fmt.Errorf("sin suelo en %v (no pude taparlo con %s: %v)", floor, fill, perr)
 		}
 	}
 	for _, c := range cells {
@@ -346,7 +397,7 @@ func (m *oreMine) openPath(cells []world.BlockPos, floor world.BlockPos) error {
 func (m *oreMine) advance(next world.BlockPos) error {
 	j := m.j
 	if !m.hasPick() {
-		if err := m.trip("sin pico"); err != nil {
+		if err := m.trip("sin pico", false); err != nil {
 			return err
 		}
 	}
@@ -355,7 +406,7 @@ func (m *oreMine) advance(next world.BlockPos) error {
 	floor := world.BlockPos{X: next.X, Y: next.Y - 1, Z: next.Z}
 	err := m.openPath([]world.BlockPos{head, next}, floor)
 	if errors.Is(err, ErrNoPicks) {
-		if terr := m.trip("sin pico"); terr != nil {
+		if terr := m.trip("sin pico", false); terr != nil {
 			return terr
 		}
 		err = m.openPath([]world.BlockPos{head, next}, floor)
@@ -472,6 +523,10 @@ func (m *oreMine) upkeep() error {
 	if err := m.harvest(); err != nil {
 		return err
 	}
+	if m.cfg.Total > 0 && m.minedTotal() >= m.cfg.Total {
+		j.Logf("minar: juntados %d de %d", m.minedTotal(), m.cfg.Total)
+		return errMineDone // (lo que lleve se deja al acabar)
+	}
 	j.makeRoom()
 	why := ""
 	switch {
@@ -479,17 +534,16 @@ func (m *oreMine) upkeep() error {
 		why = "sin pico"
 	case m.carried() >= m.cfg.Every:
 		why = fmt.Sprintf("llevo %d", m.carried())
-	case j.FreeSlots() <= 1 && len(j.toStore()) > 0:
+	case j.FreeSlots() <= 1 && len(m.toStore()) > 0:
 		why = "inventario lleno"
 	}
 	if why != "" {
-		if err := m.trip(why); err != nil {
+		if err := m.trip(why, false); err != nil {
 			return err
 		}
 	}
-	if m.cfg.Total > 0 && m.minedTotal() >= m.cfg.Total {
-		j.Logf("minar: juntados %d de %d", m.minedTotal(), m.cfg.Total)
-		return errMineDone
+	if m.cfg.Total > 0 && m.minedTotal() >= m.cfg.Total && why != "" {
+		return errMineDone // (los que faltaban para el total se juntaron con esa vuelta)
 	}
 	m.status("minando")
 	return nil
@@ -509,7 +563,12 @@ func (m *oreMine) harvest() error {
 				skip[p] = true
 			}
 		}
+		f := j.Feet()
 		ps := j.visibleOres(sightRadius, m.oreOK, skip)
+		// nada por debajo del suelo que pisa: picarlo deja un hueco en el camino, y
+		// cavar hacia abajo es lo que no se hace (las menas de la capa, a la
+		// altura del túnel o por encima, son las que se sacan)
+		ps = slices.DeleteFunc(ps, func(p world.BlockPos) bool { return p.Y < f.Y })
 		if len(ps) == 0 {
 			break
 		}
@@ -555,11 +614,6 @@ func (m *oreMine) take(p world.BlockPos) bool {
 		}
 		return false
 	}
-	f := j.Feet()
-	if p.X == f.X && p.Z == f.Z && p.Y < f.Y { // (nunca el bloque bajo los pies)
-		m.fails[p] = 3
-		return false
-	}
 	up := world.BlockPos{X: p.X, Y: p.Y + 1, Z: p.Z}
 	if j.liquid(up) && !j.fluidBlock(up) {
 		m.fails[p] = 3 // (bajo un bloque inundado: eso no se tapa)
@@ -589,7 +643,7 @@ func (m *oreMine) take(p world.BlockPos) bool {
 
 // trip: al cofre (por el túnel que se cavó, a pie por la superficie), deja lo
 // minado, coge picos si hacen falta y vuelve al sitio donde estaba.
-func (m *oreMine) trip(why string) error {
+func (m *oreMine) trip(why string, final bool) error {
 	j := m.j
 	m.trips++
 	back := m.cur
@@ -601,11 +655,7 @@ func (m *oreMine) trip(why string) error {
 		}
 		out := loopTrail(m.trail)
 		slices.Reverse(out)
-		pf := j.pickFloor
-		j.pickFloor = 0 // (el camino es todo aire: aunque el pico esté casi gastado)
-		err := j.walkCells(out)
-		j.pickFloor = pf
-		if err != nil {
+		if err := m.walkTrail(out); err != nil {
 			return fmt.Errorf("salir por el túnel: %w", err)
 		}
 	}
@@ -615,21 +665,68 @@ func (m *oreMine) trip(why string) error {
 	if !m.hasPick() && !m.waitForPick() {
 		return fmt.Errorf("no tengo ningún pico de nivel %d o más con más de %d usos (no rompo ninguno): déjalos en el cofre %v o tírame uno, y repite la orden", m.need, pickReserve, m.cfg.Chest)
 	}
+	if final {
+		return nil
+	}
 	if len(m.trail) > 1 {
 		j.Logf("minar: vuelvo a la mina")
 		fwd := loopTrail(m.trail)
 		if err := j.GoTo(fwd[0]); err != nil && j.Feet() != fwd[0] {
 			return fmt.Errorf("volver a la mina (%v): %w", fwd[0], err)
 		}
-		pf := j.pickFloor
-		j.pickFloor = 0
-		err := j.walkCells(fwd)
-		j.pickFloor = pf
-		if err != nil {
+		if err := m.walkTrail(fwd); err != nil {
 			return fmt.Errorf("volver por el túnel: %w", err)
 		}
 	}
 	m.cur = back
+	return nil
+}
+
+// walkTrail anda por las celdas del recorrido en ese orden. Si una no se
+// alcanza (algo cambió: una pelea lo apartó, cayó grava), prueba con las
+// siguientes: lo que importa es llegar al final.
+func (m *oreMine) walkTrail(cells []world.BlockPos) error {
+	j := m.j
+	pf := j.pickFloor
+	j.pickFloor = 0 // (el camino es todo aire: aunque el pico esté casi gastado)
+	defer func() { j.pickFloor = pf }()
+	for i := 0; i < len(cells); {
+		err := j.walkCells(cells[i : i+1])
+		if err == nil {
+			i++
+			continue
+		}
+		if j.Fatal() != nil {
+			return j.Fatal()
+		}
+		// algo se cerró (grava, un bloque que puso el pathfinding): cavar hasta la celda
+		if serr := j.standAt(cells[i]); serr == nil && j.Feet() == cells[i] {
+			i++
+			continue
+		}
+		if j.Fatal() != nil {
+			return j.Fatal()
+		}
+		skipped := false
+		for k := 1; k <= 6 && i+k < len(cells); k++ {
+			if j.walkCells(cells[i+k:i+k+1]) == nil {
+				j.Logf("minar: salto %d celdas del recorrido (no llegaba a %v: %v)", k, cells[i], err)
+				i += k + 1
+				skipped = true
+				break
+			}
+			if j.Fatal() != nil {
+				return j.Fatal()
+			}
+		}
+		if !skipped {
+			// último recurso: el camino hasta la última celda (el pathfinding sabe andar por lo cavado)
+			if gerr := j.GoTo(cells[len(cells)-1]); gerr == nil {
+				return nil
+			}
+			return err
+		}
+	}
 	return nil
 }
 
@@ -682,7 +779,7 @@ func (m *oreMine) visitChests() error {
 	twin := map[world.BlockPos]bool{}
 	opened, full := 0, map[world.BlockPos]bool{}
 	for _, c := range m.wall() {
-		pending := len(j.toStore()) > 0 || m.wornPicks() > 0
+		pending := len(m.toStore()) > 0 || m.wornPicks() > 0
 		if !pending && j.UsablePicks() >= wantPicks {
 			break
 		}
@@ -713,7 +810,7 @@ func (m *oreMine) visitChests() error {
 			return j.r.d.Screens.Click(scr.ID, slot, 0, types.ContainerInputQuickMove) == nil
 		}
 		// 1. lo minado y lo valioso
-		for _, i := range j.toStore() {
+		for _, i := range m.toStore() {
 			cnt := j.slotCount(i)
 			if !click(start + (i - invStart)) {
 				break
@@ -773,11 +870,50 @@ func (m *oreMine) visitChests() error {
 	if opened == 0 {
 		return fmt.Errorf("no pude abrir ningún cofre en %v", m.cfg.Chest)
 	}
-	if n := len(j.toStore()); n > 0 {
+	if n := len(m.toStore()); n > 0 {
 		j.Logf("minar: los cofres están llenos (o no llego a ellos): me quedan %d montones por dejar", n)
 	}
 	j.Logf("minar: tras el cofre: llevo %d picos buenos, %d minerales encima, %d dejados en total", j.UsablePicks(), m.carried(), m.deposited())
 	return nil
+}
+
+// valuable: lo que se deja en el cofre: lo que sueltan los minerales (de
+// cualquiera de los que /mine conoce), lo que sale de fundirlos y las gemas y
+// cosas raras que aparezcan. Nunca herramientas, armadura ni comida, ni la
+// basura natural (hojarasca, plantones, palos…).
+func valuable(n string) bool {
+	if n == "" || excavateKeeps(n) || junk(n) {
+		return false
+	}
+	for _, o := range OreSpecs {
+		if slices.Contains(o.Items, n) {
+			return true
+		}
+	}
+	switch {
+	case strings.HasSuffix(n, "_ore"), strings.HasPrefix(n, "raw_"), strings.HasSuffix(n, "_ingot"), strings.HasSuffix(n, "_nugget"),
+		strings.HasPrefix(n, "enchanted_"), strings.HasSuffix(n, "_upgrade_smithing_template"), strings.HasSuffix(n, "_armor_trim_smithing_template"):
+		return true
+	}
+	switch n {
+	case "diamond", "emerald", "lapis_lazuli", "redstone", "quartz", "amethyst_shard", "coal", "ancient_debris", "netherite_scrap",
+		"gold_ingot", "iron_ingot", "copper_ingot", "glowstone_dust", "name_tag", "saddle", "heart_of_the_sea", "nautilus_shell",
+		"diamond_block", "emerald_block", "gold_block", "iron_block", "lapis_block", "redstone_block", "netherite_block", "ender_pearl", "echo_shard", "totem_of_undying":
+		return !excavateKeeps(n)
+	}
+	return false
+}
+
+// toStore: los slots del inventario con algo que dejar en el cofre.
+func (m *oreMine) toStore() []int {
+	var out []int
+	for i := invStart; i <= invEnd; i++ {
+		sl := m.j.slotStack(i)
+		if sl.Count > 0 && valuable(strings.TrimPrefix(itemName(int32(sl.Item)), "minecraft:")) {
+			out = append(out, i)
+		}
+	}
+	return out
 }
 
 // wornPicks: los picos gastados que lleva (para devolverlos al cofre).
