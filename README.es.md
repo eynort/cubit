@@ -41,7 +41,16 @@ cd cubit
 ./up.sh TuNombreDeMinecraft
 ```
 
-Abre el enlace del panel que te escribe y crea tu primer bot. Entra al servidor de pruebas desde **Minecraft Java 26.2** en `localhost:25565`.
+Al terminar, te escribe el enlace de tu panel:
+
+```
+  Panel:      http://localhost:8080/?t=…
+  Minecraft:  localhost:25565
+```
+
+1. **Entra al panel**: pega el enlace `Panel` en tu navegador. La parte `?t=…` es tu clave de acceso, así que copia el enlace entero.
+2. **Crea tu bot**: el panel te guía paso a paso (nombre, servidor, dueño, idioma).
+3. **Juega con él**: en **Minecraft Java 26.2**, ve a *Multijugador → Conexión directa* y pon `localhost:25565`.
 
 También puedes usar el programa suelto, sin Docker: descárgalo en [Releases](../../releases). Todo lo demás está en la **[Guía](docs/GUIA.md)**: cómo controlar el bot, el panel, los servidores y los móviles.
 
