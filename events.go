@@ -165,6 +165,13 @@ func (b *Bot) backToDeath(d deathSpot) {
 		return
 	}
 	p := b.Player.Position()
+	// lo tirado dura 5 minutos: corriendo (5,6 bloques/s) son unos 1700 bloques,
+	// y por el camino se tarda más. Más lejos (en los logs: a 28 000 bloques) no se llega
+	if far := math.Hypot(x-p.X, z-p.Z); far > 1000 {
+		log.Printf("morí a %.0f bloques de aquí: mis cosas desaparecen antes de que llegue, no vuelvo", far)
+		b.lastDeath.Store(nil)
+		return
+	}
 	log.Printf("vuelvo a donde morí (%.0f %.0f %.0f, a %.0f bloques) a recoger mis cosas", x, y, z, math.Hypot(x-p.X, z-p.Z))
 	ctx, cancel := b.startMove(b.ctx)
 	gen := setMoveKind("goto")

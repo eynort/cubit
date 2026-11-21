@@ -43,15 +43,18 @@ const (
 )
 
 type bunkerState struct {
-	on        bool
-	feet      world.BlockPos
-	since     uint64
-	enemy     int32
-	opening   []world.BlockPos // saliendo: lo que queda por romper
-	logged    bool             // dijo ya que está cerrado
-	placed    int              // bloques puestos (con los repuestos)
-	lastPlace uint64           // el paso del último
-	jump      bool             // saltar para poner (la cara de arriba de una pared)
+	on         bool
+	feet       world.BlockPos
+	since      uint64
+	enemy      int32
+	opening    []world.BlockPos // saliendo: lo que queda por romper
+	logged     bool             // dijo ya que está cerrado
+	placed     int              // bloques puestos (con los repuestos)
+	lastPlace  uint64           // el paso del último
+	punishing  bool             // pegándole por el hueco de la pared que rompe (defense.go)
+	punishFrom uint64           // desde qué paso
+	punishWait uint64           // hasta este paso no se vuelve a intentar
+	jump       bool             // saltar para poner (la cara de arriba de una pared)
 	// la salida (exit.go no: aquí): por qué lado, intentos y qué hacer al abrir
 	side      int              // el lado que se abre (0 el del rival … 3 el de atrás)
 	tries     int              // golpes de pico seguidos al mismo bloque sin romperlo
@@ -307,7 +310,7 @@ func (f *Fighter) bunkerStep(ctx context.Context, st basic.Status, foes []foe, s
 	// el plan, al acabar el paso (con el salto si hace falta para poner)
 	f.bk.jump = false
 	defer func() {
-		if f.bk.on && len(f.bk.opening) == 0 {
+		if f.bk.on && len(f.bk.opening) == 0 && !f.bk.punishing {
 			f.setPlan(plan{mode: sheltering, target: t.id, shelter: f.bk.feet, jump: f.bk.jump})
 		}
 	}()
@@ -321,6 +324,11 @@ func (f *Fighter) bunkerStep(ctx context.Context, st basic.Status, foes []foe, s
 	// repone); luego el resto
 	if _, _, eating := f.d.Hands.Using(); eating && f.missing(cells[:2], foes) {
 		f.d.Hands.CancelEat()
+	}
+	// él rompiéndole la pared, pegado y con el pico en la mano: un espadazo
+	// por el hueco antes de taparlo (defense.go)
+	if f.punishBreaker(ctx, t, cells[:2], st) {
+		return true
 	}
 	if f.placeNext(cells[:2], foes) {
 		return true

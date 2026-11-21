@@ -133,6 +133,7 @@ type plan struct {
 	steerX       float64
 	steerZ       float64
 	fleeX, fleeZ float64 // de dónde huir al retirarse
+	finish       bool    // le queda poca vida: a por él, sin retroceder (defense.go)
 	lunge        bool    // la embestida con la lanza (arsenal.go)
 	smash        bool    // en el aire con la maza: pegar en cuanto esté a tiro (arsenal.go)
 	fly          int     // con élitros: 1 subiendo, 2 en picado (expert.go)
@@ -617,8 +618,8 @@ func (f *Fighter) step(ctx context.Context) {
 		// golpes con suerte (un crítico) acaban la pelea (en el simulador, con 6
 		// de vida y "le gano", muerto en 1,3 s)
 		armor, tough := f.myArmor()
-		if two := 2 * afterArmor(theirHit(target.e)*1.5, armor, tough); float64(low) < two {
-			low = float32(min(two, 14))
+		if two := 2 * afterArmor(theirHit(target.e), armor, tough); float64(low) < two {
+			low = float32(min(two, 12))
 		}
 	}
 
@@ -638,7 +639,18 @@ func (f *Fighter) step(ctx context.Context) {
 			p := f.d.Player.Position()
 			coming = target.dist-math.Max(0, f.closingSpeed(p, target.e, f.t.seenVel[0], f.t.seenVel[1]))*34 < 3
 		}
+		// (y con un precipicio a la espalda no: comiendo se está quieto, y su
+		// golpe tira por el borde; en los logs, bot contra bot: 68 bloques)
+		edge := false
+		if target != nil {
+			p := f.d.Player.Position()
+			if fl := math.Hypot(p.X-target.e.X, p.Z-target.e.Z); fl > 0.1 {
+				edge = f.edgeWithin(p, (p.X-target.e.X)/fl, (p.Z-target.e.Z)/fl, knockbackReach)
+			}
+		}
 		switch {
+		case edge:
+			// (sin comer: a pelear, y el borde lo lleva thinkFight)
 		case !coming:
 			f.logf("como una dorada (vida %.1f)", st.Health)
 			f.eat(ctx, gap, cx, cz)
@@ -736,6 +748,15 @@ func (f *Fighter) step(ctx context.Context) {
 		return
 	}
 	f.manageOffhand(ctx, foes, st.Health, near) // escudo o tótem, según contra qué
+	// comer en plena pelea con la comida por debajo de 20: con ella llena (y
+	// saturación) la vida vuelve muy deprisa, y por debajo de 18 no vuelve
+	// nada. Contra un jugador, en vanilla es lo que más cura (en los logs,
+	// contra una persona: el bot a 15-16 de comida toda la pelea, sin curarse;
+	// ella de 1 a 10 en 13 s). Si da tiempo a acabar antes de que llegue
+	// (1,6 s) y sin precipicio a la espalda
+	if isPlayer && st.Food < 20 && f.snack(ctx, st, target, foods, cx, cz) {
+		return
+	}
 	// a uno que no se le gana: encerrarse y que se canse, o pelear con todo
 	// (nunca huir: corre igual y pega por la espalda)
 	if isPlayer && f.stanceNow == stanceAvoid {
@@ -768,7 +789,9 @@ func (f *Fighter) step(ctx context.Context) {
 	// quitarle el agua o la lava que puso, encerrarle si se queda quieto
 	if isPlayer {
 		f.trackStill(target)
-		if f.handsBusy.Load() { // (el cubo sale el tick siguiente: con la espada en la mano no recoge nada)
+		// (el cubo sale el tick siguiente: con la espada en la mano no recoge
+		// nada; y el bloque del constructor, igual: con la espada no se pone)
+		if f.handsBusy.Load() || f.d.Builder != nil && f.d.Builder.Busy() && f.plan.Load().mode == acting {
 			f.setPlan(plan{mode: acting, target: target.id})
 			return
 		}
@@ -982,6 +1005,8 @@ func (f *Fighter) fight(ctx context.Context, t *foe, w weapon, slot int, shield 
 	climbing := f.following == t.id && f.d.Walker.Climbing() && t.e.Y > p.Y+0.5
 	if f.chaseID != t.id || t.dist < f.chaseBest-1 || near || climbing || f.steps-f.fightStep > 1 {
 		f.chaseID, f.chaseBest, f.chaseAt = t.id, t.dist, f.steps
+	} else if t.dist < 6 && f.steps-f.chaseAt > 30 && f.breakThrough(ctx, t) {
+		return // (un muro entre los dos, él al otro lado: se rompe; defense.go)
 	} else if f.steps-f.chaseAt > 160 {
 		f.logf("no llego a %s (a %.1f bloques, 8 s sin acercarme): lo dejo", t.name, t.dist)
 		f.giveUp(t.id)
@@ -1028,6 +1053,7 @@ func (f *Fighter) fight(ctx context.Context, t *foe, w weapon, slot int, shield 
 	f.setPlan(plan{
 		guard: guard, gx: gx, gy: gy, gz: gz,
 		mode: fighting, target: t.id, closeIn: closeIn, weapon: w, shield: shield, stance: f.stanceNow, holdFire: f.tac.approach && f.tac.id == t.id, lunge: lunge,
+		finish: t.e.Type == "minecraft:player" && f.finishable(t, w),
 		noCrit:      blocking(t.e) && isAxe(func() string { inv, h := f.inventory(); return nameOf(inv[slotHotbar+h]) }()),
 		hisCooldown: f.hisCooldown(t),
 	})

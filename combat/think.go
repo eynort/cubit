@@ -279,7 +279,7 @@ func (f *Fighter) thinkFight(s *control.State, bp *basic.Player, pl *plan) {
 	} else if f.t.waitFrom == 0 {
 		f.t.waitFrom = tick
 	}
-	comes := melee && (pl.shield || charge >= 0.95 && tick-f.t.waitFrom < 15) && closingIn > 0.08 && flat < 8
+	comes := melee && !pl.finish && (pl.shield || charge >= 0.95 && tick-f.t.waitFrom < 15) && closingIn > 0.08 && flat < 8
 	switch {
 	case edgeBehind:
 		in.Forward = flat > 1.6 // hacia él (lejos del borde), sin pegarse
@@ -313,6 +313,12 @@ func (f *Fighter) thinkFight(s *control.State, bp *basic.Player, pl *plan) {
 	combo := tick < f.t.comboUntil && melee && !pl.weapon.stab && !edgeBehind
 	if combo && f.t.wtap == 0 {
 		in.Forward, in.Sprint, in.Backward = flat > 1.2, flat > 1.2, false
+	}
+	// rematar: le queda poca vida. A por él corriendo, sin retroceder ni
+	// esperar tapado: cada tick que pasa se cura
+	if pl.finish && melee && !edgeBehind && !pl.weapon.stab {
+		in.Backward = false
+		in.Forward, in.Sprint = flat > 1.4, flat > 1.4
 	}
 	// strafe: moverse de lado como una persona, cambiando a ratos
 	if f.t.strafeTicks--; f.t.strafeTicks <= 0 {

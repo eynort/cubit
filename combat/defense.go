@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/mj41/go-mc26-kit/bot/act"
+	"github.com/mj41/go-mc26-kit/bot/basic"
 	"github.com/mj41/go-mc26-kit/bot/screen"
 	"github.com/mj41/go-mc26-kit/bot/world"
 	"github.com/mj41/go-mc26/protocol/types"
@@ -191,3 +192,123 @@ func (f *Fighter) lavaBucketHeld() bool { return f.hasItem("minecraft:lava_bucke
 var _ = strings.HasPrefix
 
 func nowMilli() int64 { return time.Now().UnixMilli() }
+
+// breakThrough: un muro entre el bot y t (cerca, sin camino): el primer
+// bloque de la línea (a la altura de los pies o de la cabeza) se rompe con la
+// herramienta que vaya. Antes, bot contra bot, separados por las paredes de
+// una jaula: "no llego a él (a 1,8 bloques)" y se dejaban. Dice si rompe.
+func (f *Fighter) breakThrough(ctx context.Context, t *foe) bool {
+	if f.d.Hands.Busy() {
+		return true
+	}
+	p := f.d.Player.Position()
+	for _, h := range []float64{0.5, 1.5} {
+		ax, ay, az := p.X, p.Y+h, p.Z
+		bx, by, bz := t.e.X, t.e.Y+h, t.e.Z
+		n := int(math.Ceil(math.Hypot(bx-ax, bz-az) / 0.2))
+		for i := 1; i < n; i++ {
+			k := float64(i) / float64(n)
+			c := cellOf(ax+(bx-ax)*k, ay+(by-ay)*k, az+(bz-az)*k)
+			if !f.solid(c) {
+				continue
+			}
+			if f.eyeDist(c) > eyeReach {
+				break
+			}
+			if slot, ok := f.toolFor(c); ok {
+				if _, held := f.inventory(); slot != slotHotbar+held {
+					_ = f.hold(ctx, slot)
+				}
+			}
+			f.stopMoving()
+			f.setPlan(plan{mode: acting, target: t.id})
+			f.logf("un muro entre %s y yo: lo rompo (%d %d %d)", t.name, c.X, c.Y, c.Z)
+			f.d.Hands.Dig(c, func(d act.Dig) {
+				if d.Err != nil {
+					f.logf("romper el muro: %v", d.Err)
+				}
+			})
+			return true
+		}
+	}
+	return false
+}
+
+// punishBreaker: dentro del búnker, él rompiendo la pared de su lado: pegado
+// a ella y con la herramienta en la mano (ni espada ni escudo). Por el hueco,
+// con la espada, en vez de reponer el bloque al momento (bot contra bot: el de
+// dentro reponía la misma pared 10 s, sin curarse, hasta quedarse sin
+// bloques). Un golpe (o 2 s) y luego se tapa. Dice si está en ello.
+func (f *Fighter) punishBreaker(ctx context.Context, t *foe, wall []cell, st basic.Status) bool {
+	f.bk.punishing = false
+	if t == nil || f.steps < f.bk.punishWait || st.Health < 4 {
+		return false
+	}
+	gap := false
+	for _, c := range wall {
+		if !f.solid(c.pos) {
+			gap = true
+		}
+	}
+	p := f.d.Player.Position()
+	if !gap || boxDistance(p, t.e) > reach || !f.clearShot(t.e) {
+		f.bk.punishFrom = 0
+		return false
+	}
+	if f.bk.punishFrom == 0 {
+		f.bk.punishFrom = f.steps
+		what := strings.TrimPrefix(nameOf(screen.Slot(t.e.Equipment[0])), "minecraft:")
+		f.logf("%s me rompe la pared (con %s en la mano): le pego por el hueco", t.name, what)
+	}
+	// el golpe dado, o 2 s sin poder: a tapar (y un rato sin volver a esto)
+	if hit := f.ourHitAt.Load() > 0 && f.ourHitAt.Load() >= time.Now().Add(-time.Duration(f.steps-f.bk.punishFrom)*50*time.Millisecond).UnixNano() &&
+		f.enemyHurt.Load() == t.id; hit || f.steps-f.bk.punishFrom > 40 {
+		f.bk.punishFrom, f.bk.punishWait = 0, f.steps+30
+		return false
+	}
+	armor, tough := armorOf(t.e.Equipment)
+	slot, w, _ := f.bestWeapon(health(t.e), armor, tough, false, kind(t.e))
+	if _, held := f.inventory(); slot != slotHotbar+held {
+		if f.d.Builder.Busy() || f.d.Hands.Busy() {
+			return true
+		}
+		_ = f.hold(ctx, slot)
+	}
+	inv, _ := f.inventory()
+	f.bk.punishing = true
+	f.setPlan(plan{mode: fighting, target: t.id, closeIn: true, weapon: w, stand: true,
+		shield: nameOf(inv[slotOffhand]) == itemShield})
+	return true
+}
+
+// snack: comer en la pelea (lo que no es dorada: zanahorias doradas, filete…)
+// si da tiempo antes de que llegue t y no hay precipicio a la espalda. Dice
+// si se puso a comer.
+func (f *Fighter) snack(ctx context.Context, st basic.Status, t *foe, foods []food, cx, cz float64) bool {
+	if t == nil || f.d.Hands.Busy() || t.dist < 4 {
+		return false
+	}
+	fd, ok := pickFood(foods, 20-st.Food, false)
+	if !ok {
+		return false
+	}
+	p := f.d.Player.Position()
+	if t.dist-math.Max(0, f.closingSpeed(p, t.e, f.t.seenVel[0], f.t.seenVel[1]))*34 < 3.5 {
+		return false
+	}
+	if fl := math.Hypot(p.X-t.e.X, p.Z-t.e.Z); fl > 0.1 && f.edgeWithin(p, (p.X-t.e.X)/fl, (p.Z-t.e.Z)/fl, knockbackReach) {
+		return false
+	}
+	f.logf("como en la pelea (comida %d, vida %.1f): con ella llena se cura sola", st.Food, st.Health)
+	f.eat(ctx, fd, cx, cz)
+	return true
+}
+
+// finishable: a t le queda poca vida: un golpe del bot le mata, o 4 o menos.
+// Entonces a por él, sin retroceder ni esperar al crítico (en los logs: con
+// él a 1 de vida, el bot seguía su baile de recargar atrás y se le curó).
+func (f *Fighter) finishable(t *foe, w weapon) bool {
+	hp := health(t.e)
+	armor, tough := armorOf(t.e.Equipment)
+	return hp <= 4 || hp <= afterArmor(w.damage, armor, tough)
+}

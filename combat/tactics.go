@@ -49,6 +49,7 @@ type tacticsState struct {
 	breakAt    world.BlockPos // el bloque que se le rompe
 	breakTry   int            // intentos con él
 	cageAt     uint64         // el paso del último
+	cageNext   uint64         // hasta este paso, ninguna jaula más
 	fluidAt    uint64         // el de la última vez que quitó un fluido
 	fluidPos   world.BlockPos // cuál
 	fluidTries int            // y cuántas veces
@@ -341,7 +342,12 @@ func (f *Fighter) cage(t *foe) bool {
 		return false
 	}
 	f.tac.approach = false
-	if !(eatingNow(t.e) || f.still(t) || f.cornered(t)) || t.dist < 1.6 || t.dist > 5.5 {
+	// contra uno armado, solo comiendo o bebiendo (bot contra bot: "quieto"
+	// era estar tras el escudo medio segundo, y las paredes de una jaula le
+	// dejaban "arrinconado" para la siguiente: la arena llena de piedra y los
+	// dos separados por muros). Y un rato entre jaulas
+	armed := armedEntity(t.e)
+	if !(eatingNow(t.e) || !armed && (f.still(t) || f.cornered(t))) || t.dist < 1.6 || t.dist > 5.5 || f.steps < f.tac.cageNext {
 		return false
 	}
 	if f.matchID == t.id && f.match.myHits <= 2 {
@@ -406,11 +412,15 @@ func (f *Fighter) cage(t *foe) bool {
 			if f.d.Builder.PlaceNow(c.pos, c.against) {
 				f.tac.caged++
 				f.tac.cageAt = f.steps
+				if f.tac.caged >= 8 {
+					f.tac.cageDone, f.tac.cageNext = true, f.steps+600
+				}
 			}
 			return true
 		}
 	}
 	f.tac.cageDone = true // (nada más que poner: hecho)
+	f.tac.cageNext = f.steps + 600
 	return false
 }
 
