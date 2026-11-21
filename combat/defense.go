@@ -288,6 +288,13 @@ func (f *Fighter) snack(ctx context.Context, st basic.Status, t *foe, foods []fo
 	if t == nil || f.d.Hands.Busy() || t.dist < 4 {
 		return false
 	}
+	// solo si hace falta: la comida por debajo de 18 (ahí la vida no vuelve) o
+	// poca vida; y nunca con él a punto de caer (contra una persona: con ella a
+	// 1-3 de vida, el bot comía filete a 19 de comida y 18 de vida, 1,6 s quieto
+	// cada vez, y ella se curaba)
+	if st.Food >= 18 && st.Health >= 14 || health(t.e) <= 6 {
+		return false
+	}
 	fd, ok := pickFood(foods, 20-st.Food, false)
 	if !ok {
 		return false
