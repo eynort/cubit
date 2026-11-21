@@ -1053,7 +1053,7 @@ func (f *Fighter) fight(ctx context.Context, t *foe, w weapon, slot int, shield 
 	f.setPlan(plan{
 		guard: guard, gx: gx, gy: gy, gz: gz,
 		mode: fighting, target: t.id, closeIn: closeIn, weapon: w, shield: shield, stance: f.stanceNow, holdFire: f.tac.approach && f.tac.id == t.id, lunge: lunge,
-		finish: t.e.Type == "minecraft:player" && f.finishable(t, w),
+		finish:      t.e.Type == "minecraft:player" && f.finishable(t, w),
 		noCrit:      blocking(t.e) && isAxe(func() string { inv, h := f.inventory(); return nameOf(inv[slotHotbar+h]) }()),
 		hisCooldown: f.hisCooldown(t),
 	})
