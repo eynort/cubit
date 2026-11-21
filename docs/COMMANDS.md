@@ -180,6 +180,30 @@ Language of the explanations (commands are always in English)
 /lang en
 ```
 
+## /mine
+
+`/mine <ores> <x> <y> <z> [every <n>] [total <n>]`
+
+Mine ores like a real player (strip mining, no xray): from where it stands, it goes down a staircase to the ore's best layer, digs a 1×2 main tunnel with a branch to each side every 3 blocks, and only mines what a player would see (ore touching the air of the tunnel, and the rest of a vein once it shows). It never breaks a pickaxe: it takes them from the chest and, with none left, goes back for more (or asks in chat). Every 8 ores (every <n>) it walks back to the chest, leaves the ores and valuables (never tools or food), and returns to the mine. /stop stops it; /status says what it is doing. When it ends it prints a summary.
+
+- `<ores>`: what to mine: one, or several separated by commas (diamond,iron); in the Nether, ancient_debris and quartz
+- `<x>`: the chest (or a wall of chests: any one of them) where it takes pickaxes from and leaves the ores (~ = where the bot is)
+- `<y>`: the chest (or a wall of chests: any one of them) where it takes pickaxes from and leaves the ores (~ = where the bot is)
+- `<z>`: the chest (or a wall of chests: any one of them) where it takes pickaxes from and leaves the ores (~ = where the bot is)
+- `<option>` (optional)
+  - `every`: leave the ores in the chest every <n> (default 8)
+  - `total`: stop after <n> ores (default: until /stop)
+- `<n>` (optional): how many
+
+**Examples**
+
+```
+/mine diamond 104 103 -224              # mine diamonds, using the chest there (leaves them every 8)
+/mine iron,coal 104 103 -224 every 16   # iron and coal at once, leaving them every 16
+/mine diamond ~ ~ ~ total 12            # the chest is where it stands; stops at 12 diamonds
+/mine ancient_debris 104 103 -224       # in the Nether: ancient debris at y=15
+```
+
 ## /quit
 
 `/quit`

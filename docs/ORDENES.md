@@ -180,6 +180,30 @@ Idioma de las explicaciones (las órdenes siempre en inglés)
 /lang en
 ```
 
+## /mine
+
+`/mine <ores> <x> <y> <z> [every <n>] [total <n>]`
+
+Minar minerales como un jugador de verdad (strip mining, sin xray): desde donde está baja por una escalera a la mejor capa del mineral, cava un túnel principal de 1×2 con una rama a cada lado cada 3 bloques, y solo pica lo que vería un jugador (mineral que toca el aire del túnel, y el resto de una veta cuando se ve). Nunca rompe un pico: los coge del cofre y, si no le quedan, vuelve a por más (o los pide por el chat). Cada 8 minerales (every <n>) vuelve andando al cofre, deja los minerales y lo valioso (nunca herramientas ni comida) y regresa a la mina. /stop lo para; /status dice qué hace. Al acabar da un resumen.
+
+- `<ores>`: qué minar: uno, o varios separados por comas (diamond,iron); en el Nether, ancient_debris y quartz
+- `<x>`: el cofre (o una pared de cofres: vale uno cualquiera) de donde coge picos y donde deja los minerales (~ = donde está el bot)
+- `<y>`: el cofre (o una pared de cofres: vale uno cualquiera) de donde coge picos y donde deja los minerales (~ = donde está el bot)
+- `<z>`: el cofre (o una pared de cofres: vale uno cualquiera) de donde coge picos y donde deja los minerales (~ = donde está el bot)
+- `<option>` (opcional)
+  - `every`: dejar los minerales en el cofre cada <n> (por defecto 8)
+  - `total`: acabar al juntar <n> minerales (por defecto: hasta /stop)
+- `<n>` (opcional): cuántos
+
+**Ejemplos**
+
+```
+/mine diamond 104 103 -224              # minar diamantes, con el cofre de ahí (los deja cada 8)
+/mine iron,coal 104 103 -224 every 16   # hierro y carbón a la vez, dejándolos cada 16
+/mine diamond ~ ~ ~ total 12            # el cofre está donde está él; acaba al juntar 12 diamantes
+/mine ancient_debris 104 103 -224       # en el Nether: escombros ancestrales en y=15
+```
+
 ## /quit
 
 `/quit`

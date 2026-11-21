@@ -157,7 +157,7 @@ func TestExSuggestions(t *testing.T) {
 		t.Errorf(`"/ex": %+v`, got)
 	}
 	// lo que se quitó ya no es una orden del bot: se manda al servidor
-	for _, l := range []string{"/chop", "/mine", "/build", "/queue", "/ai", "/chest", "/limits"} {
+	for _, l := range []string{"/chop", "/build", "/queue", "/ai", "/chest", "/limits"} {
 		if got := suggestions(l); len(got) != 1 || got[0].value != "" {
 			t.Errorf("%q: tendría que ser un comando del servidor, da %+v", l, got)
 		}
