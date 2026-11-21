@@ -35,7 +35,7 @@ const chopCollectUp = 7
 
 // chopTreeBudget: lo máximo que se dedica a rematar los troncos que no alcanza
 // de un árbol; pasado eso se deja (y se dice) en vez de quedarse allí.
-const chopTreeBudget = 4 * time.Minute
+const chopTreeBudget = 150 * time.Second
 
 // ChopRadius: a cuántos bloques (en horizontal) del punto se talan árboles.
 const ChopRadius = 24
@@ -127,6 +127,7 @@ type chopper struct {
 	ws     woodSet
 	center world.BlockPos
 	skip   map[world.BlockPos]bool // troncos de árboles que se dejaron (imposibles o a medias)
+	noted  map[world.BlockPos]bool // grupos de troncos ya dicho que no son árbol
 	until  time.Time               // hasta cuándo se intenta terminar el árbol de ahora (chopTreeBudget)
 
 	trees     map[string]int // árboles talados, por madera
@@ -147,6 +148,7 @@ func Chop(kinds []string, center world.BlockPos) func(j *Job) error {
 			c.ws[k] = true
 		}
 		before := c.carried()
+		defer func() { c.summary(before) }() // también al pararla (/stop): lo que se llevaba talado
 		// solo se recoge la madera (no las hojas: manzanas, palos, brotes…: ir
 		// a por lo que cae sobre las hojas era subir y bajar para nada)
 		j.ignore = func(item string) bool { return !isLogBlock(item) }
@@ -177,7 +179,6 @@ func Chop(kinds []string, center world.BlockPos) func(j *Job) error {
 				return j.Fatal()
 			}
 		}
-		c.summary(before)
 		if c.total(c.trees) == 0 {
 			return fmt.Errorf("no encontré árboles de %s a menos de %d bloques de %v (hojas naturales y chunks cargados)", strings.Join(kinds, ","), ChopRadius, center)
 		}
@@ -450,12 +451,24 @@ func colDist2(a, b world.BlockPos) int {
 // natural: el grupo de troncos es un árbol: hojas naturales cerca de alguno
 // de sus troncos y ninguna cosa de jugador pegada a ellos.
 func (c *chopper) natural(t *chopTree) bool {
+	ok, why := c.isNatural(t)
+	if !ok && !c.noted[t.foot] { // (una vez por grupo: se vuelve a mirar en cada vuelta)
+		if c.noted == nil {
+			c.noted = map[world.BlockPos]bool{}
+		}
+		c.noted[t.foot] = true
+		c.j.Logf("no es un árbol (%d troncos en %v): %s", len(t.logs), t.foot, why)
+	}
+	return ok
+}
+
+func (c *chopper) isNatural(t *chopTree) (bool, string) {
 	j := c.j
 	leaves := false
 	for _, l := range t.logs {
 		for _, d := range [][3]int{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}} {
-			if playerMade(j.Block(add(l, d))) {
-				return false
+			if n := j.Block(add(l, d)); playerMade(n) {
+				return false, fmt.Sprintf("%s pegado al tronco de %v (construcción)", n, l)
 			}
 		}
 		if leaves {
@@ -473,7 +486,10 @@ func (c *chopper) natural(t *chopTree) bool {
 			}
 		}
 	}
-	return leaves
+	if !leaves {
+		return false, "sin hojas naturales cerca (troncos caídos, un tronco suelto, una construcción)"
+	}
+	return true, ""
 }
 
 // next: el árbol más cercano al bot de los que quedan.
@@ -590,6 +606,10 @@ func (c *chopper) fell(t *chopTree) error {
 		}
 		j.Logf("al hueco del tronco: %v; abro paso entre las hojas", err)
 		if err := c.clearWayTo(base, func() bool { return j.Feet() == base }); err != nil {
+			// no se entra en el hueco (las raíces del manglar, un pie en alto): por debajo
+			if left := c.standing(t.logs); len(left) > 0 && c.towerTo(t, left[0]) {
+				return nil
+			}
 			return fmt.Errorf("al hueco del tronco: %w", err)
 		}
 	}
