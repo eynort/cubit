@@ -92,6 +92,9 @@ func (g *Game) useItemOn(p fakeserver.Packet) error {
 			if err := g.lightPortal(pos.X+d[0], pos.Y+d[1], pos.Z+d[2]); err != nil {
 				return err
 			}
+			if err := g.lightFire(pos.X+d[0], pos.Y+d[1], pos.Z+d[2]); err != nil { // PATCH (arsenal.go)
+				return err
+			}
 			return g.ack(seq)
 		}
 		// a pickaxe or a sword has no use on a block (no useOn): nothing happens
@@ -124,7 +127,9 @@ func (g *Game) useItemOn(p fakeserver.Packet) error {
 		if at := g.S.World.At(x, y, z); at != 0 && !isFluid(at) { // (a fluid is replaced; other replaceable blocks — grass — are not modelled)
 			return g.ack(seq)
 		}
-		if g.inPlayer(x, y, z) || g.inMob(x, y, z) { // a block where the player or a mob stands is refused (BlockItem: the shape collides with an entity)
+		if blockName == "minecraft:cobweb" { // PATCH (arsenal.go): no shape, so also where one stands
+			g.ars.webs++
+		} else if g.inPlayer(x, y, z) || g.inMob(x, y, z) { // a block where the player or a mob stands is refused (BlockItem: the shape collides with an entity)
 			if err := g.S.Send(play.BlockUpdate{Pos: pk.Position{X: x, Y: y, Z: z}, BlockState: pk.VarInt(g.S.World.At(x, y, z))}); err != nil {
 				return err
 			}
@@ -230,6 +235,7 @@ func placeable(item string) (string, bool) {
 	case item == "minecraft:torch", item == "minecraft:crafting_table", item == "minecraft:furnace", item == "minecraft:chest", item == "minecraft:cobblestone", item == "minecraft:dirt", item == "minecraft:stone", item == "minecraft:obsidian", item == "minecraft:netherrack",
 		item == "minecraft:white_bed", item == "minecraft:oak_fence", item == "minecraft:oak_fence_gate",
 		item == "minecraft:oak_log", item == "minecraft:glass", item == "minecraft:stone_bricks", // PATCH (build)
+		item == "minecraft:cobweb", // PATCH (arsenal.go)
 		item == "minecraft:oak_stairs", item == "minecraft:stone_brick_stairs", item == "minecraft:oak_slab", item == "minecraft:stone_brick_slab",
 		strings.HasSuffix(item, "_planks"):
 		return item, true

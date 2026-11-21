@@ -165,14 +165,15 @@ type Game struct {
 	toldAttr       *string                          // the held item the player's attributes were last told for ("": a hand)
 	dead           bool                             // the player died and has not asked to respawn (death.go)
 	deaths         int
-	invuln         int       // ticks the player takes no blow of the size of the last (20 after a hit)
-	lastDamage     float32   // the last blow
-	lastSwing      int       // the tick of the last swing (the attack's charge)
-	gliding        bool      // PATCH: gliding with an elytra (elytra.go)
-	inWall         int       // PATCH: ticks with the eyes inside a block (gravel.go)
-	suffocations   int       // PATCH: times hurt inside a block
-	shift          bool      // PATCH (build): the shift key held (ServerboundPlayerInput)
-	rockets        []*rocket // PATCH: the firework rockets in flight (elytra.go)
+	invuln         int        // ticks the player takes no blow of the size of the last (20 after a hit)
+	lastDamage     float32    // the last blow
+	lastSwing      int        // the tick of the last swing (the attack's charge)
+	gliding        bool       // PATCH: gliding with an elytra (elytra.go)
+	inWall         int        // PATCH: ticks with the eyes inside a block (gravel.go)
+	suffocations   int        // PATCH: times hurt inside a block
+	shift          bool       // PATCH (build): the shift key held (ServerboundPlayerInput)
+	rockets        []*rocket  // PATCH: the firework rockets in flight (elytra.go)
+	ars            arsenalSim // PATCH: spear, mace, wind charges, lava, webs, trident (arsenal.go)
 }
 
 // Start serves a game and joins a bot of the kit to it, on a stepped clock; the
@@ -447,6 +448,9 @@ func (g *Game) serverTick() {
 	if err := g.rocketsTick(); err != nil { // PATCH (elytra.go)
 		g.T.Fatal(err)
 	}
+	if err := g.arsenalTick(); err != nil { // PATCH (arsenal.go)
+		g.T.Fatal(err)
+	}
 	if err := g.itemsTick(); err != nil {
 		g.T.Fatal(err)
 	}
@@ -598,6 +602,9 @@ func (g *Game) play(p fakeserver.Packet) error {
 		if ok, err := g.drawBow(u); ok || err != nil {
 			return err
 		}
+		if ok, err := g.useArsenal(u); ok || err != nil { // PATCH (arsenal.go)
+			return err
+		}
 		if u.Hand == types.InteractionHandOffHand {
 			return g.ack(u.Sequence) // (the offhand's other uses are not modelled: nothing happens)
 		}
@@ -699,6 +706,7 @@ func (g *Game) move(x, y, z float64, onGround bool) error {
 			g.exhaust(exhaustJump)
 		}
 	}
+	g.ars.vel = [3]float64{x - g.pos[0], y - g.pos[1], z - g.pos[2]} // PATCH (arsenal.go)
 	g.pos = [3]float64{x, y, z}
 	// Entity.checkFallDamage: falling adds the drop; landing deals what is past three blocks —
 	// in water the fall is forgotten (Entity.updateInWaterStateAndDoFluidPushing: resetFallDistance;
@@ -721,6 +729,12 @@ func (g *Game) move(x, y, z float64, onGround bool) error {
 				return err
 			}
 		}
+	}
+	if onGround && g.ars.windOn { // PATCH (arsenal.go): thrown by its own wind charge, no fall damage down to the burst
+		if y >= g.ars.windY-1 {
+			g.fall = 0
+		}
+		g.ars.windOn = false
 	}
 	if onGround {
 		if g.fall > 3 {

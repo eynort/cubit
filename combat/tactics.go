@@ -221,7 +221,7 @@ func (f *Fighter) clearFluids(ctx context.Context, t *foe) bool {
 			for dz := -4; dz <= 4; dz++ {
 				c := world.BlockPos{X: feet.X + dx, Y: feet.Y + dy, Z: feet.Z + dz}
 				isLava, ok := f.looseSource(c)
-				if !ok || f.eyeDist(c) > eyeReach {
+				if !ok || f.eyeDist(c) > eyeReach || isLava && f.ownLava(c) { // (la suya, recién echada: aún no)
 					continue
 				}
 				// cerca de uno de los dos: la del bot (agua: frena su golpe; lava: le quema) o la del rival

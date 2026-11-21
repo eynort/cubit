@@ -10,6 +10,7 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/basic"
 	"github.com/mj41/go-mc26-kit/bot/control"
 	"github.com/mj41/go-mc26-kit/bot/entities"
+	"github.com/mj41/go-mc26-kit/bot/screen"
 	"github.com/mj41/go-mc26/data/entitydata"
 	pk "github.com/mj41/go-mc26/net/packet"
 	"github.com/mj41/go-mc26/protocol/play"
@@ -37,6 +38,9 @@ type thinkState struct {
 	drawing     bool       // tensando el arco (bow.go)
 	drawFrom    uint64     // desde qué tick
 	blockFrom   uint64     // desde cuándo tiene el escudo arriba sin que pase nada
+	charging    bool       // embistiendo con la lanza (el uso mantenido; arsenal.go)
+	chargeFrom  uint64     // desde qué tick
+	peakY       float64    // lo más alto desde que dejó el suelo (la caída de la maza)
 	lastPos     basic.Position
 }
 
@@ -52,6 +56,14 @@ func (f *Fighter) Think(s *control.State, bp *basic.Player) {
 		s.UsingItem = f.t.blocking || eating || f.t.drawing
 	}()
 	pl := f.plan.Load()
+	if s.OnGround {
+		f.t.peakY = bp.Position().Y
+	} else {
+		f.t.peakY = math.Max(f.t.peakY, bp.Position().Y)
+	}
+	if f.t.charging && (!pl.lunge || pl.mode != fighting) { // (la embestida acabó: se suelta la lanza)
+		f.endLunge(s.Ticks)
+	}
 	if f.t.drawing && !pl.bow { // (otra cosa: el arco se suelta, si la flecha llega; si no, sin disparar)
 		e, ok := f.d.Entities.Get(f.t.seenID)
 		if ok && s.Ticks-f.t.drawFrom >= bowFull && f.arrowPathClear(bp.Position(), e, f.t.seenVel[0], f.t.seenVel[1], f.bowSpeed()) {
@@ -124,6 +136,7 @@ func (f *Fighter) thinkFight(s *control.State, bp *basic.Player, pl *plan) {
 	}
 	delay := 20 / pl.weapon.speed
 	charge := float64(tick-f.lastAttack.Load()) / delay
+	reach := pl.weapon.hitReach() // (la lanza llega a 4,5)
 	// dónde está de verdad: lo que se ve llegó con retraso, y el golpe tarda en
 	// llegar al servidor, que lo mide con su posición. Se apunta y se mide el
 	// alcance con la posición prevista (unos 3 ticks por delante)
@@ -136,6 +149,23 @@ func (f *Fighter) thinkFight(s *control.State, bp *basic.Player, pl *plan) {
 	flat := math.Hypot(ahead.X-pos.X, ahead.Z-pos.Z)
 	dist := boxDistance(pos, ahead)
 	f.aim(bp, ahead.X, e.Y+1.1, ahead.Z)
+	if pl.lunge || f.t.charging { // la embestida con la lanza (arsenal.go)
+		f.thinkLunge(s, bp, pl, e, flat)
+		return
+	}
+	// en el aire con la maza (arsenal.go): hacia él, y el golpe en cuanto esté
+	// a tiro cayendo (la caída suma, no la carga)
+	if pl.smash && phys != nil && !s.OnGround {
+		f.lowerShield()
+		in := control.Input{Forward: flat > 0.5}
+		s.Input = in
+		if phys.Vel.Y < 0 && f.t.peakY-pos.Y > 1.5 && dist <= reach && !f.d.Hands.Busy() {
+			id := pl.target
+			f.d.Hands.Attack(id, func() (entities.Entity, bool) { return f.d.Entities.Get(id) }, nil)
+			f.lastAttack.Store(tick + 1)
+		}
+		return
+	}
 
 	// un creeper (vanilla: mecha a menos de 3 bloques, 30 ticks; se apaga a
 	// más de 7): con la mecha encendida, o cerca sin el golpe listo, correr
@@ -238,6 +268,26 @@ func (f *Fighter) thinkFight(s *control.State, bp *basic.Player, pl *plan) {
 		f.t.strafeTicks = 8 + rand.IntN(18)
 	}
 	in.Left, in.Right = f.t.strafeDir < 0, f.t.strafeDir > 0
+	// la lanza: se le pincha desde donde no llega (de 3,5 a 4,3) y mientras
+	// recarga se sale de su alcance; más cerca de 2 la estocada no da
+	if pl.weapon.stab && melee && !edgeBehind {
+		in.Forward, in.Backward, in.Sprint = false, false, false
+		in.Left, in.Right = false, false // (de lado se le da la vuelta y se entra en su alcance)
+		switch {
+		case dist < pl.weapon.minReach+0.3:
+			in.Backward = true
+		case charge >= 0.95 && dist > reach-0.3:
+			in.Forward, in.Sprint = true, flat > 6
+		case charge < 0.95 && flat < theirReach+0.6:
+			in.Backward = true
+		}
+	}
+	// contra su lanza: no da a menos de 2 bloques. Pegado a él (de lejos es
+	// él el que pincha sin que se le llegue)
+	if melee && !pl.weapon.stab && !edgeBehind && weaponOf(screen.Slot(e.Equipment[0])).stab {
+		in.Backward = false
+		in.Forward, in.Sprint = flat > 1.3, flat > 3
+	}
 
 	// barrido: con espada y dos o más pegados a él, el golpe en el suelo y sin
 	// sprint les da a todos (y los aparta): contra un grupo vale más que el
@@ -261,7 +311,7 @@ func (f *Fighter) thinkFight(s *control.State, bp *basic.Player, pl *plan) {
 	// golpes de 6 de un full diamante entraron así, saltando para el crítico.
 	// Tapado siempre, y se pega en su ventana (tras su golpe), en el suelo
 	defensive := pl.shield && !f.shieldOff(tick) && (pl.stance == stanceCautious || pl.stance == stanceAvoid) && !creeper
-	canCrit := phys != nil && !water && !defensive && !pl.noCrit && !creeper && !edgeBehind && !edgeAhead && !sweep // (creeper: golpe ya, la mecha corre; bordes: en el suelo y con sprint; barrido: en el suelo)
+	canCrit := phys != nil && !water && !defensive && !pl.noCrit && !creeper && !edgeBehind && !edgeAhead && !sweep && !pl.weapon.stab // (creeper: golpe ya, la mecha corre; bordes: en el suelo y con sprint; barrido: en el suelo)
 	if edgeAhead && charge >= 0.8 {
 		in.Sprint = true // el golpe con sprint empuja un nivel más: al vacío
 	}
@@ -337,9 +387,13 @@ func (f *Fighter) thinkFight(s *control.State, bp *basic.Player, pl *plan) {
 	falling := phys != nil && !phys.OnGround && phys.Vel.Y < -0.08 && !phys.Sprinting
 	jumpFailed := tick-f.t.jumpedAt > 12 // techo bajo o no pudo saltar
 	if charge >= 1 && dist <= reach && !f.d.Hands.Busy() && !f.t.blocking && !pl.holdFire &&
-		(!canCrit || falling || jumpFailed || onGround || rising) {
+		(!canCrit || falling || jumpFailed || onGround || rising) && (!pl.weapon.stab || dist >= pl.weapon.minReach) {
 		id := pl.target
-		f.d.Hands.Attack(id, func() (entities.Entity, bool) { return f.d.Entities.Get(id) }, nil)
+		if pl.weapon.stab {
+			f.stab() // (la lanza: la estocada, a todo lo que haya en la línea)
+		} else {
+			f.d.Hands.Attack(id, func() (entities.Entity, bool) { return f.d.Entities.Get(id) }, nil)
+		}
 		f.lastAttack.Store(tick + 1)
 		if creeper {
 			f.t.fromCreeper = true // pegado: lejos hasta que se le apague la mecha

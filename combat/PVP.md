@@ -152,7 +152,7 @@ La relación (lo que tarda él en matar al bot / lo que tarda el bot) da la post
 | `le gano`    | ≥ 1.5    | no se retira hasta 5 de vida                                               |
 | `igualado`   | 0.8–1.5  | lo de siempre                                                              |
 | `me supera`  | 0.4–0.8  | se retira antes (+4), espera más lejos mientras recarga, escudo solo se baja en su ventana; para curarse, al búnker |
-| `no le gano` | < 0.4    | en la zona no se le busca; si viene, perla para irse o **búnker** antes de que llegue; se retira antes (+6) |
+| `no le gano` | < 0.4    | **búnker** antes de que llegue (si no hay bloques, pelea con todo); se cura antes (+6) |
 
 Ejemplo (el del log): bot full hierro con espada de hierro contra full diamante
 protección IV y espada de diamante filo V: el bot le quita 0.6 por golpe (36
@@ -195,12 +195,11 @@ Un jugador no pega a través de un bloque: tiene que romperlo.
   - Sin curar: comer (dorada con 14 o menos) y beber curación.
   - Curado y se le puede ganar: **sale por detrás** (por delante él espera
     pegado y pega primero, con el pico aún en la mano) y va a por él.
-  - Curado y no se le gana, con perla: abre por detrás y se va con ella.
   - Curado, no se le gana, sin perla pero **con escudo** (y él sin hacha):
     sale, a la defensiva (antes esperaba dentro hasta 3 min;
     `TestBunkerLeaveWithShield`).
-  - Curado, no se le gana y sin perla ni escudo: espera a que se vaya (3
-    minutos como mucho; luego sale a pelear).
+  - Curado, no se le gana y sin escudo: espera a que se vaya (3 minutos
+    como mucho; luego sale a pelear con todo). Nunca se va con la perla.
   - Sin comida (esperar no da vida): ya está curado lo que se puede.
   - El rival se va (a más de 24 o fuera de vista): sale por detrás.
 - **Salir**: rompe pies y cabeza de un lado con la herramienta que vaya mejor
@@ -284,11 +283,12 @@ Un jugador no pega a través de un bloque: tiene que romperlo.
   3** (`pillar.go`): un zombi que salta contra ella llega a 2, no a 3. Arriba
   come hasta 18 y baja a pelear (de 3 bloques la caída no hace daño). En campo
   abierto no: medido, con torre es peor (al bajar se está rodeado).
-- **Contra un jugador no se huye corriendo** (corre igual: es que te peguen por
-  la espalda). Se sigue si **se gana el intercambio de golpes** (`trade`: los
-  golpes que le hacen falta a cada uno con su arma y la armadura del otro) o si
-  no hay con qué irse. Con una **perla**, perdiendo, se va lejos de él (con 7 o
-  más de vida).
+- **Contra un jugador nunca se huye**: ni corriendo (corre igual: es que te
+  peguen por la espalda) ni con la perla (solo alarga la pelea). Con poca vida
+  o hambre, perdiendo el intercambio (`trade`), **se esconde** en el búnker
+  mientras se cura y vuelve; sin bloques para el búnker, sigue peleando
+  (`standFirm`, `TestNoFleeFromPlayer`). En la zona también se va a por el que
+  no se le gana.
 - Inalcanzable 8 s (detrás de un muro, en una torre): se deja un minuto.
 - Muerto (vida 0, aunque su cuerpo siga ahí): se acabó.
 
@@ -330,6 +330,33 @@ Un jugador no pega a través de un bloque: tiene que romperlo.
 - **Esqueleto** (y otros tiradores): se va a por él en cuanto apunta. El escudo
   arriba mientras tensa y 15 ticks después de disparar, que es lo que tarda la
   flecha.
+
+### El arsenal (`arsenal.go`)
+Datos de 26.2 (los componentes del propio servidor, `--reports`):
+
+| Arma | Datos | Cómo la usa el bot |
+|---|---|---|
+| **Lanza** | estocada de 2 a 4,5 bloques (`attack_range`), solo con el golpe cargado del todo; madera 1 de daño … netherita 5, a 0,87-1,05 golpes/s. Embestida (`kinetic_weapon`): tras 8-15 ticks mantenida, el choque a 4,6 bloques/s o más hace daño según la velocidad | Estocada (acción `STAB`) desde 3,5-4,3, retrocediendo mientras recarga y sin moverse de lado (es meterse en su alcance); más cerca de 2 no da, así que pegado a él usa la espada. Embestida de entrada contra uno quieto o que va de lado a 5-14 bloques; si arranca hacia el bot antes de que la lanza esté lista, la suelta. Se prefiere contra uno atrapado o ardiendo, perdiendo el intercambio, o si pega lo mismo que lo otro |
+| Contra su lanza | no da a menos de 2 | pegado a él |
+| **Maza** | cayendo más de 1,5: +4 por bloque los 3 primeros, +2 los 5 siguientes, +1 el resto; anula la caída | En cualquier caída encima de él, la maza a la mano y golpe en cuanto esté a tiro (sin esperar la carga: el extra no depende de ella). **Salto con carga de viento**: de pie a 1-3 bloques de él, con 8 bloques de cielo libre, carga a los pies (sube ~7), maza y cae encima |
+| **Carga de viento** | ráfaga de radio 1,2 (empuja a 2,4) | Además del salto: con un precipicio, lava o el vacío detrás de él, al suelo un bloque delante suyo (le echa hacia atrás) |
+| **Cubo de lava** | 4 por golpe y 15 s ardiendo | A sus pies si está a tiro, de pie, no más alto que el bot y a 2,2 o más; a los 3 s se recoge (en pelea o después) |
+| **Telaraña** | atrapado: un cuarto de velocidad, sin saltar | Donde va a pisar (adelantado 8 ticks). Solo con la lanza o con poca vida y una dorada: con la espada, cambiar de objeto cuesta la carga (medido: espada y telarañas, peor que la espada sola). Atrapado, se le pega aunque el pathfinding no vea camino (la telaraña es "peligrosa" para él) |
+| **Mechero** | fuego a sus pies | Sin lava |
+| **Tridente** | 9 cuerpo a cuerpo; lanzado a 2,5/tick, 8 de daño | Cuerpo a cuerpo es un arma más. Lanzado con la lógica del arco: con lealtad, siempre que toque el arco; sin ella, solo a uno al que no se llega, y luego se recoge |
+| **Pociones arrojadizas** | daño, veneno, lentitud, debilidad | A él, de 4 a 6,5 bloques, con la trayectoria de verdad (sale 20° por encima de la mirada) |
+
+Tests (`arsenal_test.go`, en el simulador, que modela todo lo de arriba):
+
+| Caso | Resultado |
+|---|---|
+| Lanza contra uno quieto a 5 (`TestSpearStab`) | estocadas desde 4,3 |
+| Embestida a 10 (`TestSpearLunge`) | le da al chocar |
+| Telaraña y lanza a 4 (`TestWebSpear`) | 7 estocadas, le mata; 0-1 golpes recibidos |
+| Lava a 4 (`TestLavaPour`) | arde y muere; la lava se recoge, el bot sin daño |
+| Maza y carga de viento a 2,5 (`TestMaceSmash`) | sube, cae encima: +18 o más de golpe, sin daño de caída |
+| Tridente con lealtad a 14 (`TestTridentThrow`) | le da y no lo pierde |
+| Foso detrás de él (`TestWindPushEdge`) | carga de viento |
 
 ## 3. Medidas (simulador, 4 ticks de retraso)
 

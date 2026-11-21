@@ -6,7 +6,7 @@
 
 ## Qué hace
 
-- **PvP**: pelea con un jugador o con todos los de una zona (escudo, críticos, arco, perlas, pociones, cuidado con los bordes), o hace de guardaespaldas.
+- **PvP**: pelea con un jugador o con todos los de una zona, o hace de guardaespaldas. De un jugador nunca huye: gana, o se encierra con bloques a curarse y vuelve. Usa todo lo que lleve: espada y escudo con críticos, la lanza (pincha desde donde no le llegan, embiste), la maza (con una carga de viento a los pies te cae encima), tridentes, arcos, cubos de lava, telarañas, mechero, cargas de viento junto a un precipicio y pociones arrojadizas dañinas. Los detalles, en [combat/PVP.md](combat/PVP.md).
 - **Excavar**: vacía una caja entre dos esquinas, de 4 en 4 bloques de alto, sin romper nunca un pico. No usa cofres: se queda lo valioso y tira la basura (tierra, piedra, grava…). Si le das un chunk escrito con sus bordes (Z -48 a -63), lo ajusta al chunk entero.
 - **Moverse**: va a coordenadas o hasta un jugador, y te sigue. Busca el camino con A*, pone bloques para hacer torres y puentes si hace falta, y se salva de la lava, las caídas y el fuego.
 - **Solo vanilla**: no usa comandos de plugins (ni /tpa, ni /home, ni /login).

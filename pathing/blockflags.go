@@ -40,7 +40,7 @@ func flagsOf(s block.StateID) uint32 {
 	if strings.HasPrefix(n, "minecraft:fire") || strings.HasPrefix(n, "minecraft:soul_fire") {
 		f |= flagFire
 	}
-	for _, c := range []string{"minecraft:lava", "minecraft:fire", "minecraft:soul_fire", "minecraft:magma_block", "minecraft:cactus", "minecraft:sweet_berry_bush", "minecraft:powder_snow", "minecraft:wither_rose", "minecraft:campfire", "minecraft:soul_campfire"} {
+	for _, c := range []string{"minecraft:lava", "minecraft:fire", "minecraft:soul_fire", "minecraft:magma_block", "minecraft:cactus", "minecraft:sweet_berry_bush", "minecraft:powder_snow", "minecraft:cobweb", "minecraft:wither_rose", "minecraft:campfire", "minecraft:soul_campfire"} {
 		if strings.HasPrefix(n, c) {
 			f |= flagDeadly
 		}

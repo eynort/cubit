@@ -18,12 +18,12 @@ package combat
 //   - press (gana claro): a por él, sin esperar tapado; no se retira.
 //   - even: lo de siempre (thinkFight).
 //   - cautious (pierde): el escudo arriba siempre que no sea su ventana de
-//     castigo, fuera de su alcance mientras recarga, el arco antes, retirarse
-//     antes, y para curarse, encerrarse con bloques (bunker.go).
+//     castigo, fuera de su alcance mientras recarga, el arco antes, y para
+//     curarse antes, encerrarse con bloques (bunker.go).
 //   - avoid (no se le gana: un full diamante con filo V contra uno de hierro):
-//     no se le busca (en la zona se le deja); si ataca, perla para irse,
-//     flechas de lejos o encerrarse a curarse y que se canse. Si no hay nada de
-//     eso, se pelea con cautela (huir corriendo de un jugador no sirve).
+//     flechas de lejos, el arsenal (lava, telarañas, la maza) o encerrarse a
+//     curarse y que se canse. Nunca huir (ni con la perla): sin búnker, se
+//     pelea con cautela.
 
 import (
 	"fmt"

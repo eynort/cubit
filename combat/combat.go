@@ -129,6 +129,8 @@ type plan struct {
 	steerX       float64
 	steerZ       float64
 	fleeX, fleeZ float64 // de dónde huir al retirarse
+	lunge        bool    // la embestida con la lanza (arsenal.go)
+	smash        bool    // en el aire con la maza: pegar en cuanto esté a tiro (arsenal.go)
 }
 
 type aggressor struct {
@@ -180,6 +182,8 @@ type Fighter struct {
 	shelterBlocks  atomic.Int64 // bloques puestos en búnkeres
 	dropShelter    atomic.Bool  // olvidar el búnker (ForgetFights: una orden "stop", morir)
 	handsBusy      atomic.Bool  // una táctica usa las manos (el cubo): hasta que acabe, nada de cambiar de objeto
+	lunging        atomic.Bool  // Think está embistiendo con la lanza (arsenal.go)
+	enemyHurt      atomic.Int32 // a quién se le acaba de hacer daño (la embestida: le dio)
 
 	// solo la goroutine de Run
 	following    int32          // a quién sigue el walker (fleeing: huyendo con Goto; pearlChase: a donde cae una perla)
@@ -206,7 +210,6 @@ type Fighter struct {
 	chaseBest    float64           // lo más cerca que se ha estado de él
 	chaseAt      uint64            // el paso en que se acercó por última vez
 	potionAt     uint64            // el paso de la última poción (no dos seguidas)
-	pearlAt      time.Time         // la última perla
 	pil          pillarState       // la torre (pillar.go)
 	noWayOut     uint64            // el paso en que no encontró adónde huir (la torre: pillar.go)
 	fightStep    uint64            // el último paso en que se peleó (fight)
@@ -214,6 +217,7 @@ type Fighter struct {
 	waryDist     map[int32]float64 // a qué distancia estaba cada jugador armado (beWary: si viene)
 	stagedAt     uint64            // el de la última vez que dejó escudo o tótem en la barra
 
+	ars         arsenalState            // lanza, maza, lava, telarañas… (arsenal.go)
 	bk          bunkerState             // el búnker (bunker.go)
 	tac         tacticsState            // romperle el suelo, quitarle el agua, encerrarle (tactics.go)
 	myBlocks    map[world.BlockPos]bool // los bloques que puso en búnkeres (para salir si se queda encerrado)
@@ -328,6 +332,7 @@ func (f *Fighter) onDamage(p pk.Packet) error {
 		return err
 	}
 	if int32(ev.EntityID) != int32(f.d.Player.Login.PlayerID) {
+		f.enemyHurt.Store(int32(ev.EntityID))
 		f.defend(int32(ev.EntityID), int32(ev.SourceCauseID)-1) // ¿le pegaron al protegido?
 		return nil
 	}
@@ -501,6 +506,9 @@ func (f *Fighter) step(ctx context.Context) {
 			f.geared = false
 		}
 		f.upkeep(ctx, st)
+		if f.fetchTrident() || f.reclaimLava(ctx) { // (el tridente lanzado, la lava echada: a recogerlos)
+			return
+		}
 		// fuera de pelea también: equipo mejor recién recogido (lo que le tiran), puesto ya;
 		// no con una pantalla abierta (un cofre, una mesa: lo usa una tarea)
 		if _, open := f.d.Screens.Open(); !open && !f.d.Hands.Busy() {
@@ -563,12 +571,6 @@ func (f *Fighter) step(ctx context.Context) {
 	if isPlayer {
 		m := f.matchupFor(target, st)
 		f.stanceNow = m.stance
-		// en la zona, a uno que no se le gana no se le busca (si pega, es otra cosa)
-		if m.stance == stanceAvoid && target.fromZone && target.hits == 0 {
-			f.logf("a %s no le gano (%s): no le busco pelea", target.name, m.them.describe())
-			f.giveUp(target.id)
-			return
-		}
 		switch m.stance {
 		case stancePress:
 			low = min(low, 5) // gana el intercambio: retirarse es regalarle la pelea
@@ -625,11 +627,12 @@ func (f *Fighter) step(ctx context.Context) {
 				f.startBunker(target, fmt.Sprintf("vida %.1f", st.Health))
 				return
 			}
-			if !mobsOnly && f.pearlAway(ctx, st, cx, cz) { // de un jugador no se escapa corriendo
+			if !mobsOnly { // de un jugador no se huye: o se esconde (el búnker) o se pelea
+				f.standFirm(target, st)
+			} else {
+				f.retreat(ctx, st, foods, near, cx, cz)
 				return
 			}
-			f.retreat(ctx, st, foods, near, cx, cz)
-			return
 		} else if recovered && mobsOnly && st.Health < low+2 && near > safeFrom(foes)+8 && time.Since(time.UnixMilli(f.lastHurt.Load())) > 5*time.Second {
 			// los mobs se quedaron atrás pero sigo sin vida: no se vuelve a por
 			// ellos (si vienen, que vengan: entonces es otra pelea)
@@ -648,20 +651,21 @@ func (f *Fighter) step(ctx context.Context) {
 		// a un jugador no se le deja atrás corriendo (corre igual): huir sin con
 		// qué (perla, poción de velocidad) es que te peguen por la espalda. Se
 		// sigue si se gana el intercambio de golpes o si no hay escapatoria
-		if tooLow && !mobsOnly && target != nil {
+		// contra un jugador nunca se huye: ganar, o esconderse mientras se
+		// cura (el búnker) y volver. Huir corriendo es que te peguen por la
+		// espalda, y la perla solo alarga la pelea
+		if (tooLow || mustEat) && !mobsOnly && target != nil {
 			win, why := f.trade(target, st)
 			if !win && f.wantBunker(target) && time.Now().After(f.standUntil) {
 				f.logf("vida %.1f contra %s, y pierdo el intercambio (%s)", st.Health, target.name, why)
 				f.startBunker(target, "a curarme")
 				return
 			}
-			if win || !f.canEscape() {
-				if time.Since(f.lastStandLog) > 5*time.Second {
-					f.logf("vida %.1f pero no huyo de %s: %s", st.Health, target.name, why)
-					f.lastStandLog = time.Now()
-				}
-				tooLow = false
+			if time.Since(f.lastStandLog) > 5*time.Second {
+				f.logf("vida %.1f pero no huyo de %s: %s", st.Health, target.name, why)
+				f.lastStandLog = time.Now()
 			}
+			tooLow, mustEat = false, false
 		}
 		if (mustEat || tooLow) && time.Now().After(f.standUntil) {
 			f.logf("vida %.1f, comida %d, %d enemigos cerca: me retiro a comer", st.Health, st.Food, close8)
@@ -676,14 +680,9 @@ func (f *Fighter) step(ctx context.Context) {
 		return
 	}
 	f.manageOffhand(ctx, foes, st.Health, near) // escudo o tótem, según contra qué
-	// a uno que no se le gana: irse con una perla, flechas de lejos, o
-	// encerrarse y que se canse (huir corriendo de un jugador no sirve)
+	// a uno que no se le gana: encerrarse y que se canse, o pelear con todo
+	// (nunca huir: corre igual y pega por la espalda)
 	if isPlayer && f.stanceNow == stanceAvoid {
-		if f.canEscape() && target.dist < 16 && f.pearlAway(ctx, st, target.e.X, target.e.Z) {
-			f.retreatSince = time.Now()
-			f.setPlan(plan{mode: retreating, fleeX: target.e.X, fleeZ: target.e.Z})
-			return
-		}
 		if target.dist < 9 && f.wantBunker(target) {
 			f.startBunker(target, "no le gano: que se canse")
 			return
@@ -691,6 +690,10 @@ func (f *Fighter) step(ctx context.Context) {
 	}
 	// ardiendo sin cubo de agua: al agua que haya cerca (fire.go)
 	if f.toWater(st, target) {
+		return
+	}
+	// la maza: cayendo encima de él, o el salto con la carga de viento (arsenal.go)
+	if f.smashStep(ctx, target, st) {
 		return
 	}
 	// tácticas contra un jugador (tactics.go): tirarle de donde se subió,
@@ -701,7 +704,7 @@ func (f *Fighter) step(ctx context.Context) {
 			f.setPlan(plan{mode: acting, target: target.id})
 			return
 		}
-		if f.cover(target, shield) || f.clearFluids(ctx, target) || f.breakIn(ctx, target) || f.knockDown(ctx, target) || f.cage(target) {
+		if f.cover(target, shield) || f.arsenal(ctx, target, st) || f.clearFluids(ctx, target) || f.breakIn(ctx, target) || f.knockDown(ctx, target) || f.cage(target) {
 			return
 		}
 	}
@@ -862,6 +865,13 @@ func (f *Fighter) fight(ctx context.Context, t *foe, w weapon, slot int, shield 
 	if cur.target != t.id {
 		f.logf("objetivo: %s (vida ~%.0f, a %.1f bloques)", t.name, health(t.e), t.dist)
 	}
+	slot, w = f.preferSpear(t, slot, w)
+	lunge := f.lungeOn() || f.wantLunge(t)
+	if lunge {
+		slot, _ = f.spearSlot()
+		inv, _ := f.inventory()
+		w = weaponOf(inv[slot])
+	}
 	inv, held := f.inventory()
 	// subiendo una torre o cruzando un puente hacia él, la mano es del
 	// constructor: con el arma en la mano el bloque no se pone nunca
@@ -882,7 +892,9 @@ func (f *Fighter) fight(ctx context.Context, t *foe, w weapon, slot int, shield 
 		reach = 6.5
 	}
 	// (con margen de altura: en PvP se salta y los golpes lanzan por el aire)
-	closeIn := t.dist <= reach && math.Abs(t.e.Y-p.Y) < 2.2 && (f.d.Walker.Direct(p, t.e.X, t.e.Z) || f.inCage(t) && boxDistance(p, t.e) <= 3.4)
+	// (atrapado en una telaraña o en la lava: su celda no es camino, pero se le pega igual)
+	trapped := (f.webbed(t.e) || f.burningIn(t.e)) && boxDistance(p, t.e) <= w.hitReach()+1.5
+	closeIn := t.dist <= reach && math.Abs(t.e.Y-p.Y) < 2.2 && (f.d.Walker.Direct(p, t.e.X, t.e.Z) || f.inCage(t) && boxDistance(p, t.e) <= 3.4 || trapped)
 	// un creeper: el cuerpo a cuerpo lleva el baile (entrar con la mecha apagada,
 	// huir con ella encendida); el walker solo lo acercaría a la explosión
 	if t.e.Type == "minecraft:creeper" && t.dist < 12 {
@@ -895,7 +907,7 @@ func (f *Fighter) fight(ctx context.Context, t *foe, w weapon, slot int, shield 
 	// con él al otro lado no se avanza)
 	// (también: venir de retirarse o comer, que no es no llegar)
 	// (en la jaula del bot: sin línea recta hasta su celda, pero a tiro)
-	near := t.dist <= 4.5 && f.d.Walker.Direct(p, t.e.X, t.e.Z) || f.inCage(t) && boxDistance(p, t.e) <= reach // a tiro, aunque salte (un jugador en PvP); o al alcance del golpe (encerrado: sin línea recta hasta su celda)
+	near := t.dist <= 4.5 && f.d.Walker.Direct(p, t.e.X, t.e.Z) || f.inCage(t) && boxDistance(p, t.e) <= reach || trapped // a tiro, aunque salte (un jugador en PvP); o al alcance del golpe (encerrado: sin línea recta hasta su celda)
 	// subiendo una torre hacia él (se subió a unos bloques): poner bloques
 	// también es avanzar, aunque la distancia apenas cambie
 	climbing := f.following == t.id && f.d.Walker.Climbing() && t.e.Y > p.Y+0.5
@@ -929,8 +941,17 @@ func (f *Fighter) fight(ctx context.Context, t *foe, w weapon, slot int, shield 
 		closeIn = false
 		f.pearlOwner, f.pearlStep = t.id, f.steps
 	}
+	if lunge && nameOf(func() screen.Slot { inv, h := f.inventory(); return inv[slotHotbar+h] }()) == nameOf(inv[slot]) {
+		if !f.lungeOn() {
+			f.logf("embestida con la lanza contra %s (a %.1f)", t.name, t.dist)
+			f.ars.lungeNext, f.ars.lungeAt = f.steps+lungeEvery, f.steps
+		}
+		closeIn = true
+	} else {
+		lunge = false
+	}
 	f.setPlan(plan{
-		mode: fighting, target: t.id, closeIn: closeIn, weapon: w, shield: shield, stance: f.stanceNow, holdFire: f.tac.approach && f.tac.id == t.id,
+		mode: fighting, target: t.id, closeIn: closeIn, weapon: w, shield: shield, stance: f.stanceNow, holdFire: f.tac.approach && f.tac.id == t.id, lunge: lunge,
 		noCrit:      blocking(t.e) && isAxe(func() string { inv, h := f.inventory(); return nameOf(inv[slotHotbar+h]) }()),
 		hisCooldown: f.hisCooldown(t),
 	})
@@ -940,10 +961,14 @@ func (f *Fighter) fight(ctx context.Context, t *foe, w weapon, slot int, shield 
 	id := t.id
 	if !closeIn && f.following != id {
 		f.d.Walker.SetSprint(true)
+		near := 2.5
+		if w.stab { // (con la lanza, a su distancia: no dentro de su alcance)
+			near = 3.8
+		}
 		f.d.Walker.Follow(func() (float64, float64, float64, bool) {
 			e, ok := f.d.Entities.Get(id)
 			return e.X, e.Y, e.Z, ok
-		}, 2.5)
+		}, near)
 		f.following = id
 	} else if closeIn && f.following != 0 {
 		f.d.Walker.Stop()
@@ -1013,10 +1038,6 @@ var mobHit = map[string]float64{"zombie": 3, "husk": 3, "drowned": 3, "zombie_vi
 	"skeleton": 3, "stray": 3, "bogged": 3, "vindicator": 13, "piglin_brute": 13, "ravager": 12, "witch": 6, "blaze": 6,
 	"wither_skeleton": 8, "hoglin": 6, "zoglin": 6, "enderman": 7, "slime": 4, "magma_cube": 6, "phantom": 2, "silverfish": 1}
 
-// canEscape: lleva con qué irse de un jugador (una perla de ender; una
-// poción de velocidad).
-func (f *Fighter) canEscape() bool { return f.hasItem("minecraft:ender_pearl") }
-
 // giveUp deja de pelear con id y no le busca pelea en un minuto (si le pega, sí).
 func (f *Fighter) giveUp(id int32) {
 	f.mu.Lock()
@@ -1053,6 +1074,16 @@ func (f *Fighter) retreat(ctx context.Context, st basic.Status, foods []food, ne
 		}
 	}
 	f.setPlan(plan{mode: retreating, fleeX: cx, fleeZ: cz})
+}
+
+// standFirm: con poca vida contra un jugador y sin búnker posible: no se
+// huye, se sigue peleando (lo dice en el log cada 5 s).
+func (f *Fighter) standFirm(t *foe, st basic.Status) {
+	f.standUntil = time.Now().Add(8 * time.Second)
+	if time.Since(f.lastStandLog) > 5*time.Second && t != nil {
+		f.logf("vida %.1f contra %s y sin búnker: no huyo, peleo", st.Health, t.name)
+		f.lastStandLog = time.Now()
+	}
 }
 
 // fleeing es el valor de following mientras el walker huye (Goto, no Follow).

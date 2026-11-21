@@ -1,7 +1,7 @@
 package combat
 
 // Los recursos de la pelea que no son el arma: pociones (beberlas o
-// tirárselas encima), la perla de ender para irse.
+// tirárselas encima).
 //
 //   - Curar: con poca vida, una arrojadiza de curación a los pies (es al
 //     momento); si no hay, una de beber si no tiene a nadie encima (beber son
@@ -10,16 +10,11 @@ package combat
 //     el triple con II: un golpe menos para matarle), velocidad (escaparse,
 //     alcanzarle) y regeneración si falta vida. Lo que ya tiene puesto no se
 //     repite.
-//   - Irse: perdiendo contra un jugador (no se gana el intercambio de golpes,
-//     trade), una perla lejos de él: 20-30 bloques en un segundo, que
-//     corriendo no se sacan (corre igual). Cuesta 5 de vida al llegar: con
-//     menos de 7, no.
+//   - De un jugador no se huye, ni con la perla de ender (combat.go).
 
 import (
 	"context"
-	"math"
 	"strings"
-	"time"
 
 	"github.com/mj41/go-mc26-kit/bot/act"
 	"github.com/mj41/go-mc26-kit/bot/basic"
@@ -154,32 +149,4 @@ func (f *Fighter) holdChecked(ctx context.Context, slot int, name string) bool {
 		}
 	}
 	return false
-}
-
-// pearlAway tira una perla lejos de (cx, cz): hacia el otro lado, algo hacia
-// arriba (unos 20-30 bloques). Dice si la tiró.
-func (f *Fighter) pearlAway(ctx context.Context, st basic.Status, cx, cz float64) bool {
-	if st.Health < 7 || time.Since(f.pearlAt) < 3*time.Second || f.d.Hands.Busy() {
-		return false
-	}
-	inv, _ := f.inventory()
-	slot := -1
-	for i := slotMainStart; i <= slotHotbar+8; i++ {
-		if nameOf(inv[i]) == "minecraft:ender_pearl" {
-			slot = i
-			if i >= slotHotbar {
-				break
-			}
-		}
-	}
-	if slot < 0 || !f.holdChecked(ctx, slot, "minecraft:ender_pearl") {
-		return false
-	}
-	p := f.d.Player.Position()
-	away := float32(-math.Atan2(p.X-cx, p.Z-cz) * 180 / math.Pi) // (la mirada hacia el lado contrario a ellos)
-	f.pearlAt = time.Now()
-	f.d.Hands.UseItemLooking(away, -25, nil)
-	f.logf("perla de ender para irme (vida %.1f)", st.Health)
-	_ = f.d.Ctl.WaitTicks(ctx, 2)
-	return true
 }

@@ -222,14 +222,15 @@ func noExcavate(n string) bool {
 
 // excavateKeeps: lo que nunca se tira (herramientas, armadura, comida…).
 func excavateKeeps(n string) bool {
-	for _, s := range []string{"_pickaxe", "_axe", "_shovel", "_hoe", "_sword", "_helmet", "_chestplate", "_leggings", "_boots"} {
+	for _, s := range []string{"_pickaxe", "_axe", "_shovel", "_hoe", "_sword", "_spear", "_helmet", "_chestplate", "_leggings", "_boots", "potion"} {
 		if strings.HasSuffix(n, s) {
 			return true
 		}
 	}
 	switch n {
 	case "shears", "flint_and_steel", "shield", "elytra", "bow", "crossbow", "arrow", "trident", "torch",
-		"bucket", "water_bucket", "lava_bucket", "ender_pearl", "firework_rocket", "totem_of_undying":
+		"bucket", "water_bucket", "lava_bucket", "ender_pearl", "firework_rocket", "totem_of_undying",
+		"mace", "wind_charge", "cobweb": // (lo de pelear: combat/arsenal.go)
 		return true
 	}
 	_, food := goodFood(n)

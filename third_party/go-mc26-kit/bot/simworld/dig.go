@@ -184,7 +184,12 @@ func (g *Game) playAction(p play.PlayerAction) error {
 	case types.PlayerActionActionReleaseUseItem: // a shield lowered, a meal stopped, a bow loosed
 		g.blocking = false
 		g.eating = nil
+		if err := g.releaseArsenal(); err != nil { // PATCH (arsenal.go)
+			return err
+		}
 		return g.looseBow()
+	case types.PlayerActionActionStab: // PATCH (arsenal.go): the spear's jab
+		return g.stab()
 	}
 	return fmt.Errorf("simworld: not modelled: player action %d", p.Action)
 }

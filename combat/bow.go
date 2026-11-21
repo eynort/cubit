@@ -61,6 +61,16 @@ func (f *Fighter) bowSlot() (int, bool) {
 	if xbow >= 0 && (arrows || loaded(inv[xbow])) {
 		return xbow, true
 	}
+	// el tridente (arsenal.go): con lealtad vuelve solo; sin ella, solo a uno
+	// al que no se llega (y luego se recoge)
+	if s, ok := f.tridentSlot(true); ok {
+		return s, true
+	}
+	if f.ars.lostOK.Load() {
+		if s, ok := f.tridentSlot(false); ok {
+			return s, true
+		}
+	}
 	return -1, false
 }
 
@@ -72,6 +82,7 @@ func loaded(s screen.Slot) bool {
 
 // wantBow: contra t, a esta distancia, mejor el arco que ir a por él.
 func (f *Fighter) wantBow(t *foe) bool {
+	f.ars.lostOK.Store(f.chaseID == t.id && f.steps-f.chaseAt > 60 && t.dist >= 5)
 	if _, ok := f.bowSlot(); !ok || t.dist > 40 || t.e.Type == "minecraft:creeper" {
 		return false
 	}
@@ -171,9 +182,13 @@ func (f *Fighter) thinkBow(s *control.State, bp *basic.Player, pl *plan, e entit
 	inv, held := f.inventory()
 	hand := inv[slotHotbar+held]
 	crossbow := nameOf(hand) == "minecraft:crossbow"
-	speed := arrowSpeed
+	trident := nameOf(hand) == "minecraft:trident"
+	speed, full := arrowSpeed, uint64(bowFull)
 	if crossbow {
 		speed = crossbowSpeed
+	}
+	if trident {
+		speed, full = tridentSpeed, tridentDraw
 	}
 	yaw, pitch, ok := f.aimBow(pos, e, vx, vz, speed)
 	if !ok {
@@ -212,9 +227,12 @@ func (f *Fighter) thinkBow(s *control.State, bp *basic.Player, pl *plan, e entit
 	}
 	// soltar: el tiro, si la flecha llega (se tapó, se puso detrás de algo:
 	// se espera tensado; el arco entero aguanta)
-	if s.Ticks-f.t.drawFrom >= bowFull && settled && f.arrowPathClear(cur, e, vx, vz, speed) {
+	if s.Ticks-f.t.drawFrom >= full && settled && f.arrowPathClear(cur, e, vx, vz, speed) {
 		f.stopDraw()
 		f.shots.Add(1)
+		if trident && f.enchant(hand, "loyalty") == 0 {
+			f.ars.tridentOut.Store(true) // (sin lealtad: queda en el suelo, a recogerlo)
+		}
 	}
 }
 
@@ -225,8 +243,11 @@ func (f *Fighter) bowSpeed() float64 {
 		return arrowSpeed
 	}
 	inv, _ := f.inventory()
-	if nameOf(inv[slot]) == "minecraft:crossbow" {
+	switch nameOf(inv[slot]) {
+	case "minecraft:crossbow":
 		return crossbowSpeed
+	case "minecraft:trident":
+		return tridentSpeed
 	}
 	return arrowSpeed
 }

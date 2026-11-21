@@ -20,7 +20,6 @@ import (
 	"math"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/mj41/go-mc26-kit/bot/act"
 	"github.com/mj41/go-mc26-kit/bot/basic"
@@ -57,7 +56,6 @@ type bunkerState struct {
 	side      int    // el lado que se abre (0 el del rival … 3 el de atrás)
 	tries     int    // golpes de pico seguidos al mismo bloque sin romperlo
 	sides     int    // lados probados
-	thenPearl bool   // abierto, perla lejos de él
 	thenFight bool   // abierto, a por él (aunque no haya pegado: venía armado a por el bot)
 	planned   string // el plan que dijo (para no repetirlo)
 }
@@ -275,18 +273,11 @@ func (f *Fighter) bunkerStep(ctx context.Context, st basic.Status, foes []foe, s
 	// esperar dentro no da vida
 	canHeal := len(f.foods()) > 0 || st.Food >= 18
 	healed := st.Health >= 18 || !canHeal || st.Health >= 14 && len(f.foods()) == 0
-	pearl := f.canEscape() && st.Health >= 7
-	f.sayPlan(t, stance, healed, pearl)
+	f.sayPlan(t, stance, healed) // (de un jugador no se huye: ni con la perla)
 	switch {
 	case t == nil || t.dist > 24:
 		f.logf("se fue: salgo del búnker por detrás (vida %.1f)", st.Health)
 		f.openWall(cells, 3)
-		return f.digOut(ctx)
-	case healed && stance == stanceAvoid && pearl:
-		// no se le gana, pero hay perla: se abre por detrás y se va lejos de él
-		f.logf("curado (vida %.1f): abro por detrás y me voy con la perla", st.Health)
-		f.openWall(cells, 3)
-		f.bk.thenPearl = true
 		return f.digOut(ctx)
 	case !front && (f.occupied(cells[0].pos, []foe{*t}) || f.occupied(cells[1].pos, []foe{*t})):
 		f.logf("está donde va la pared (a %.1f, en %.2f %.2f %.2f; pared %v %v): a pelear", t.dist, t.e.X, t.e.Y, t.e.Z, cells[0].pos, cells[1].pos)
@@ -300,7 +291,7 @@ func (f *Fighter) bunkerStep(ctx context.Context, st basic.Status, foes []foe, s
 		if stance == stanceAvoid && f.shieldHolds(t) {
 			f.logf("curado (vida %.1f): salgo con el escudo (a la defensiva no me entra)", st.Health)
 		} else if stance == stanceAvoid {
-			f.logf("%s no se va en %d s y no tengo perla: salgo a pelear (vida %.1f)", t.name, bunkerMaxSteps/20, st.Health)
+			f.logf("%s no se va en %d s: salgo a pelear con todo (vida %.1f)", t.name, bunkerMaxSteps/20, st.Health)
 		} else {
 			f.logf("curado en el búnker (vida %.1f): salgo a por %s", st.Health, t.name)
 		}
@@ -494,10 +485,9 @@ func (f *Fighter) openWall(cells []cell, side int) {
 	}
 }
 
-// endBunker: fuera (abierto): lo que tocara al salir (la perla) y el plan libre.
+// endBunker: fuera (abierto): a pelear si tocaba, y el plan libre.
 func (f *Fighter) endBunker() {
-	pearl, fight := f.bk.thenPearl, f.bk.thenFight
-	enemy := f.bk.enemy
+	fight, enemy := f.bk.thenFight, f.bk.enemy
 	if fight {
 		if e, ok := f.d.Entities.Get(enemy); ok && !dead(e) {
 			f.Engage(enemy, f.label(e))
@@ -506,15 +496,6 @@ func (f *Fighter) endBunker() {
 	f.bk = bunkerState{}
 	f.bunkerRetry = f.steps + 100
 	f.setPlan(plan{})
-	if pearl {
-		if e, ok := f.d.Entities.Get(enemy); ok {
-			st := f.d.Player.Status()
-			if f.pearlAway(context.Background(), st, e.X, e.Z) {
-				f.retreatSince = time.Now()
-				f.setPlan(plan{mode: retreating, fleeX: e.X, fleeZ: e.Z})
-			}
-		}
-	}
 }
 
 // digOut rompe lo que queda de la salida, con la herramienta que vaya mejor,
@@ -564,7 +545,7 @@ func (f *Fighter) digOut(ctx context.Context) bool {
 }
 
 // sayPlan dice qué va a hacer dentro (una vez por plan).
-func (f *Fighter) sayPlan(t *foe, s stance, healed, pearl bool) {
+func (f *Fighter) sayPlan(t *foe, s stance, healed bool) {
 	var plan string
 	switch {
 	case t == nil:
@@ -573,12 +554,10 @@ func (f *Fighter) sayPlan(t *foe, s stance, healed, pearl bool) {
 		plan = "me curo"
 	case s != stanceAvoid:
 		plan = "curado: salgo a pelear"
-	case pearl:
-		plan = "no le gano: me voy con la perla por detrás"
 	case f.shieldHolds(t):
 		plan = "no le gano, pero con el escudo no me entra: salgo a la defensiva"
 	default:
-		plan = fmt.Sprintf("no le gano y no tengo perla: espero a que se vaya (si sigue en %d s, salgo a pelear)", bunkerMaxSteps/20)
+		plan = fmt.Sprintf("no le gano: espero a que se vaya (si sigue en %d s, salgo a pelear con todo)", bunkerMaxSteps/20)
 	}
 	if plan != f.bk.planned {
 		f.bk.planned = plan

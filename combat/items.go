@@ -46,6 +46,10 @@ func attrName(id pk.VarInt) string {
 // weapon es lo que hace un objeto en la mano: daño de un golpe cargado y golpes por segundo.
 type weapon struct {
 	damage, speed float64
+	reach         float64 // lo que alcanza de los ojos a la caja (attack_range; 0: el normal, 3)
+	minReach      float64 // y lo que no (la lanza: más cerca de 2 no da)
+	stab          bool    // la lanza: el golpe es una estocada (sin crítico; arsenal.go)
+	mace          bool    // la maza: el golpe cayendo suma (arsenal.go)
 }
 
 func weaponOf(s screen.Slot) weapon {
@@ -69,6 +73,11 @@ func weaponOf(s screen.Slot) weapon {
 		}
 	}
 	w.speed = math.Max(w.speed, 0.1)
+	if r := act.Component[*component.AttackRange](s); r != nil && r.MaxReach > 0 {
+		w.reach, w.minReach = float64(r.MaxReach), float64(r.MinReach)
+	}
+	w.stab = act.Component[*component.PiercingWeapon](s) != nil
+	w.mace = nameOf(s) == "minecraft:mace"
 	return w
 }
 
@@ -165,7 +174,11 @@ func (f *Fighter) bestWeapon(hp, armor, toughness float64, axeOnly bool) (slot i
 			continue
 		}
 		cw := weaponOf(s)
-		t := timeToKill(hp, afterArmor(cw.damage*critFactor, armor, toughness), cw.speed)
+		crit := critFactor
+		if cw.stab { // (la estocada no es crítico)
+			crit = 1
+		}
+		t := timeToKill(hp, afterArmor(cw.damage*crit, armor, toughness), cw.speed)
 		if i != slotHotbar+held && cw.speed > 0 {
 			// cambiar de arma reinicia la carga: el primer golpe espera una
 			// recarga entera (sin esto, contra el mismo zombi: espada, hacha,

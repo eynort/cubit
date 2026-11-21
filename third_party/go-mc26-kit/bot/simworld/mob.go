@@ -328,6 +328,9 @@ func (g *Game) mobsTick() error {
 		}
 		// the move: this tick's step is the motion with the push; the next tick's motion is the step slowed
 		stepX, stepZ := m.vx+ax, m.vz+az
+		if g.inWeb(m) { // PATCH (arsenal.go): a cobweb (Entity.makeStuckInBlock: 0.25, 0.05)
+			stepX, stepZ, m.vy = stepX*0.25, stepZ*0.25, m.vy*0.05
+		}
 		before := [3]float64{m.x, m.y, m.z}
 		at := [3]float64{m.x, m.y, m.z}
 		if m.jump && m.onGround {
@@ -544,6 +547,13 @@ func (g *Game) attackMob(id int32) error {
 			}
 			g.sweeps++
 		}
+	}
+	// PATCH (arsenal.go): the mace's smash, falling more than 1.5 (not scaled by the charge); the fall forgotten
+	if g.heldItem().item == "minecraft:mace" && !g.onGround && g.fall > 1.5 {
+		dmg += smashBonus(g.fall)
+		g.ars.smashes++
+		g.ars.smashMax = math.Max(g.ars.smashMax, smashBonus(g.fall))
+		g.fall = 0
 	}
 	dmg = m.def.reduce(dmg)
 	if m.invuln > 10 {
