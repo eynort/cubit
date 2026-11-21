@@ -12,12 +12,29 @@ Ejecutar un comando del servidor como jugador (aunque se llame igual que una ord
 
 - `<command>`: el comando del servidor, sin /
 
+**Ejemplos**
+
+```
+/cmd time set day   # el bot tiene que ser op
+/cmd tp Steve
+```
+
 ## /drop
 
 `/drop [<item> [<amount>] [<player>] | <player>]`
 
 Tirar al suelo todo lo que lleva, o un objeto (todo, o la cantidad que se diga: /drop dirt 10); con un jugador, va hasta él y se lo tira (/drop Alex, /drop dirt 10 Alex)
 
+
+**Ejemplos**
+
+```
+/drop                   # todo, al suelo
+/drop diamond           # todos sus diamantes
+/drop cobblestone 32    # 32 de piedra
+/drop Steve             # todo, tirado a Steve
+/drop diamond 5 Steve   # 5 diamantes, tirados a Steve
+```
 
 ## /excavate
 
@@ -41,6 +58,19 @@ Vaciar una caja de bloques entre dos esquinas (/excavate 10 70 10 30 50 30), de 
   - `<y>` (opcional): el cofre (~ = donde está el bot), o list / clear / remove
   - `<z>` (opcional): el cofre (~ = donde está el bot), o list / clear / remove
 
+**Ejemplos**
+
+```
+/excavate 10 70 10 30 50 30            # la caja entre esas dos esquinas
+/excavate ~ ~ ~ ~15 ~-20 ~15           # un hoyo de 16×21×16 desde donde está
+/excavate 0 60 0 15 40 15 exact        # justo esos bloques (sin ajustar a chunks)
+/excavate chunk 0 64                   # el chunk entero donde está, de y 0 a 64
+/excavate chests 104 103 -224          # guardar ahí lo que saque (cuenta la pared de cofres entera)
+/excavate chests list                  # ver los cofres
+/excavate chests remove 104 103 -224
+/excavate chests clear                 # olvidarlos todos
+```
+
 ## /fight
 
 `/fight <player> | in <x> <z> [<x2> <z2>]`
@@ -50,12 +80,26 @@ Pelear con un jugador, o con todos los de una zona.
 - `<player>`: el jugador con el que pelear
 - `in <x> <z> [<x2>] [<z2>]`: todos los jugadores dentro de una zona: un punto (radio 8) o dos esquinas
 
+**Ejemplos**
+
+```
+/fight Alex           # pelear con Alex hasta que uno muera
+/fight in 100 200     # todos a menos de 8 bloques de 100 200
+/fight in 0 0 50 50   # todos dentro de ese cuadrado
+```
+
 ## /follow
 
 `/follow <player>`
 
 Seguir a un jugador sin parar (hasta /stop)
 
+
+**Ejemplos**
+
+```
+/follow Steve
+```
 
 ## /goto
 
@@ -66,6 +110,14 @@ Ir hasta un jugador o hasta unas coordenadas.
 - `<player>`: <x> <z>: unas coordenadas (~ = donde está el bot)
 - `<z>`: la coordenada z
 
+**Ejemplos**
+
+```
+/goto Steve         # ir hasta Steve
+/goto 120 64 -340   # ir a ese bloque
+/goto ~50 ~ ~       # 50 bloques al este de donde está
+```
+
 ## /guard
 
 `/guard <player> [<minutes>]`
@@ -74,12 +126,25 @@ Guardaespaldas: sigue a un jugador y ataca a quien le pegue (hasta /stop, o los 
 
 - `<minutes>` (opcional): cuántos minutos (sin ello, hasta /stop)
 
+**Ejemplos**
+
+```
+/guard Steve      # hasta /stop
+/guard Steve 30   # durante 30 minutos
+```
+
 ## /help
 
 `/help`
 
 Esta ayuda.
 
+
+**Ejemplos**
+
+```
+/help
+```
 
 ## /inventory
 
@@ -89,6 +154,13 @@ Lo que lleva el bot: el equipo, la barra casilla a casilla y el inventario; grid
 
 - `<view>` (opcional)
   - `grid`: como la pantalla del juego (ancha)
+
+**Ejemplos**
+
+```
+/inventory
+/inventory grid   # como en la pantalla del juego
+```
 
 ## /lang
 
@@ -100,12 +172,25 @@ Idioma de las explicaciones (las órdenes siempre en inglés)
   - `en`: inglés
   - `es`: español
 
+**Ejemplos**
+
+```
+/lang es
+/lang en
+```
+
 ## /quit
 
 `/quit`
 
 Desconectar y salir.
 
+
+**Ejemplos**
+
+```
+/quit   # desconectar y cerrar el bot
+```
 
 ## /say
 
@@ -114,6 +199,13 @@ Desconectar y salir.
 Escribir en el chat (o escribe sin /)
 
 - `<text>`: lo que escribir
+
+**Ejemplos**
+
+```
+/say hello everyone
+hello everyone        # lo mismo: el texto sin / va al chat
+```
 
 ## /sprint
 
@@ -125,6 +217,13 @@ Permitir o prohibir correr.
   - `off`: siempre camina
   - `on`: puede correr
 
+**Ejemplos**
+
+```
+/sprint off   # andar siempre
+/sprint on
+```
+
 ## /status
 
 `/status`
@@ -132,10 +231,22 @@ Permitir o prohibir correr.
 Vida, comida, posición y combate.
 
 
+**Ejemplos**
+
+```
+/status
+```
+
 ## /stop
 
 `/stop`
 
 Dejar de pelear y de caminar (y pausar la cola)
 
+
+**Ejemplos**
+
+```
+/stop
+```
 

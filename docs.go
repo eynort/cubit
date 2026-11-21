@@ -68,6 +68,7 @@ func commandsDoc(es bool) string {
 			args(s.args, "  ")
 		}
 		sb.WriteString("\n")
+		sb.WriteString(examplesDoc(n, es))
 	}
 	return sb.String()
 }
