@@ -26,6 +26,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/term"
+
+	"cubit/internal/ansi"
 )
 
 // logFile es donde se guarda todo el log (para pegarlo o revisarlo luego).
@@ -163,7 +165,7 @@ func (w *uiWriter) Write(b []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.file != nil { // al archivo sin los colores
-		_, _ = w.file.Write([]byte(stripANSI(string(b))))
+		_, _ = w.file.Write([]byte(ansi.Strip(string(b))))
 	}
 	w.part += string(b)
 	for {

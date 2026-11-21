@@ -9,6 +9,8 @@ import (
 	"github.com/mj41/go-mc26/data/registryid"
 	pk "github.com/mj41/go-mc26/net/packet"
 	"github.com/mj41/go-mc26/protocol/types"
+
+	"cubit/internal/ansi"
 )
 
 func stack(name string, n int) types.ItemStack {
@@ -26,7 +28,7 @@ func TestRenderInventory(t *testing.T) {
 	slots[37] = stack("iron_pickaxe", 1)
 	slots[44] = stack("cooked_beef", 10)
 	slots[45] = stack("shield", 1)
-	out := stripANSI(renderInventory("Inventory of Bot", slots, 1, "♥ 20/20"))
+	out := ansi.Strip(renderInventory("Inventory of Bot", slots, 1, "♥ 20/20"))
 	t.Log("\n" + out)
 	for _, want := range []string{"Diamon", "helmet", "Golden", "Cobble", "64", "Iron", "pickax", "Cooked", "10",
 		"in hand: iron_pickaxe (slot 2)", "cobblestone ×64", "Crafting", "off hand", "Shield"} {
@@ -55,7 +57,7 @@ func TestRenderInventoryList(t *testing.T) {
 	slots[37] = stack("iron_pickaxe", 1)
 	slots[44] = stack("cooked_beef", 10)
 	slots[45] = stack("shield", 1)
-	out := stripANSI(renderInventoryList("Inventory of Bot", slots, 1, "health 20/20"))
+	out := ansi.Strip(renderInventoryList("Inventory of Bot", slots, 1, "health 20/20"))
 	t.Log("\n" + out)
 	for _, want := range []string{"Hand        iron_pickaxe", "Helmet      diamond_helmet", "Boots       ·",
 		"▶ 2 iron_pickaxe", "  3 ·", "9 cooked_beef", "×10", "Hotbar (3/9)", "Inventory (3/27)",
@@ -71,7 +73,7 @@ func TestRenderInventoryList(t *testing.T) {
 	}
 	// sin nada arriba: lo dice
 	slots[9], slots[10], slots[11] = types.ItemStack{}, types.ItemStack{}, types.ItemStack{}
-	if out := stripANSI(renderInventoryList("x", slots, 0, "")); !strings.Contains(out, "Inventory (0/27)\n    empty") {
+	if out := ansi.Strip(renderInventoryList("x", slots, 0, "")); !strings.Contains(out, "Inventory (0/27)\n    empty") {
 		t.Errorf("con el inventario de arriba vacío no lo dice:\n%s", out)
 	}
 }

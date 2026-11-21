@@ -1,4 +1,4 @@
-package main
+package mcserver
 
 // Apagar y encender el servidor de pruebas (el local de compose.yaml) desde
 // el panel, sin tocar Docker: Docker lo vuelve a arrancar siempre (restart:
@@ -12,13 +12,16 @@ package main
 
 import (
 	"log"
-	"net"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"cubit/internal/i18n"
+	"cubit/internal/mc"
+	"cubit/internal/rcon"
 )
 
 const (
@@ -29,7 +32,7 @@ const (
 // lastBootTook: lo que tardó en arrancar la última vez que se encendió (o,
 // sin medida, lo del último reinicio).
 func lastBootTook() time.Duration {
-	if b, err := os.ReadFile(dataFile(bootTimesFile)); err == nil {
+	if b, err := os.ReadFile(DataFile(bootTimesFile)); err == nil {
 		if s, err := strconv.ParseFloat(strings.TrimSpace(string(b)), 64); err == nil && s >= 1 && s < restartGiveUp.Seconds() {
 			return time.Duration(s * float64(time.Second))
 		}
@@ -39,8 +42,8 @@ func lastBootTook() time.Duration {
 
 func powerMarkerPath() string { return filepath.Join(serverDir(), powerMarker) }
 
-// serverOff: la marca de apagado está puesta.
-func serverOff() bool {
+// Off: la marca de apagado está puesta.
+func Off() bool {
 	if serverDir() == "" {
 		return false
 	}
@@ -54,10 +57,10 @@ var srvPower struct {
 	what  string    // "apagar" o "encender"
 }
 
-// powerState: "on", "off", "stopping" (apagándose: la consola aún contesta)
+// PowerState: "on", "off", "stopping" (apagándose: la consola aún contesta)
 // o "starting" (encendiéndose: aún no contesta). online: la consola contesta.
-func powerState(online bool) string {
-	switch off := serverOff(); {
+func PowerState(online bool) string {
+	switch off := Off(); {
 	case off && online:
 		return "stopping"
 	case off:
@@ -77,10 +80,10 @@ func pendingPower(what string) bool {
 // stopServer apaga el servidor de pruebas (hasta que se encienda).
 func stopServer() error {
 	if serverDir() == "" {
-		return bi("only the test server (the local Docker one) can be stopped from here", "solo el servidor de pruebas (el local de Docker) se puede apagar desde aquí")
+		return i18n.Errorf("only the test server (the local Docker one) can be stopped from here", "solo el servidor de pruebas (el local de Docker) se puede apagar desde aquí")
 	}
-	if serverOff() {
-		return bi("it is already off", "ya está apagado")
+	if Off() {
+		return i18n.Errorf("it is already off", "ya está apagado")
 	}
 	srvRestart.Lock()
 	busy := !srvRestart.since.IsZero()
@@ -96,21 +99,21 @@ func stopServer() error {
 	srvPower.Unlock()
 	log.Print("[panel] apago el servidor de pruebas")
 	go func() {
-		_, _ = rconCmd("say El servidor se apaga en 5 segundos")
+		_, _ = rcon.Cmd("say El servidor se apaga en 5 segundos")
 		time.Sleep(warnDelay)
-		_, _ = rconCmd("stop")
+		_, _ = rcon.Cmd("stop")
 	}()
 	return nil
 }
 
-// startServer enciende el servidor de pruebas (quita la marca) y avisa al
+// Start enciende el servidor de pruebas (quita la marca) y avisa al
 // bot de que vuelva a probar a entrar ya, sin esperar a su siguiente intento.
-func startServer() error {
+func Start() error {
 	if serverDir() == "" {
-		return bi("only the test server (the local Docker one) can be started from here", "solo el servidor de pruebas (el local de Docker) se puede encender desde aquí")
+		return i18n.Errorf("only the test server (the local Docker one) can be started from here", "solo el servidor de pruebas (el local de Docker) se puede encender desde aquí")
 	}
-	if !serverOff() {
-		return bi("it is already on", "ya está encendido")
+	if !Off() {
+		return i18n.Errorf("it is already on", "ya está encendido")
 	}
 	if err := os.Remove(powerMarkerPath()); err != nil {
 		return err
@@ -123,11 +126,11 @@ func startServer() error {
 	go func() { // cuánto tarda (para la próxima cuenta atrás) y, en cuanto conteste, el bot entra
 		for i := 0; i < int(restartGiveUp/time.Second); i++ {
 			time.Sleep(time.Second)
-			if _, err := rconCmd("list"); err == nil {
+			if _, err := rcon.Cmd("list"); err == nil {
 				took := time.Since(start)
-				_ = os.WriteFile(dataFile(bootTimesFile), []byte(strconv.FormatFloat(took.Seconds(), 'f', 1, 64)+"\n"), 0o644)
+				_ = os.WriteFile(DataFile(bootTimesFile), []byte(strconv.FormatFloat(took.Seconds(), 'f', 1, 64)+"\n"), 0o644)
 				log.Printf("[panel] el servidor de pruebas está en línea (tardó %s)", took.Round(time.Second))
-				serverUpHook()
+				OnUp()
 				return
 			}
 		}
@@ -137,35 +140,48 @@ func startServer() error {
 
 // ---- dónde está el bot ----
 
-// testServerAddr: el servidor de pruebas visto desde el bot (MCBOT_TEST_SERVER,
+// TestServerAddr: el servidor de pruebas visto desde el bot (MCBOT_TEST_SERVER,
 // o el host de la consola con el puerto de juego).
-func testServerAddr() string {
+func TestServerAddr() string {
 	if a := os.Getenv("MCBOT_TEST_SERVER"); a != "" {
 		return a
 	}
-	if r := rconAddr(); r != "" && serverDir() != "" {
-		return hostOf(r)
+	if r := rcon.Addr(); r != "" && serverDir() != "" {
+		return mc.HostOf(r)
 	}
 	return ""
 }
 
-// botOnTestServer: el bot está puesto para entrar en el servidor de pruebas.
-func botOnTestServer() bool {
-	t := testServerAddr()
+// IsTestServer: addr apunta al servidor de pruebas (el bot está puesto para
+// entrar en él).
+func IsTestServer(addr string) bool {
+	t := TestServerAddr()
 	if t == "" {
 		return false
 	}
-	h, p := splitAddr(serverAddr)
-	th, tp := splitAddr(t)
+	h, p := mc.SplitAddr(addr)
+	th, tp := mc.SplitAddr(t)
 	return strings.EqualFold(h, th) && p == tp
 }
 
-// splitAddr: host y puerto (25565 si no lo lleva).
-func splitAddr(a string) (string, string) {
-	if h, p, err := net.SplitHostPort(a); err == nil {
-		return h, p
+// OnTestServer: addr es el servidor de pruebas (y no está vacía).
+func OnTestServer(addr string) bool {
+	t := TestServerAddr()
+	if t == "" || addr == "" {
+		return false
 	}
-	return strings.Trim(a, "[]"), "25565"
+	h, p := mc.SplitAddr(addr)
+	th, tp := mc.SplitAddr(t)
+	return strings.EqualFold(h, th) && p == tp
+}
+
+// TestJoinPort: el puerto del servidor de pruebas en el equipo del hub
+// (MCBOT_TEST_PORT, el MC_PORT de compose; 25565 si no se dice).
+func TestJoinPort() int {
+	if p, err := strconv.Atoi(os.Getenv("MCBOT_TEST_PORT")); err == nil && p > 0 && p < 65536 {
+		return p
+	}
+	return 25565
 }
 
 // target: lo que ve el panel de a dónde está conectado el bot.
@@ -177,33 +193,11 @@ type target struct {
 }
 
 func currentTarget() target {
-	t := target{Kind: "external", Addr: serverAddr, TestAddr: testServerAddr()}
-	if botOnTestServer() {
+	addr, connected := Bot()
+	t := target{Kind: "external", Addr: addr, TestAddr: TestServerAddr()}
+	if IsTestServer(addr) {
 		t.Kind = "test"
 	}
-	if b := current.Load(); b != nil {
-		t.Connected = b.ctx.Err() == nil && !b.connectedAt.IsZero()
-	}
+	t.Connected = connected
 	return t
-}
-
-// ---- volver a entrar ya ----
-
-var reconnectNow = make(chan struct{}, 1)
-
-// serverUpHook: el servidor de pruebas acaba de encenderse (el hub lo cambia:
-// avisa a sus bots).
-var serverUpHook = func() {
-	if botOnTestServer() {
-		reconnectSoon()
-	}
-}
-
-// reconnectSoon: si el bot está esperando para volver a entrar, que lo
-// intente ya.
-func reconnectSoon() {
-	select {
-	case reconnectNow <- struct{}{}:
-	default:
-	}
 }

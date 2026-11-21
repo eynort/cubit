@@ -11,8 +11,6 @@ package main
 import (
 	"context"
 	"crypto/rand"
-	"crypto/subtle"
-	_ "embed"
 	"encoding/hex"
 	"encoding/json"
 	"io"
@@ -26,10 +24,16 @@ import (
 	"strings"
 	"sync"
 	"time"
-)
 
-//go:embed panel.html
-var panelHTML []byte
+	"cubit/brand"
+	"cubit/internal/ansi"
+	"cubit/internal/avatar"
+	"cubit/internal/hub"
+	"cubit/internal/i18n"
+	"cubit/internal/mcserver"
+	"cubit/internal/rcon"
+	"cubit/internal/web"
+)
 
 // logRing guarda las últimas líneas del log para el panel.
 type logRing struct {
@@ -46,7 +50,7 @@ var panelLog = &logRing{}
 func (r *logRing) Write(p []byte) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.part += stripANSI(string(p))
+	r.part += ansi.Strip(string(p))
 	for {
 		i := strings.IndexByte(r.part, '\n')
 		if i < 0 {
@@ -125,22 +129,9 @@ func startMonitor(ctx context.Context) {
 	}
 	log.SetOutput(io.MultiWriter(log.Writer(), panelLog))
 	token := panelToken()
-	ok := func(w http.ResponseWriter, r *http.Request) bool {
-		t := r.URL.Query().Get("t")
-		if t == "" {
-			if c, err := r.Cookie("mcbot"); err == nil {
-				t = c.Value
-			}
-		}
-		if subtle.ConstantTimeCompare([]byte(t), []byte(token)) != 1 {
-			httpMsg(w, r, http.StatusUnauthorized, "missing key: open the URL shown in the bot log (…/?t=…)", "falta la clave: abre la URL que sale en el log del bot (…/?t=…)")
-			return false
-		}
-		http.SetCookie(w, &http.Cookie{Name: "mcbot", Value: token, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: 30 * 24 * 3600})
-		return true
-	}
+	ok := web.KeyCheck(token, "missing key: open the URL shown in the bot log (…/?t=…)", "falta la clave: abre la URL que sale en el log del bot (…/?t=…)")
 	mux := http.NewServeMux()
-	brandRoutes(mux)
+	brand.Routes(mux)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
@@ -150,7 +141,7 @@ func startMonitor(ctx context.Context) {
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = w.Write(panelHTML)
+		_, _ = w.Write(web.PanelHTML)
 	})
 	mux.HandleFunc("/json", func(w http.ResponseWriter, r *http.Request) {
 		if !ok(w, r) {
@@ -179,7 +170,7 @@ func startMonitor(ctx context.Context) {
 			Line string `json:"line"`
 		}
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil || strings.TrimSpace(req.Line) == "" {
-			httpMsg(w, r, http.StatusBadRequest, "missing command", "falta la orden")
+			i18n.HTTPMsg(w, r, http.StatusBadRequest, "missing command", "falta la orden")
 			return
 		}
 		line := strings.TrimSpace(req.Line)
@@ -198,7 +189,7 @@ func startMonitor(ctx context.Context) {
 		}
 		out := []sug{}
 		for _, x := range suggestions(r.URL.Query().Get("line")) {
-			out = append(out, sug{x.value, stripANSI(x.label), stripANSI(x.desc)})
+			out = append(out, sug{x.value, ansi.Strip(x.label), ansi.Strip(x.desc)})
 			if len(out) == 40 {
 				break
 			}
@@ -213,7 +204,7 @@ func startMonitor(ctx context.Context) {
 			w.WriteHeader(http.StatusNoContent)
 		}
 	})
-	serverRoutes(mux, ok)
+	mcserver.Routes(mux, ok)
 	pp := func(h http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			if ok(w, r) {
@@ -232,7 +223,7 @@ func startMonitor(ctx context.Context) {
 	}
 	host := ln.Addr().String()
 	if h, port, err := net.SplitHostPort(host); err == nil && (h == "::" || h == "0.0.0.0") {
-		host = net.JoinHostPort(localIP(), port)
+		host = net.JoinHostPort(web.LocalIP(), port)
 	}
 	log.Printf("panel: http://%s/?t=%s", host, token)
 	// el mismo idioma que el hub (un hub con un bot): /api/state, /b/self/…, /avatar/…
@@ -244,7 +235,7 @@ func startMonitor(ctx context.Context) {
 	})
 	mux.HandleFunc("/avatar/", func(w http.ResponseWriter, r *http.Request) {
 		if ok(w, r) {
-			serveAvatar(w, r, strings.TrimPrefix(r.URL.Path, "/avatar/"))
+			avatar.Serve(w, r, strings.TrimPrefix(r.URL.Path, "/avatar/"))
 		}
 	})
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -264,46 +255,36 @@ func startMonitor(ctx context.Context) {
 	go func() { _ = srv.Serve(ln) }()
 }
 
-// localIP: la IP de este equipo en la red (para la URL del panel).
-func localIP() string {
-	c, err := net.Dial("udp", "192.0.2.1:9") // (no manda nada: solo elige la interfaz)
-	if err != nil {
-		return "127.0.0.1"
-	}
-	defer c.Close()
-	return c.LocalAddr().(*net.UDPAddr).IP.String()
-}
-
 // singleState: /api/state de un bot solo (--monitor, sin hub): un hub con un
 // bot, "self", siempre en marcha (es este programa).
-func singleState() hubState {
-	st := hubState{Mode: "single", Last: "self"}
+func singleState() hub.State {
+	st := hub.State{Mode: "single", Last: "self"}
 	p := panelSnapshot()
 	cfgMu.Lock()
 	owners := append([]string{}, cfg.Owners...)
 	cfgMu.Unlock()
-	st.Bots = []hubBotState{{ID: "self", Name: botName, Server: serverAddr, OnTest: botOnTestServer(), Owners: owners,
-		Running: true, Connected: p.Connected, Health: p.Health, Task: p.Task, Avatar: avatarURL(botName, *microsoftFlag)}}
-	st.Servers = []serverView{}
-	if t := testServerAddr(); t != "" {
+	st.Bots = []hub.BotState{{ID: "self", Name: botName, Server: serverAddr, OnTest: botOnTestServer(), Owners: owners,
+		Running: true, Connected: p.Connected, Health: p.Health, Task: p.Task, Avatar: avatar.URL(botName, *microsoftFlag)}}
+	st.Servers = []hub.ServerView{}
+	if t := mcserver.TestServerAddr(); t != "" {
 		st.TestServer.Available, st.TestServer.Addr = true, t
-		if serverOff() {
-			st.TestServer.Power = powerState(false)
+		if mcserver.Off() {
+			st.TestServer.Power = mcserver.PowerState(false)
 		} else {
-			_, err := rconCmd("list")
-			st.TestServer.Power = powerState(err == nil)
+			_, err := rcon.Cmd("list")
+			st.TestServer.Power = mcserver.PowerState(err == nil)
 		}
-		v := serverView{ID: testServerID, Name: "Test server", Addr: t, Kind: "test", Power: st.TestServer.Power, Bots: []string{}, JoinPort: testJoinPort(), Version: versionName()}
+		v := hub.ServerView{ID: hub.TestServerID, Name: "Test server", Addr: t, Kind: "test", Power: st.TestServer.Power, Bots: []string{}, JoinPort: mcserver.TestJoinPort(), Version: versionName()}
 		if botOnTestServer() {
 			v.Bots = []string{"self"}
 		}
 		st.Servers = append(st.Servers, v)
 	}
 	if botOnTestServer() {
-		st.Bots[0].ServerID = testServerID
+		st.Bots[0].ServerID = hub.TestServerID
 	} else {
 		st.Bots[0].ServerID = "current"
-		st.Servers = append(st.Servers, serverView{ID: "current", Name: serverAddr, Addr: serverAddr, Kind: "external", Premium: *microsoftFlag, Bots: []string{"self"}, Version: versionName()})
+		st.Servers = append(st.Servers, hub.ServerView{ID: "current", Name: serverAddr, Addr: serverAddr, Kind: "external", Premium: *microsoftFlag, Bots: []string{"self"}, Version: versionName()})
 	}
 	return st
 }

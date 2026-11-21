@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"cubit/automation"
 	"regexp"
 	"strings"
 	"time"
@@ -12,6 +11,8 @@ import (
 	"github.com/mj41/go-mc26-kit/bot"
 	"github.com/mj41/go-mc26-kit/bot/msg"
 	"github.com/mj41/go-mc26/chat"
+
+	"cubit/automation"
 )
 
 // Aquí van tus eventos. Desde cualquiera de ellos tienes:

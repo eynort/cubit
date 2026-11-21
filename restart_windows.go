@@ -13,6 +13,3 @@ func reexec(exe string, args, env []string) error {
 	c.Env, c.Stdin, c.Stdout, c.Stderr = env, os.Stdin, os.Stdout, os.Stderr
 	return c.Start()
 }
-
-// ownGroup: en Windows no hace falta (Ctrl-C ya va solo al proceso de la consola).
-func ownGroup(cmd *exec.Cmd) {}

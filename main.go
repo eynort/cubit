@@ -16,7 +16,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -41,11 +40,13 @@ import (
 
 	"cubit/automation"
 	"cubit/combat"
+	"cubit/internal/hub"
+	"cubit/internal/rcon"
 	"cubit/pathing"
 	"cubit/safety"
 )
 
-var validName = regexp.MustCompile(`^[A-Za-z0-9_]{3,16}$`)
+var hubFlag = flag.String("hub", "", "modo hub: el panel en esta dirección (ej: :8080), siempre encendido, para varios bots (cada uno en bots/<id>/); los bots se crean y se arrancan desde el panel")
 
 // Bot agrupa todo lo que los eventos necesitan para actuar.
 type Bot struct {
@@ -94,7 +95,7 @@ func main() {
 		return
 	}
 	if *hubFlag != "" {
-		runHub(*hubFlag) // (el panel para varios bots; no vuelve hasta Ctrl-C)
+		hub.Run(*hubFlag, hub.Options{DefaultOwner: *ownerFlag}) // (el panel para varios bots; no vuelve hasta Ctrl-C)
 		return
 	}
 	if *demoFlag {
@@ -104,7 +105,7 @@ func main() {
 		log.Fatal(err)
 	}
 	applyMemLimit()
-	opOwners(remoteOwners) // (con RCON: los dueños, op en el servidor)
+	rcon.OpOwners(remoteOwners) // (con RCON: los dueños, op en el servidor)
 	if *logsFlag {
 		s, err := openSession()
 		if err != nil {
