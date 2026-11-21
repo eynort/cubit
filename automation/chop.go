@@ -5,6 +5,7 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/mj41/go-mc26-kit/bot/basic"
 	"github.com/mj41/go-mc26-kit/bot/control"
@@ -27,6 +28,14 @@ import (
 // escaleras, puertas, cristal, antorchas, cofres…). Los troncos pelados
 // (stripped_*) no se tocan nunca. Un tronco caído suelto en el bosque, sin
 // hojas, tampoco.
+
+// chopCollectUp: hasta qué altura sobre el pie del árbol se sube a por la
+// madera que quedó sobre las hojas.
+const chopCollectUp = 7
+
+// chopTreeBudget: lo máximo que se dedica a rematar los troncos que no alcanza
+// de un árbol; pasado eso se deja (y se dice) en vez de quedarse allí.
+const chopTreeBudget = 4 * time.Minute
 
 // ChopRadius: a cuántos bloques (en horizontal) del punto se talan árboles.
 const ChopRadius = 24
@@ -90,7 +99,7 @@ func isLogBlock(name string) bool { _, ok := logKindOf(name); return ok }
 // construcción): un tronco pegado a uno es parte de una casa, un puente…
 func playerMade(n string) bool {
 	for _, s := range []string{"_planks", "_stairs", "_slab", "_door", "_fence", "_fence_gate", "_trapdoor", "_sign",
-		"_bricks", "_wall", "_pane", "_button", "_pressure_plate", "_carpet", "_wool", "_bed", "_banner", "_concrete",
+		"_bricks", "_wall", "_pane", "_button", "_pressure_plate", "_wool", "_bed", "_banner", "_concrete",
 		"_terracotta", "_lantern", "_shelf"} {
 		if strings.HasSuffix(n, s) {
 			return true
@@ -118,6 +127,7 @@ type chopper struct {
 	ws     woodSet
 	center world.BlockPos
 	skip   map[world.BlockPos]bool // troncos de árboles que se dejaron (imposibles o a medias)
+	until  time.Time               // hasta cuándo se intenta terminar el árbol de ahora (chopTreeBudget)
 
 	trees     map[string]int // árboles talados, por madera
 	logs      map[string]int // troncos cortados, por madera
@@ -214,14 +224,19 @@ func (c *chopper) summary(before map[string]int) {
 		names = append(names, n)
 	}
 	sort.Strings(names)
+	gotN := 0
 	for _, n := range names {
 		if d := now[n] - before[n]; d > 0 {
 			got = append(got, fmt.Sprintf("%s %d", n, d))
+			gotN += d
 		}
 	}
 	j.Logf("talado: %d árboles y %d troncos (%s); recogidos: %s", c.total(c.trees), c.total(c.logs), strings.Join(parts, "; "), strings.Join(got, ", "))
-	if n := c.remaining(); n > 0 {
-		j.Logf("quedan %d troncos de esas maderas a menos de %d bloques que no son de un árbol (construcciones, troncos caídos) o que dejé", n, ChopRadius)
+	if loose := c.total(c.logs) - gotN; loose > 0 {
+		j.Logf("%d troncos cortados quedaron sin recoger (sobre las hojas de la copa o sin camino)", loose)
+	}
+	if n, first := c.remaining(); n > 0 {
+		j.Logf("quedan %d troncos de esas maderas a menos de %d bloques que no son de un árbol (construcciones, troncos caídos) o que dejé (el primero en %v)", n, ChopRadius, first)
 	}
 	if c.left > 0 || c.abandoned > 0 {
 		j.Problem("talar: dejé %d árboles con %d troncos en pie (sin camino, zona protegida…)", c.abandoned, c.left)
@@ -229,19 +244,22 @@ func (c *chopper) summary(before map[string]int) {
 }
 
 // remaining cuenta los troncos de las maderas pedidas que siguen en pie en el radio.
-func (c *chopper) remaining() int {
+func (c *chopper) remaining() (n int, first world.BlockPos) {
 	j := c.j
-	n, r := 0, ChopRadius
+	r := ChopRadius
 	for y := c.center.Y - 24; y <= c.center.Y+48; y++ {
 		for dx := -r; dx <= r; dx++ {
 			for dz := -r; dz <= r; dz++ {
-				if dx*dx+dz*dz <= r*r && c.ws.has(j.Block(world.BlockPos{X: c.center.X + dx, Y: y, Z: c.center.Z + dz})) {
+				if p := (world.BlockPos{X: c.center.X + dx, Y: y, Z: c.center.Z + dz}); dx*dx+dz*dz <= r*r && c.ws.has(j.Block(p)) {
+					if n == 0 {
+						first = p
+					}
 					n++
 				}
 			}
 		}
 	}
-	return n
+	return n, first
 }
 
 // bestAxe es el hacha que lleva con la que talaría (la mejor): "" si no lleva ninguna.
@@ -275,7 +293,7 @@ func (c *chopper) travel(p world.BlockPos) error {
 			}
 			return fmt.Errorf("no encuentro por dónde seguir hacia %v (a %.0f bloques)", p, d)
 		}
-		if err := j.GoTo(goal); err != nil {
+		if err := c.goTo(goal); err != nil {
 			if j.Fatal() != nil {
 				return j.Fatal()
 			}
@@ -337,11 +355,12 @@ func (c *chopper) scan() []*chopTree {
 				if len(logs) == 0 {
 					continue
 				}
-				t := c.makeTree(logs)
-				if t == nil || c.skip[t.foot] || !c.natural(t) {
-					continue
+				for _, t := range c.split(logs) {
+					if c.skip[t.foot] || !c.natural(t) {
+						continue
+					}
+					out = append(out, t)
 				}
-				out = append(out, t)
 			}
 		}
 	}
@@ -349,7 +368,7 @@ func (c *chopper) scan() []*chopTree {
 }
 
 // cluster son los troncos de los tipos pedidos unidos a p (lados, aristas y
-// esquinas: las ramas). Vacío si es enorme (una construcción, un bosque entero soldado).
+// esquinas: las ramas). Vacío si es enorme.
 func (c *chopper) cluster(p world.BlockPos, seen map[world.BlockPos]bool) []world.BlockPos {
 	j := c.j
 	seen[p] = true
@@ -372,8 +391,42 @@ func (c *chopper) cluster(p world.BlockPos, seen map[world.BlockPos]bool) []worl
 			}
 		}
 	}
-	if len(out) > 600 {
+	if len(out) > 5000 {
 		return nil
+	}
+	return out
+}
+
+// treeSpan: a cuántos bloques (en horizontal) del pie llegan los troncos de un
+// árbol. En un bosque denso los árboles se tocan y forman un grupo de cientos
+// de troncos: se parte en árboles (de abajo arriba: el pie es el tronco más
+// bajo que queda) y lo que no cae en uno sale en el siguiente.
+const treeSpan = 8
+
+func (c *chopper) split(logs []world.BlockPos) []*chopTree {
+	ctr := c.center
+	sort.SliceStable(logs, func(a, b int) bool {
+		if logs[a].Y != logs[b].Y {
+			return logs[a].Y < logs[b].Y
+		}
+		return colDist2(logs[a], ctr) < colDist2(logs[b], ctr)
+	})
+	used := make([]bool, len(logs))
+	var out []*chopTree
+	for i, foot := range logs {
+		if used[i] {
+			continue
+		}
+		var part []world.BlockPos
+		for k := i; k < len(logs); k++ {
+			if !used[k] && abs(logs[k].X-foot.X) <= treeSpan && abs(logs[k].Z-foot.Z) <= treeSpan {
+				used[k] = true
+				part = append(part, logs[k])
+			}
+		}
+		if t := c.makeTree(part); t != nil {
+			out = append(out, t)
+		}
 	}
 	return out
 }
@@ -471,6 +524,7 @@ func (c *chopper) process(t *chopTree) {
 	j := c.j
 	top := t.logs[len(t.logs)-1].Y
 	j.Logf("árbol de %s en %v: %d troncos, de %d de alto", t.kind, t.foot, len(t.logs), top-t.foot.Y+1)
+	c.until = time.Now().Add(chopTreeBudget)
 	ground := t.foot.Y
 	if err := c.fell(t); err != nil {
 		if j.Fatal() != nil {
@@ -517,7 +571,7 @@ func (c *chopper) fell(t *chopTree) error {
 			c.cut(l)
 		}
 	}
-	if err := j.GoNear(base); err != nil {
+	if err := c.goNear(base); err != nil {
 		if j.Fatal() != nil {
 			return j.Fatal()
 		}
@@ -534,7 +588,7 @@ func (c *chopper) fell(t *chopTree) error {
 	if c.ws.has(j.Block(base)) {
 		return fmt.Errorf("el pie del tronco sigue ahí")
 	}
-	if err := j.GoTo(base); err != nil {
+	if err := c.goTo(base); err != nil {
 		if j.Fatal() != nil {
 			return j.Fatal()
 		}
@@ -585,23 +639,38 @@ func (c *chopper) finish(t *chopTree, ground int) {
 		if j.Fatal() != nil || j.protected(left[0]) {
 			return
 		}
+		if time.Now().After(c.until) {
+			j.Logf("llevo %v con este árbol: dejo los %d troncos que quedan", chopTreeBudget, len(left))
+			return
+		}
 		j.Status("terminando el árbol (quedan %d troncos)", len(left))
 		j.Logf("al árbol le quedan %d troncos: voy a por ellos", len(left))
 		c.ensureScaffold(left[len(left)-1].Y - ground)
 		before := len(left)
+		fails := 0
 		for _, l := range left {
 			if !c.ws.has(j.Block(l)) {
 				continue
 			}
+			if fails >= 3 || time.Now().After(c.until) { // tres seguidos sin camino: otra vuelta (con más bloques) en vez de 10 s por tronco
+				break
+			}
 			if !j.Reaches(l) {
-				if err := j.GoNear(l); err != nil {
+				if err := c.goNear(l); err != nil {
 					if j.Fatal() != nil {
 						return
 					}
-					j.Logf("tronco en %v: %v", l, err)
-					continue
+					j.Logf("tronco en %v: %v; abro paso entre las hojas", l, err)
+					if err := c.clearWayTo(l, func() bool { return j.Reaches(l) }); err != nil {
+						if j.Fatal() != nil {
+							return
+						}
+						fails++
+						continue
+					}
 				}
 			}
+			fails = 0
 			for _, o := range c.standing(t.logs) { // este y los que alcance desde aquí
 				c.cut(o)
 			}
@@ -662,6 +731,66 @@ func (c *chopper) removeScaffold(logs []world.BlockPos) {
 	}
 }
 
+// goNear y goTo son los del Job, y si no se mueve (de pie en el borde de un
+// bloque, con el centro en el aire, el pathfinding no sabe salir) lo centran
+// sobre suelo firme y lo reintentan.
+func (c *chopper) goNear(p world.BlockPos) error {
+	err := c.j.GoNear(p)
+	if err != nil && c.j.Fatal() == nil && strings.Contains(err.Error(), "sin moverme") && c.unstick() {
+		err = c.j.GoNear(p)
+	}
+	return err
+}
+
+func (c *chopper) goTo(p world.BlockPos) error {
+	err := c.j.GoTo(p)
+	if err != nil && c.j.Fatal() == nil && strings.Contains(err.Error(), "sin moverme") && c.unstick() {
+		err = c.j.GoTo(p)
+	}
+	return err
+}
+
+// unstick lleva al bot al centro del bloque firme más cercano (andando recto,
+// sin pathfinding): devuelve si se movió.
+func (c *chopper) unstick() bool {
+	j := c.j
+	pos := j.Pos()
+	f := j.Feet()
+	var best world.BlockPos
+	bd, found := math.Inf(1), false
+	for dx := -1; dx <= 1; dx++ {
+		for dz := -1; dz <= 1; dz++ {
+			cell := world.BlockPos{X: f.X + dx, Y: f.Y, Z: f.Z + dz}
+			if !j.solid(world.BlockPos{X: cell.X, Y: cell.Y - 1, Z: cell.Z}) || j.solid(cell) || j.solid(world.BlockPos{X: cell.X, Y: cell.Y + 1, Z: cell.Z}) {
+				continue
+			}
+			if d := math.Hypot(float64(cell.X)+0.5-pos.X, float64(cell.Z)+0.5-pos.Z); d < bd {
+				best, bd, found = cell, d, true
+			}
+		}
+	}
+	if !found || bd < 0.15 {
+		return false
+	}
+	j.Logf("de pie en el borde de un bloque (%.1f, %.1f): me centro en %v", pos.X, pos.Z, best)
+	j.r.d.Walker.Stop()
+	for t := 0; t < 30; t++ {
+		p := j.Pos()
+		dx, dz := float64(best.X)+0.5-p.X, float64(best.Z)+0.5-p.Z
+		if math.Hypot(dx, dz) < 0.12 {
+			break
+		}
+		yaw := float32(math.Atan2(-dx, dz) * 180 / math.Pi)
+		j.r.d.Player.UpdatePosition(func(q basic.Position) basic.Position { q.Yaw = yaw; return q })
+		j.r.d.Ctl.SetInput(control.Input{Forward: true, Shift: true})
+		if err := j.r.d.Ctl.WaitTicks(j.ctx, 1); err != nil {
+			break
+		}
+	}
+	j.r.d.Ctl.SetInput(control.Input{})
+	return true
+}
+
 // descend: si el bot sigue en alto (una copa, una torre que no se deshizo), al suelo.
 func (c *chopper) descend(ground int) {
 	j := c.j
@@ -684,6 +813,10 @@ func (c *chopper) collect(t *chopTree) error {
 	for _, l := range t.logs {
 		top = max(top, l.Y)
 	}
+	// lo que quedó en la copa (muy arriba, sobre las hojas) no se va a buscar: era
+	// subir torres de 20 bloques y caerse de ellas; en el resumen sale como "sueltos"
+	c.j.collectOnly = func(p world.BlockPos) bool { return p.Y <= base.Y+chopCollectUp }
+	defer func() { c.j.collectOnly = nil }()
 	return c.j.CollectAround(float64(base.X)+0.5, float64(base.Y), float64(base.Z)+0.5, float64(max(10, top-base.Y+6)))
 }
 

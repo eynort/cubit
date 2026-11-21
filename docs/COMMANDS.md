@@ -4,6 +4,17 @@ Type them in the bot's console, in the web panel, or whisper them with `/msg <bo
 
 _Generated with `go run . --gen-docs docs`: don't edit by hand._
 
+## /chop
+
+`/chop <woods> <x> <y> <z>`
+
+Chop whole trees of the given woods (oak, birch, spruce, jungle, acacia, dark_oak, mangrove, cherry, pale_oak, and crimson/warped in the Nether), separated by commas (/chop oak,birch 100 64 200; ~ = where the bot is): it goes to the point and fells every tree of those woods within 24 blocks of it, all the logs (also the tall ones: the pathfinding places blocks to climb and they are removed after) and picks up what falls; no log is left floating. It only chops trees (natural leaves around, nothing built next to the logs): player-made log structures and stripped logs are left alone. It uses the best axe it carries, never breaking it (without one, by hand). At the end it logs how many trees and logs of each wood.
+
+- `<woods>`: one or more woods, separated by commas (oak,birch)
+- `<x>`: the point to chop around (~ = where the bot is)
+- `<y>`: the point to chop around (~ = where the bot is)
+- `<z>`: the point to chop around (~ = where the bot is)
+
 ## /cmd
 
 `/cmd <command>`

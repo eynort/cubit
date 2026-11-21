@@ -4,6 +4,17 @@ Se escriben en la consola del bot, en el panel web o por `/msg <bot> <orden>` (s
 
 _Generado con `go run . --gen-docs docs`: no lo edites a mano._
 
+## /chop
+
+`/chop <woods> <x> <y> <z>`
+
+Talar árboles enteros de las maderas dichas (oak, birch, spruce, jungle, acacia, dark_oak, mangrove, cherry, pale_oak, y crimson/warped en el Nether), separadas por comas (/chop oak,birch 100 64 200; ~ = donde está el bot): va hasta el punto y tala todos los árboles de esas maderas a menos de 24 bloques de él, todos los troncos (también los altos: el pathfinding pone bloques para subir y luego se quitan) y recoge lo que cae; no deja ningún tronco flotando. Solo tala árboles (con hojas naturales alrededor, nada construido pegado a los troncos): las construcciones de troncos de jugadores y los troncos pelados no se tocan. Usa la mejor hacha que lleve, sin romperla (sin hacha, a mano). Al acabar deja en el log cuántos árboles y troncos de cada madera.
+
+- `<woods>`: una o más maderas, separadas por comas (oak,birch)
+- `<x>`: el punto alrededor del que talar (~ = donde está el bot)
+- `<y>`: el punto alrededor del que talar (~ = donde está el bot)
+- `<z>`: el punto alrededor del que talar (~ = donde está el bot)
+
 ## /cmd
 
 `/cmd <command>`
