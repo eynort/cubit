@@ -6,12 +6,12 @@ COPY go.mod go.sum ./
 COPY third_party ./third_party
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /minecraft-bot .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /cubit .
 
 FROM alpine:3.22
 RUN apk add --no-cache ca-certificates tzdata
-COPY --from=build /minecraft-bot /usr/local/bin/minecraft-bot
+COPY --from=build /cubit /usr/local/bin/cubit
 # bot.json, datos/ y logs/ van aquí (un volumen: sobreviven al contenedor)
 WORKDIR /data
 EXPOSE 8080
-ENTRYPOINT ["minecraft-bot"]
+ENTRYPOINT ["cubit"]

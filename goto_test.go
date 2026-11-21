@@ -15,8 +15,8 @@ import (
 	"github.com/mj41/go-mc26/protocol/play"
 	"github.com/mj41/go-mc26/protocol/types"
 
-	"minecraft-bot/combat"
-	"minecraft-bot/pathing"
+	"cubit/combat"
+	"cubit/pathing"
 )
 
 // TestGotoCoords: /goto a 30 bloques con un muro de 3 de alto en medio: llega rodeándolo.

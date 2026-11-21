@@ -2,9 +2,9 @@ package main
 
 // A qué servidor y con qué cuenta entra el bot: nada fijo en el código.
 //
-//	minecraft-bot mc.ejemplo.com                 (puerto por SRV o 25565)
-//	minecraft-bot --name Otro_Bot 1.2.3.4:25570
-//	minecraft-bot                                (el último servidor y nombre)
+//	cubit mc.ejemplo.com                 (puerto por SRV o 25565)
+//	cubit --name Otro_Bot 1.2.3.4:25570
+//	cubit                                (el último servidor y nombre)
 //
 // Lo que el bot aprende del mundo (almacén, caminos, la obra, las notas para
 // la IA) va en datos/<servidor>/: cada servidor, lo suyo.
@@ -93,7 +93,7 @@ func loadConfig() error {
 		serverAddr = cfg.Server
 	}
 	if serverAddr == "" {
-		msg := "¿a qué servidor? minecraft-bot [--name <nombre>] [--owner <jugador>] <host[:puerto]>; la próxima vez sin nada entra al último"
+		msg := "¿a qué servidor? cubit [--name <nombre>] [--owner <jugador>] <host[:puerto]>; la próxima vez sin nada entra al último"
 		return errors.New(msg)
 	}
 	serverHost = hostOf(serverAddr)

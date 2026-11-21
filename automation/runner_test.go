@@ -10,9 +10,9 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/simworld"
 	"github.com/mj41/go-mc26-kit/bot/world"
 
-	"minecraft-bot/automation"
-	"minecraft-bot/pathing"
-	"minecraft-bot/safety"
+	"cubit/automation"
+	"cubit/pathing"
+	"cubit/safety"
 )
 
 // runner: el ejecutor de tareas sobre el bot del mundo simulado, con caminos.

@@ -24,7 +24,7 @@ import (
 	"github.com/mj41/go-mc26/data/registryid"
 	"github.com/mj41/go-mc26/protocol/types"
 
-	"minecraft-bot/automation"
+	"cubit/automation"
 )
 
 // moveKind es la orden de movimiento en curso ("goto", "follow", "guard"; ""

@@ -16,7 +16,7 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/world"
 	"github.com/mj41/go-mc26/level/block"
 
-	"minecraft-bot/pathing"
+	"cubit/pathing"
 )
 
 // course es un recorrido de prueba: los bloques, la meta y (para follow) la ruta del objetivo.

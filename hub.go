@@ -196,7 +196,7 @@ func (h *hub) migrate() {
 		log.Printf("hub: no pude migrar bot.json: %v", err)
 		return
 	}
-	for _, f := range []string{"bot.json", "datos", ".lang", "logs", "minecraft-bot.log"} {
+	for _, f := range []string{"bot.json", "datos", ".lang", "logs", "minecraft-bot.log", "cubit.log"} {
 		if _, err := os.Stat(f); err == nil {
 			if err := os.Rename(f, filepath.Join(dir, f)); err != nil {
 				log.Printf("hub: migrar %s: %v", f, err)

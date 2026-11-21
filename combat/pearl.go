@@ -8,7 +8,7 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/world"
 	"github.com/mj41/go-mc26/level/block"
 
-	"minecraft-bot/pathing"
+	"cubit/pathing"
 )
 
 // Perlas de ender: el objetivo lanza una para escapar (o para caerle encima).

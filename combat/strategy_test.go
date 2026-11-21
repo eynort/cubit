@@ -13,8 +13,8 @@ import (
 	"github.com/mj41/go-mc26/protocol/play"
 	"github.com/mj41/go-mc26/protocol/types"
 
-	"minecraft-bot/combat"
-	"minecraft-bot/pathing"
+	"cubit/combat"
+	"cubit/pathing"
 )
 
 // lag: los ticks que tardan en llegar al bot los paquetes del servidor (el

@@ -21,7 +21,7 @@ jobs:
         run: |
           mkdir -p dist
           build() { # os arch [suffix]
-            out="dist/minecraft-bot-${GITHUB_REF_NAME}-$1-$2$3"
+            out="dist/cubit-${GITHUB_REF_NAME}-$1-$2$3"
             CGO_ENABLED=0 GOOS=$1 GOARCH=$2 go build -trimpath -ldflags "-s -w" -o "$out" .
           }
           build linux amd64

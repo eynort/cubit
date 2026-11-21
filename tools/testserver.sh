@@ -8,7 +8,7 @@
 #   tools/testserver.sh cmd "time set day"  # un comando de consola
 #   tools/testserver.sh stop | reset        # parar | borrar el mundo
 #
-# Luego:  ./minecraft-bot --name Test_Bot --owner <tu_nombre> localhost
+# Luego:  ./cubit --name Test_Bot --owner <tu_nombre> localhost
 # y tú entras en Minecraft (multijugador) a localhost:25565.
 set -euo pipefail
 NAME=mcbot-testserver
@@ -28,7 +28,7 @@ start)
     -e ONLINE_MODE=FALSE -e ENFORCE_SECURE_PROFILE=FALSE \
     -e DIFFICULTY="${MC_DIFFICULTY:-easy}" -e MODE=survival \
     -e VIEW_DISTANCE=8 -e SPAWN_PROTECTION=0 -e MEMORY=2G \
-    -e MOTD="minecraft-bot test" ${2:+-e OPS="$2"} \
+    -e MOTD="Cubit test" ${2:+-e OPS="$2"} \
     itzg/minecraft-server >/dev/null
   echo "arrancando Minecraft $VERSION (la primera vez descarga el servidor y genera el mundo: 1-2 min)…"
   for _ in $(seq 1 180); do

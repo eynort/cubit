@@ -11,7 +11,7 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/control"
 	"github.com/mj41/go-mc26-kit/bot/simworld"
 
-	"minecraft-bot/safety"
+	"cubit/safety"
 )
 
 // TestWaterClutch: cayendo de lo alto con un cubo de agua en la barra

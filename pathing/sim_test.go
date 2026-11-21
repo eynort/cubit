@@ -7,7 +7,7 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/simworld"
 	"github.com/mj41/go-mc26-kit/bot/world"
 
-	"minecraft-bot/pathing"
+	"cubit/pathing"
 )
 
 // simCourse: un recorrido en simworld, que hace de servidor de verdad: cada

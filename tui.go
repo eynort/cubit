@@ -29,7 +29,7 @@ import (
 )
 
 // logFile es donde se guarda todo el log (para pegarlo o revisarlo luego).
-const logFile = "minecraft-bot.log"
+const logFile = "cubit.log"
 
 // Fondo oscuro: así lipgloss no le pregunta el color a la terminal (algunas
 // no contestan y la consola tardaría en aparecer).

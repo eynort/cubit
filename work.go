@@ -12,7 +12,7 @@ import (
 
 	"github.com/mj41/go-mc26-kit/bot/world"
 
-	"minecraft-bot/automation"
+	"cubit/automation"
 )
 
 // El trabajo largo (talar, escombros, granja, camas) sobrevive a una muerte:

@@ -7,7 +7,7 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/simworld"
 	"github.com/mj41/go-mc26-kit/bot/world"
 
-	"minecraft-bot/pathing"
+	"cubit/pathing"
 )
 
 // TestMemoryReuse: rodea un muro hasta la meta; la vuelta (la ruta al revés)

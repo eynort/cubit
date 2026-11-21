@@ -14,8 +14,8 @@ import (
 	pk "github.com/mj41/go-mc26/net/packet"
 	"github.com/mj41/go-mc26/protocol/play"
 
-	"minecraft-bot/combat"
-	"minecraft-bot/pathing"
+	"cubit/combat"
+	"cubit/pathing"
 )
 
 func TestZoneGeometry(t *testing.T) {

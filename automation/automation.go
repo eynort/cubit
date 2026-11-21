@@ -26,7 +26,7 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/screen"
 	"github.com/mj41/go-mc26-kit/bot/world"
 
-	"minecraft-bot/pathing"
+	"cubit/pathing"
 )
 
 // Deps es lo que las tareas usan del bot.
@@ -301,7 +301,7 @@ func taskStacks() string {
 	buf = buf[:runtime.Stack(buf, true)]
 	var out []string
 	for _, g := range strings.Split(string(buf), "\n\n") {
-		if strings.Contains(g, "minecraft-bot/automation") {
+		if strings.Contains(g, "cubit/automation") {
 			out = append(out, g)
 		}
 	}

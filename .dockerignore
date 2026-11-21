@@ -7,7 +7,7 @@ mc-data/
 *.log
 .historial
 .lang
-/minecraft-bot
+/cubit
 /dist/
 .git/
 .env

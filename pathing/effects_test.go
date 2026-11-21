@@ -12,7 +12,7 @@ import (
 	pk "github.com/mj41/go-mc26/net/packet"
 	"github.com/mj41/go-mc26/protocol/play"
 
-	"minecraft-bot/pathing"
+	"cubit/pathing"
 )
 
 // TestJumpBoost: un muro de 2 de alto, largo, sin otra forma de subir. Sin

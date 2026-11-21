@@ -8,7 +8,7 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/world"
 	"github.com/mj41/go-mc26/level/block"
 
-	"minecraft-bot/automation"
+	"cubit/automation"
 )
 
 // TestExcavateClimbsOutOfPit: el bot está metido en un hoyo de la caja, por

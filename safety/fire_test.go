@@ -12,7 +12,7 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/control"
 	"github.com/mj41/go-mc26-kit/bot/simworld"
 
-	"minecraft-bot/safety"
+	"cubit/safety"
 )
 
 // TestPutOutFire: ardiendo 8 s (un punto por segundo), con un cubo de agua se

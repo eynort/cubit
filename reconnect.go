@@ -23,7 +23,7 @@ import (
 	"github.com/mj41/go-mc26-kit/microsoft"
 	"github.com/mj41/go-mc26/data/version"
 
-	"minecraft-bot/automation"
+	"cubit/automation"
 )
 
 var (

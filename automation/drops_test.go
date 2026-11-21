@@ -6,7 +6,7 @@ import (
 
 	"github.com/mj41/go-mc26-kit/bot/simworld"
 
-	"minecraft-bot/automation"
+	"cubit/automation"
 )
 
 // TestFetchDiamondDrop: un diamante se quedó en un hueco cerrado de la roca

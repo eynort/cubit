@@ -1,4 +1,4 @@
-module minecraft-bot
+module cubit
 
 go 1.27.4
 

@@ -8,7 +8,7 @@ import (
 
 	"github.com/mj41/go-mc26-kit/bot/world"
 
-	"minecraft-bot/automation"
+	"cubit/automation"
 )
 
 // cmdExcavate: /excavate <x1> <y1> <z1> <x2> <y2> <z2> [exact] — vaciar la

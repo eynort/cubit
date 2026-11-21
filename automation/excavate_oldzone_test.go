@@ -8,7 +8,7 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/world"
 	"github.com/mj41/go-mc26/level/block"
 
-	"minecraft-bot/automation"
+	"cubit/automation"
 )
 
 // TestExcavateOldZoneDropped: media caja (x de 9 a 20) es un terreno

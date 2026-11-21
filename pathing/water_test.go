@@ -10,7 +10,7 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/simworld"
 	"github.com/mj41/go-mc26-kit/bot/world"
 
-	"minecraft-bot/pathing"
+	"cubit/pathing"
 )
 
 // waterCourse: el bot empieza en el agua y tiene que salir a la meta.

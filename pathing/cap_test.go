@@ -12,7 +12,7 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/simworld"
 	"github.com/mj41/go-mc26-kit/bot/world"
 
-	"minecraft-bot/pathing"
+	"cubit/pathing"
 )
 
 // TestPillarCap: el bot sube en torre hacia lo alto de una torre de 6 y

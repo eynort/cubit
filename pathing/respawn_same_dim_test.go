@@ -10,7 +10,7 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/physics"
 	"github.com/mj41/go-mc26-kit/bot/simworld"
 
-	"minecraft-bot/pathing"
+	"cubit/pathing"
 )
 
 // TestSkinRefreshRespawn: tras un /skin, SkinsRestorer "refresca" al

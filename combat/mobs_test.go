@@ -11,8 +11,8 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/world"
 	"github.com/mj41/go-mc26/data/registryid"
 
-	"minecraft-bot/combat"
-	"minecraft-bot/pathing"
+	"cubit/combat"
+	"cubit/pathing"
 )
 
 // TestMobs: un mob hostil aparece cerca; el bot (con espada y armadura) se

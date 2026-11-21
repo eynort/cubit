@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"minecraft-bot/automation"
+	"cubit/automation"
 	"regexp"
 	"strings"
 	"time"

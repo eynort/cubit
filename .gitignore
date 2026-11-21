@@ -11,8 +11,8 @@ logs/
 .lang
 
 # Binarios
-/minecraft-bot
-/minecraft-bot.exe
+/cubit
+/cubit.exe
 /dist/
 testserver/
 bot-data/
@@ -27,3 +27,5 @@ hub.json
 hub.json.tmp
 avatares/
 .microsoft/
+/minecraft-bot
+/minecraft-bot.exe

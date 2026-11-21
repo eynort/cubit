@@ -6,7 +6,7 @@ import (
 
 	"github.com/mj41/go-mc26-kit/bot/world"
 
-	"minecraft-bot/automation"
+	"cubit/automation"
 )
 
 func TestChunkBounds(t *testing.T) {

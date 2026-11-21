@@ -8,7 +8,7 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/physics"
 	"github.com/mj41/go-mc26-kit/bot/simworld"
 
-	"minecraft-bot/pathing"
+	"cubit/pathing"
 )
 
 // TestFollowUpPillar: alguien se sube a un pilar de 1x1 de 3 de alto para

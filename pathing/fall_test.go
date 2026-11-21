@@ -8,7 +8,7 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/simworld"
 	"github.com/mj41/go-mc26-kit/bot/world"
 
-	"minecraft-bot/pathing"
+	"cubit/pathing"
 )
 
 // TestDropFromTower: encima de una torre de 5 sin bloques para bajar

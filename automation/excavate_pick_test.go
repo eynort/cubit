@@ -10,7 +10,7 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/world"
 	"github.com/mj41/go-mc26/level/block"
 
-	"minecraft-bot/automation"
+	"cubit/automation"
 )
 
 // TestExcavateWaitsForPick: una caja de piedra y el bot sin pico: lo pide

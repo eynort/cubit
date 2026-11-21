@@ -4,7 +4,7 @@ package main
 // tuyo (el local de compose.yaml). Con ella el panel manda comandos de
 // servidor (/gamemode, /time, /op…) y hace op a los dueños.
 //
-//	MCBOT_RCON=minecraft:25575 MCBOT_RCON_PASSWORD=… minecraft-bot …
+//	MCBOT_RCON=minecraft:25575 MCBOT_RCON_PASSWORD=… cubit …
 //
 // Sin MCBOT_RCON, nada de esto: el bot es un jugador más.
 

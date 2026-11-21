@@ -26,7 +26,7 @@ func runDemo() {
 	}
 	s.World.Fill(-6, 64, 8, 6, 66, 8, "minecraft:stone_bricks") // un muro para ver /goto rodearlo
 	s.World.Fill(4, 64, -3, 6, 64, -1, "minecraft:oak_planks")
-	dir := filepath.Join(os.TempDir(), "minecraft-bot-demo")
+	dir := filepath.Join(os.TempDir(), "cubit-demo")
 	_ = os.MkdirAll(dir, 0o755)
 	if err := os.Chdir(dir); err != nil {
 		log.Fatalf("--demo: %v", err)

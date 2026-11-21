@@ -12,7 +12,7 @@ import (
 	"github.com/mj41/go-mc26/level/block"
 	"github.com/mj41/go-mc26/level/component"
 
-	"minecraft-bot/automation"
+	"cubit/automation"
 )
 
 // TestExcavate: una caja de 5×5×5 en el suelo (hierba, tierra y piedra). El

@@ -15,7 +15,7 @@ import (
 	"github.com/mj41/go-mc26/level/block"
 	"github.com/mj41/go-mc26/protocol/types"
 
-	"minecraft-bot/pathing"
+	"cubit/pathing"
 )
 
 // Minar: llegar a un bloque bajo tierra cavando un túnel en escalera (como

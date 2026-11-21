@@ -9,7 +9,7 @@ import (
 
 	"github.com/mj41/go-mc26-kit/bot/simworld"
 
-	"minecraft-bot/automation"
+	"cubit/automation"
 )
 
 // TestProblemSnapshot: un problema deja su ficha en la traza (dónde, qué

@@ -10,7 +10,7 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/physics"
 	"github.com/mj41/go-mc26-kit/bot/world"
 
-	"minecraft-bot/pathing"
+	"cubit/pathing"
 )
 
 // TestRejectedStepIsAvoided: un muro de un bloque entre el bot y la meta; un

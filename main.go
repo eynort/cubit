@@ -1,4 +1,4 @@
-// minecraft-bot: bot para Minecraft Java 26.2 (protocolo 776) en un servidor offline
+// Cubit: bot para Minecraft Java 26.2 (protocolo 776) en un servidor offline
 // cualquiera, solo con lo vanilla (el servidor, el nombre y los dueños: config.go).
 //
 // La conexión y el bucle de paquetes viven aquí; los eventos se implementan en events.go.
@@ -39,10 +39,10 @@ import (
 	pk "github.com/mj41/go-mc26/net/packet"
 	"github.com/mj41/go-mc26/protocol/play"
 
-	"minecraft-bot/automation"
-	"minecraft-bot/combat"
-	"minecraft-bot/pathing"
-	"minecraft-bot/safety"
+	"cubit/automation"
+	"cubit/combat"
+	"cubit/pathing"
+	"cubit/safety"
 )
 
 var validName = regexp.MustCompile(`^[A-Za-z0-9_]{3,16}$`)

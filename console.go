@@ -19,7 +19,7 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/entities"
 	"github.com/mj41/go-mc26-kit/bot/world"
 
-	"minecraft-bot/combat"
+	"cubit/combat"
 )
 
 // argKind es qué tipo de valor lleva un argumento: decide el autocompletado.

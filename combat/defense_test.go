@@ -13,9 +13,9 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/simworld"
 	"github.com/mj41/go-mc26-kit/bot/world"
 
-	"minecraft-bot/combat"
-	"minecraft-bot/pathing"
-	"minecraft-bot/safety"
+	"cubit/combat"
+	"cubit/pathing"
+	"cubit/safety"
 )
 
 // simFighterSafe es simFighter con los reflejos del bot de verdad (main.go):
