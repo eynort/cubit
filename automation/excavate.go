@@ -345,7 +345,9 @@ type excavation struct {
 	chestFull      map[world.BlockPos]bool
 	farTold        bool
 	chestsFullTold bool
-	final          bool // la última guardada, al acabar
+	final          bool                    // la última guardada, al acabar
+	twin           map[world.BlockPos]bool // la otra mitad de un cofre doble ya abierto
+	lastSize       int                     // las casillas del último cofre abierto (54: doble)
 }
 
 // errMoved: next se movió (se apartó, o se acercó a la caja): mirar otra vez.
@@ -700,6 +702,9 @@ func (e *excavation) leftovers() string {
 func (e *excavation) restockPicks() error {
 	j := e.j
 	j.Logf("excavar: no me quedan picos sin gastar")
+	if e.fetchPicks() && j.bestPickSlot(pickReserve) >= 0 { // (de los cofres de /excavate, si hay)
+		return nil
+	}
 	if j.bestPickSlot(pickReserve) < 0 && !e.waitForPick() {
 		return fmt.Errorf("no quedan picos con más de %d usos (no rompo ninguno): tírame uno y vuelve a mandar /excavate", pickReserve)
 	}

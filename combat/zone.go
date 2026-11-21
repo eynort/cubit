@@ -72,8 +72,8 @@ func (f *Fighter) scanZone() {
 	r := math.Hypot(z.MaxX-z.MinX, z.MaxZ-z.MinZ)/2 + 64
 	inside := map[int32]bool{}
 	for _, e := range f.d.Entities.Nearby(cx, p.Y, cz, r) {
-		if e.Type != "minecraft:player" || f.isGuarded(e) || dead(e) {
-			continue
+		if e.Type != "minecraft:player" || f.isGuarded(e) || dead(e) || f.d.Ally != nil && f.d.Ally(e.UUID) {
+			continue // (los otros bots del panel no son rivales de la zona)
 		}
 		if !z.Contains(e.X, e.Z) {
 			// justo fuera del borde: el que ya era de la zona lo sigue siendo

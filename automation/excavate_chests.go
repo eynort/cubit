@@ -102,21 +102,20 @@ func (j *Job) toStore() []int {
 // primero). Dice si guardó algo. final: al acabar (guarda aunque haya sitio).
 func (e *excavation) deposit(final bool) bool {
 	j := e.j
-	chests := j.r.Store.ExcavateChestList()
-	if len(chests) == 0 || len(j.toStore()) == 0 {
+	if len(j.r.Store.ExcavateChestList()) == 0 || len(j.toStore()) == 0 {
 		return false
 	}
+	chests := j.allChests()
 	if e.chestFull == nil {
 		e.chestFull = map[world.BlockPos]bool{}
 	}
 	here := j.Feet()
-	sort.Slice(chests, func(a, b int) bool { return dist2(chests[a], here) < dist2(chests[b], here) })
 	stored := 0
 	for _, c := range chests {
 		if len(j.toStore()) == 0 {
 			break
 		}
-		if e.chestFull[c] {
+		if e.chestFull[c] || e.twin[c] {
 			continue
 		}
 		if d := math.Sqrt(float64(dist2(c, here))); d > chestFar {
@@ -128,6 +127,7 @@ func (e *excavation) deposit(final bool) bool {
 		}
 		n, full, err := e.storeIn(c)
 		stored += n
+		e.sameChest(c) // (un cofre doble: su otra mitad es el mismo)
 		if err != nil {
 			j.Logf("excavar: no pude guardar en el cofre %v: %v", c, err)
 			e.chestFull[c] = true // (no se insiste con él en esta excavación)
@@ -139,6 +139,7 @@ func (e *excavation) deposit(final bool) bool {
 		}
 	}
 	j.CloseScreen()
+	e.twin = nil
 	if stored > 0 {
 		j.Logf("excavar: guardé %d montones en los cofres", stored)
 	}
@@ -165,6 +166,7 @@ func (e *excavation) storeIn(c world.BlockPos) (int, bool, error) {
 		return 0, false, fmt.Errorf("no se abrió")
 	}
 	start := m.PlayerStart()
+	e.lastSize = start
 	moved := 0
 	for _, i := range j.toStore() {
 		before := j.slotCount(i)
@@ -198,4 +200,145 @@ func (j *Job) slotCount(i int) int {
 func dist2(a, b world.BlockPos) int {
 	dx, dy, dz := a.X-b.X, a.Y-b.Y, a.Z-b.Z
 	return dx*dx + dy*dy + dz*dz
+}
+
+// allChests son los cofres donde guardar o de donde coger, del más cercano
+// al más lejano: los apuntados (o, si en ese sitio no hay cofre, el que esté
+// pegado a él: un bloque de error al dar las coordenadas) y todos los
+// contenedores pegados a cada uno (una pared de cofres se da con uno solo).
+func (j *Job) allChests() []world.BlockPos {
+	seen := map[world.BlockPos]bool{}
+	var out []world.BlockPos
+	for _, c := range j.r.Store.ExcavateChestList() {
+		start, ok := c, IsContainer(j.Block(c))
+		if !ok && j.Block(c) != "" {
+			for _, d := range neighbours26 {
+				n := world.BlockPos{X: c.X + d[0], Y: c.Y + d[1], Z: c.Z + d[2]}
+				if IsContainer(j.Block(n)) {
+					start, ok = n, true
+					break
+				}
+			}
+		}
+		if !ok {
+			if !seen[c] {
+				seen[c] = true
+				out = append(out, c) // (no se ve desde aquí: se va y se mira allí)
+			}
+			continue
+		}
+		// la pared: contenedores pegados (caras), hasta 6 bloques del dado
+		queue := []world.BlockPos{start}
+		for len(queue) > 0 && len(out) < 128 {
+			p := queue[0]
+			queue = queue[1:]
+			if seen[p] {
+				continue
+			}
+			seen[p] = true
+			out = append(out, p)
+			for _, d := range [][3]int{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}} {
+				n := world.BlockPos{X: p.X + d[0], Y: p.Y + d[1], Z: p.Z + d[2]}
+				if !seen[n] && abs(n.X-start.X) <= 6 && abs(n.Y-start.Y) <= 6 && abs(n.Z-start.Z) <= 6 && IsContainer(j.Block(n)) {
+					queue = append(queue, n)
+				}
+			}
+		}
+	}
+	here := j.Feet()
+	sort.SliceStable(out, func(a, b int) bool { return dist2(out[a], here) < dist2(out[b], here) })
+	return out
+}
+
+// neighbours26: los 26 bloques de alrededor (los de las caras primero).
+var neighbours26 = func() [][3]int {
+	out := [][3]int{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}}
+	for dx := -1; dx <= 1; dx++ {
+		for dy := -1; dy <= 1; dy++ {
+			for dz := -1; dz <= 1; dz++ {
+				if abs(dx)+abs(dy)+abs(dz) >= 2 {
+					out = append(out, [3]int{dx, dy, dz})
+				}
+			}
+		}
+	}
+	return out
+}()
+
+// sameChest: tras abrir c, si era un cofre doble (54 casillas), su otra
+// mitad (el cofre pegado de lado) es el mismo: no se vuelve a abrir.
+func (e *excavation) sameChest(c world.BlockPos) {
+	if e.twin == nil {
+		e.twin = map[world.BlockPos]bool{}
+	}
+	if e.lastSize < 54 {
+		return
+	}
+	for _, d := range [][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+		n := world.BlockPos{X: c.X + d[0], Y: c.Y, Z: c.Z + d[1]}
+		if strings.Contains(e.j.Block(n), "chest") {
+			e.twin[n] = true
+		}
+	}
+}
+
+// fetchPicks: sin picos que valgan, los busca en los cofres de /excavate y
+// coge hasta dos (los de más usos). Dice si cogió alguno.
+func (e *excavation) fetchPicks() bool {
+	j := e.j
+	if len(j.r.Store.ExcavateChestList()) == 0 {
+		return false
+	}
+	if j.FreeSlots() == 0 {
+		e.deposit(true) // (sitio para el pico)
+	}
+	e.twin = nil
+	got := 0
+	for _, c := range j.allChests() {
+		if got >= 2 || j.FreeSlots() == 0 {
+			break
+		}
+		if e.twin[c] || dist2(c, j.Feet()) > chestFar*chestFar {
+			continue
+		}
+		if b := j.Block(c); b != "" && !IsContainer(b) {
+			continue
+		}
+		j.Status("buscando picos en el cofre %v", c)
+		if err := j.Open(c); err != nil {
+			j.Logf("excavar: no pude abrir el cofre %v: %v", c, err)
+			continue
+		}
+		m, ok := j.r.d.Screens.Open()
+		if !ok || m.PlayerStart() < 0 {
+			continue
+		}
+		e.lastSize = m.PlayerStart()
+		type pick struct{ slot, left int }
+		var picks []pick
+		for i := 0; i < m.PlayerStart(); i++ {
+			if left := j.pickLeft(types.ItemStack(m.Slots[i])); m.Slots[i].Count > 0 && left > pickReserve {
+				picks = append(picks, pick{i, left})
+			}
+		}
+		sort.Slice(picks, func(a, b int) bool { return picks[a].left > picks[b].left })
+		for _, p := range picks {
+			if got >= 2 || j.FreeSlots() == 0 {
+				break
+			}
+			if err := j.r.d.Screens.Click(m.ID, p.slot, 0, types.ContainerInputQuickMove); err != nil {
+				break
+			}
+			_ = j.Wait(2)
+			got++
+		}
+		e.sameChest(c)
+	}
+	j.CloseScreen()
+	e.twin = nil
+	if got > 0 {
+		j.Logf("excavar: cogí %d picos de los cofres", got)
+		j.pickAsked = false
+	}
+	return got > 0
 }

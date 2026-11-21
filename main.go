@@ -70,8 +70,8 @@ type Bot struct {
 	lastCarry atomic.Int64              // la última vez (UnixNano) que llevaba algo en el inventario
 	work      workState                 // el trabajo largo en curso (para retomarlo tras morir)
 
-	noRetry  atomic.Bool // no volver a entrar (el login falló)
-	resume   *carryOver  // lo que había que retomar de la conexión anterior (reconnect.go)
+	noRetry atomic.Bool // no volver a entrar (el login falló)
+	resume  *carryOver  // lo que había que retomar de la conexión anterior (reconnect.go)
 
 	connectedAt time.Time
 
@@ -293,7 +293,8 @@ func (b *Bot) setupModules() {
 			return currentMove() != "" || detour.Load() || dropping() || b.Tasks != nil && (b.Tasks.Status() != "" || b.workResuming())
 		},
 		// los dueños: aunque vengan armados, no se les planta cara
-		Friend: func(id uuid.UUID) bool { return allowedRemote(nameOf(id)) },
+		Friend: func(id uuid.UUID) bool { return allowedRemote(nameOf(id)) || hubSibling(nameOf(id)) }, // (y los otros bots del panel)
+		Ally:   func(id uuid.UUID) bool { return hubSibling(nameOf(id)) },
 		// con qué encerrarse con bloques para curarse contra un jugador (bunker.go)
 		Builder: b.Builder,
 	})
@@ -323,7 +324,6 @@ func (b *Bot) setupModules() {
 		OnStall: b.onTaskStall,
 		Problem: noteProblem,
 	})
-
 
 	b.Ctl.Act = b.Hands.Act
 	// primero los reflejos (la lava); luego la pelea, que fuera de combate le pasa el control al walker

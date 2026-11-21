@@ -91,6 +91,8 @@ type Deps struct {
 	Friend func(uuid.UUID) bool
 	// Builder pone bloques (el búnker, bunker.go); nil: no se encierra.
 	Builder Builder
+	// Ally: otro bot del mismo panel: nunca se pelea con él (nil: ninguno).
+	Ally func(uuid.UUID) bool
 	// Nether: el bot está en el Nether (las anclas no explotan allí); nil: nunca.
 	Nether func() bool
 }
@@ -226,6 +228,8 @@ type Fighter struct {
 	fightStep    uint64            // el último paso en que se peleó (fight)
 	ignored      map[int32]uint64  // a quién no se llega: no se le busca pelea hasta ese paso (si pega, sí)
 	waryDist     map[int32]float64 // a qué distancia estaba cada jugador armado (beWary: si viene)
+	waryFrom     uint64            // desde qué paso está en guardia contra el de ahora
+	waryIgnore   map[int32]uint64  // a quién no se vigila hasta ese paso (estuvo cerca sin atacar)
 	stagedAt     uint64            // el de la última vez que dejó escudo o tótem en la barra
 
 	ars         arsenalState            // lanza, maza, lava, telarañas… (arsenal.go)

@@ -66,6 +66,9 @@ func (f *Fighter) engage(e entities.Entity, why string, hit bool) {
 	if !fightable(e) || f.isGuarded(e) || e.ID == int32(f.d.Player.Login.PlayerID) || dead(e) {
 		return
 	}
+	if e.Type == "minecraft:player" && f.d.Ally != nil && f.d.Ally(e.UUID) {
+		return // otro bot del panel: un golpe suyo es sin querer (un barrido), no pelea
+	}
 	// un mob que pega a quien va sin arma (a puñetazos no se mata a nada, y en
 	// difícil dos zombis matan en segundos): se huye, corriendo se les deja atrás
 	if hit && f.guard.Load() == nil && e.Type != "minecraft:player" && !avoidMobs[kind(e)] && !f.armed() {
@@ -213,7 +216,7 @@ func (f *Fighter) beWary(ctx context.Context, st basic.Status) bool {
 			continue
 		}
 		if e.Type != "minecraft:player" || e.ID == int32(f.d.Player.Login.PlayerID) || f.isGuarded(e) || dead(e) ||
-			f.d.Friend != nil && f.d.Friend(e.UUID) || !armedEntity(e) || !facing(e, p) {
+			f.d.Friend != nil && f.d.Friend(e.UUID) || !armedEntity(e) || !facing(e, p) || f.steps < f.waryIgnore[e.ID] {
 			continue
 		}
 		// viene: más cerca que hace un momento (o ya encima)
@@ -234,6 +237,18 @@ func (f *Fighter) beWary(ctx context.Context, st basic.Status) bool {
 	}
 	if cur.mode != wary || cur.target != threat.ID {
 		f.logf("%s viene armado hacia mí: en guardia", f.label(*threat))
+		f.waryFrom = f.steps
+	}
+	// 10 s en guardia y no ataca: no viene a por el bot (está por aquí, de
+	// paso). Se le deja de vigilar un minuto (si pega, es pelea igual)
+	if f.steps-f.waryFrom > 200 {
+		if f.waryIgnore == nil {
+			f.waryIgnore = map[int32]uint64{}
+		}
+		f.waryIgnore[threat.ID] = f.steps + 1200
+		f.logf("%s lleva 10 s cerca sin atacar: dejo la guardia", f.label(*threat))
+		f.setPlan(plan{})
+		return false
 	}
 	// uno al que no se le gana (su equipo contra el del bot): mejor encerrarse
 	// antes de que llegue que esperarle con el escudo

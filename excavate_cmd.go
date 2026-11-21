@@ -246,10 +246,24 @@ func cmdExcavateChests(b *Bot, args []string) error {
 	if err != nil {
 		return err
 	}
-	// (si se ve desde aquí, que sea de verdad un cofre; si no está cargado, se apunta igual)
+	// (si se ve desde aquí, que sea de verdad un cofre: si no lo es pero hay
+	// uno pegado, un bloque de error al dar las coordenadas, ese; si no está
+	// cargado, se apunta igual)
 	if s, ok := b.World.BlockAt(c); ok && !automation.IsContainer(world.StateString(s)) {
-		return errf("there is no chest at %d %d %d (there is %s)", "en %d %d %d no hay un cofre (hay %s)", c.X, c.Y, c.Z,
-			strings.TrimPrefix(world.StateString(s), "minecraft:"))
+		fixed := false
+		for _, d := range [][3]int{{1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}, {0, -1, 0}, {0, 1, 0}} {
+			n := world.BlockPos{X: c.X + d[0], Y: c.Y + d[1], Z: c.Z + d[2]}
+			if s2, ok := b.World.BlockAt(n); ok && automation.IsContainer(world.StateString(s2)) {
+				log.Printf(tr("there is no chest at %d %d %d, but there is one right next to it: %d %d %d (I use that one)",
+					"en %d %d %d no hay cofre, pero hay uno pegado: %d %d %d (uso ese)"), c.X, c.Y, c.Z, n.X, n.Y, n.Z)
+				c, fixed = n, true
+				break
+			}
+		}
+		if !fixed {
+			return errf("there is no chest at %d %d %d (there is %s)", "en %d %d %d no hay un cofre (hay %s)", c.X, c.Y, c.Z,
+				strings.TrimPrefix(world.StateString(s), "minecraft:"))
+		}
 	}
 	added, err := st.AddExcavateChest(c)
 	if err != nil {
@@ -260,6 +274,7 @@ func cmdExcavateChests(b *Bot, args []string) error {
 		log.Printf(tr("that chest was already there (%d in all)", "ese cofre ya estaba (%d en total)"), n)
 		return nil
 	}
-	log.Printf(tr("excavate chest: %d %d %d (%d in all): /excavate keeps the valuables there", "cofre de excavate: %d %d %d (%d en total): /excavate guarda ahí lo valioso"), c.X, c.Y, c.Z, n)
+	log.Printf(tr("excavate chest: %d %d %d (%d in all): /excavate keeps the valuables there and takes pickaxes from it; the chests touching it count too",
+		"cofre de excavate: %d %d %d (%d en total): /excavate guarda ahí lo valioso y coge de ahí los picos; los cofres pegados a él cuentan también"), c.X, c.Y, c.Z, n)
 	return nil
 }

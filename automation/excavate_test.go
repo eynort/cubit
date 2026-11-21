@@ -621,3 +621,35 @@ func TestExcavateChests(t *testing.T) {
 		}
 	})
 }
+
+// TestExcavatePicksFromChest: sin pico, con el cofre apuntado un bloque al
+// lado (un error al dar las coordenadas) y un pico de diamante dentro: lo
+// coge de ahí y excava.
+func TestExcavatePicksFromChest(t *testing.T) {
+	simworld.Run(t, func(t *testing.T) {
+		g := simworld.Start(t, simworld.Options{Setup: []string{
+			"setblock -3 64 0 minecraft:chest[facing=north,type=single,waterlogged=false]",
+		}})
+		g.PutInChest(-3, 64, 0, "minecraft:diamond_pickaxe", 1)
+		r, _ := safeRunner(t, g)
+		if _, err := r.Store.AddExcavateChest(world.BlockPos{X: -2, Y: 64, Z: 0}); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { r.Store.RemoveExcavateChest(nil) })
+		g.Step(5)
+		box := automation.NewBox(world.BlockPos{X: 3, Y: 63, Z: 3}, world.BlockPos{X: 5, Y: 59, Z: 5}) // (hasta la piedra: ahí hace falta pico)
+		var err error
+		r.Start(context.Background(), "excavar", func(j *automation.Job) error {
+			err = automation.Excavate(box)(j)
+			return err
+		})
+		g.Until(600*20, func() bool { return r.Status() == "" })
+		t.Logf("error %v; pico en el inventario %d, en el cofre %d", err, g.Count("minecraft:diamond_pickaxe"), g.ChestCount(-3, 64, 0, "minecraft:diamond_pickaxe"))
+		if err != nil {
+			t.Fatalf("excavar: %v", err)
+		}
+		if g.Count("minecraft:diamond_pickaxe") != 1 {
+			t.Error("no cogió el pico del cofre")
+		}
+	})
+}
