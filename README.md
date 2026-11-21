@@ -26,6 +26,7 @@ It runs anywhere: Linux, macOS, Windows, a Raspberry Pi, a $5 VPS, or an old And
 - **PvP.** It fights like an expert: shield, crits and combos, the mace, crystals, pearls and totems. It never runs away.
 - **Excavate.** It empties whole areas layer by layer, stores the loot in your chests and never breaks a pickaxe.
 - **Mine.** Strip mining like a real player: down a staircase to the best layer for each ore, no x-ray.
+- **Chop.** Whole trees of the woods you name, 2×2 and Nether ones included.
 - **Move.** It finds its own way with A*, building towers and bridges when it needs them.
 
 You run all your bots from a **web panel**. Each bot has its own command console there, and the panel includes a test server you can play on right away.
@@ -105,6 +106,14 @@ Type commands in the bot's **console in the panel**. In game, whisper them as an
 /mine diamond 104 64 -224              → diamonds, drop them in that chest every 8
 /mine iron,copper ~ ~ ~ every 16       → a layer good for both, chest where it stands
 /mine diamond 104 64 -224 total 32     → stop after 32
+```
+
+**`/chop <woods> <x> <y> <z>`**: cuts down whole trees of those woods within 24 blocks of a point, tops included, and picks up the logs. It leaves player builds alone (logs with no natural leaves, or touching planks, glass, doors…). Give the ground `y`.
+```
+/chop oak ~ ~ ~                  → every oak around it
+/chop oak,birch 100 64 200       → oaks and birches around that point
+/chop dark_oak,pale_oak ~ ~ ~    → big 2×2 trees too
+/chop crimson,warped ~ ~ ~       → Nether stems
 ```
 
 **`/inventory [grid]`**: shows what it carries: armor, hotbar and inventory.

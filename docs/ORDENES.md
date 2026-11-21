@@ -15,6 +15,15 @@ Talar árboles enteros de las maderas dichas (oak, birch, spruce, jungle, acacia
 - `<y>`: el punto alrededor del que talar (~ = donde está el bot)
 - `<z>`: el punto alrededor del que talar (~ = donde está el bot)
 
+**Ejemplos**
+
+```
+/chop oak ~ ~ ~                 # todos los robles a menos de 24 bloques de donde está
+/chop oak,birch 100 64 200      # robles y abedules alrededor de ese punto (y = el suelo)
+/chop dark_oak,pale_oak ~ ~ ~   # también los árboles grandes de 2×2
+/chop crimson,warped ~ ~ ~      # tallos del Nether
+```
+
 ## /cmd
 
 `/cmd <command>`

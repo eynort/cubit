@@ -26,6 +26,7 @@ Corre en cualquier sitio: Linux, macOS, Windows, una Raspberry Pi, un VPS de 5 $
 - **PvP.** Pelea como un experto: escudo, críticos y combos, la maza, cristales, perlas y tótems. Nunca huye.
 - **Excavar.** Vacía zonas enteras capa a capa, guarda lo que saca en tus cofres y nunca rompe un pico.
 - **Minar.** En ramas, como un jugador de verdad: baja por una escalera a la mejor capa para cada mineral, sin xray.
+- **Talar.** Árboles enteros de las maderas que digas, también los de 2×2 y los del Nether.
 - **Moverse.** Encuentra el camino solo con A*, y hace torres y puentes si le hacen falta.
 
 Todos tus bots se manejan desde un **panel web**. Ahí cada bot tiene su propia consola de órdenes, y el panel incluye un servidor de pruebas en el que puedes jugar al momento.
@@ -105,6 +106,14 @@ Escribe las órdenes en la **consola del bot en el panel**. En el juego, mándas
 /mine diamond 104 64 -224              → diamantes, a ese cofre cada 8
 /mine iron,copper ~ ~ ~ every 16       → una capa que vale para los dos, cofre donde está
 /mine diamond 104 64 -224 total 32     → parar al llegar a 32
+```
+
+**`/chop <maderas> <x> <y> <z>`**: tala los árboles enteros de esas maderas a menos de 24 bloques de un punto, con la copa, y recoge los troncos. No toca construcciones (troncos sin hojas naturales, o pegados a tablones, cristal, puertas…). La `y` es la del suelo.
+```
+/chop oak ~ ~ ~                  → todos los robles de alrededor
+/chop oak,birch 100 64 200       → robles y abedules alrededor de ese punto
+/chop dark_oak,pale_oak ~ ~ ~    → también los árboles grandes de 2×2
+/chop crimson,warped ~ ~ ~       → tallos del Nether
 ```
 
 **`/inventory [grid]`**: enseña lo que lleva: armadura, barra e inventario.

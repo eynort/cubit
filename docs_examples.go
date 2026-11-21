@@ -34,6 +34,12 @@ var commandExamples = map[string][]example{
 		{"/excavate chests remove 104 103 -224", text{}},
 		{"/excavate chests clear", text{"forget them all", "olvidarlos todos"}},
 	},
+	"chop": {
+		{"/chop oak ~ ~ ~", text{"every oak within 24 blocks of where it stands", "todos los robles a menos de 24 bloques de donde está"}},
+		{"/chop oak,birch 100 64 200", text{"oaks and birches around that point (y = the ground)", "robles y abedules alrededor de ese punto (y = el suelo)"}},
+		{"/chop dark_oak,pale_oak ~ ~ ~", text{"big 2×2 trees too", "también los árboles grandes de 2×2"}},
+		{"/chop crimson,warped ~ ~ ~", text{"Nether stems", "tallos del Nether"}},
+	},
 	"inventory": {
 		{"/inventory", text{}},
 		{"/inventory grid", text{"laid out like the game screen", "como en la pantalla del juego"}},

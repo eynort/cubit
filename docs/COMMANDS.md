@@ -15,6 +15,15 @@ Chop whole trees of the given woods (oak, birch, spruce, jungle, acacia, dark_oa
 - `<y>`: the point to chop around (~ = where the bot is)
 - `<z>`: the point to chop around (~ = where the bot is)
 
+**Examples**
+
+```
+/chop oak ~ ~ ~                 # every oak within 24 blocks of where it stands
+/chop oak,birch 100 64 200      # oaks and birches around that point (y = the ground)
+/chop dark_oak,pale_oak ~ ~ ~   # big 2×2 trees too
+/chop crimson,warped ~ ~ ~      # Nether stems
+```
+
 ## /cmd
 
 `/cmd <command>`
