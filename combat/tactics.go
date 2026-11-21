@@ -50,6 +50,7 @@ type tacticsState struct {
 	breakTry   int            // intentos con él
 	cageAt     uint64         // el paso del último
 	cageNext   uint64         // hasta este paso, ninguna jaula más
+	approachAt uint64         // el paso en que se pidió acercarse sin pegar (caduca: holdFire)
 	fluidAt    uint64         // el de la última vez que quitó un fluido
 	fluidPos   world.BlockPos // cuál
 	fluidTries int            // y cuántas veces
@@ -338,10 +339,12 @@ func (f *Fighter) slotOf(name string) (int, bool) {
 // pies y cabeza. El lado del bot, abierto (para pegarle; el empujón le deja
 // contra la pared). Dice si está en ello.
 func (f *Fighter) cage(t *foe) bool {
+	// (antes de nada: sin esto, quedándose sin bloques a medio acercarse, el
+	// "sin pegarle" se quedaba puesto y no volvía a pegar en toda la pelea)
+	f.tac.approach = false
 	if f.d.Builder == nil || t.e.Type != "minecraft:player" || f.d.Builder.Blocks() < 2 {
 		return false
 	}
-	f.tac.approach = false
 	// contra uno armado, solo comiendo o bebiendo (bot contra bot: "quieto"
 	// era estar tras el escudo medio segundo, y las paredes de una jaula le
 	// dejaban "arrinconado" para la siguiente: la arena llena de piedra y los
@@ -391,7 +394,7 @@ func (f *Fighter) cage(t *foe) bool {
 	// alcance, o primero acercarse (fight)
 	back := world.BlockPos{X: feet.X + sides[0].d[0], Y: feet.Y, Z: feet.Z + sides[0].d[1]}
 	if !f.solid(back) && f.eyeDist(back) > eyeReach && f.tac.caged == 0 {
-		f.tac.approach = true // (fight: acercarse sin pegarle: el golpe le sacaría de la celda antes de cerrarla)
+		f.tac.approach, f.tac.approachAt = true, f.steps // (fight: acercarse sin pegarle: el golpe le sacaría de la celda antes de cerrarla)
 		return false
 	}
 	for _, s := range sides[:3] {
