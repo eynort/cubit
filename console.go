@@ -19,6 +19,7 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/entities"
 	"github.com/mj41/go-mc26-kit/bot/world"
 
+	"cubit/automation"
 	"cubit/combat"
 )
 
@@ -158,6 +159,13 @@ func init() {
 					"dónde guarda /excavate (solo /excavate) lo valioso: <x> <y> <z> apunta un cofre (o barril, o caja de shulker; de uno doble vale cualquier mitad), list los enseña, remove <x> <y> <z> olvida uno, clear los olvida todos. Se recuerdan tras reiniciar. Al llenarse, primero tira la basura; si sigue lleno, va al cofre más cercano y guarda lo valioso (nunca sus herramientas, armadura, comida ni equipo de pelea), al siguiente si uno está lleno, y otra vez al acabar"},
 					args: withDesc(xyz(true, "list", "clear", "remove"), text{"the chest (~ = where the bot is), or list / clear / remove", "el cofre (~ = donde está el bot), o list / clear / remove"})}},
 			run: cmdExcavate,
+		},
+		"chop": {
+			desc: text{"chop whole trees of the given woods (oak, birch, spruce, jungle, acacia, dark_oak, mangrove, cherry, pale_oak, and crimson/warped in the Nether), separated by commas (/chop oak,birch 100 64 200; ~ = where the bot is): it goes to the point and fells every tree of those woods within 24 blocks of it, all the logs (also the tall ones: the pathfinding places blocks to climb and they are removed after) and picks up what falls; no log is left floating. It only chops trees (natural leaves around, nothing built next to the logs): player-made log structures and stripped logs are left alone. It uses the best axe it carries, never breaking it (without one, by hand). At the end it logs how many trees and logs of each wood",
+				"talar árboles enteros de las maderas dichas (oak, birch, spruce, jungle, acacia, dark_oak, mangrove, cherry, pale_oak, y crimson/warped en el Nether), separadas por comas (/chop oak,birch 100 64 200; ~ = donde está el bot): va hasta el punto y tala todos los árboles de esas maderas a menos de 24 bloques de él, todos los troncos (también los altos: el pathfinding pone bloques para subir y luego se quitan) y recoge lo que cae; no deja ningún tronco flotando. Solo tala árboles (con hojas naturales alrededor, nada construido pegado a los troncos): las construcciones de troncos de jugadores y los troncos pelados no se tocan. Usa la mejor hacha que lleve, sin romperla (sin hacha, a mano). Al acabar deja en el log cuántos árboles y troncos de cada madera"},
+			args: append([]arg{{name: "woods", kind: argList, choices: automation.WoodKinds, desc: text{"one or more woods, separated by commas (oak,birch)", "una o más maderas, separadas por comas (oak,birch)"}}},
+				withDesc(xyz(false), text{"the point to chop around (~ = where the bot is)", "el punto alrededor del que talar (~ = donde está el bot)"})...),
+			run: cmdChop,
 		},
 		"inventory": {desc: text{"what the bot carries: equipment, hotbar slot by slot and the inventory; grid: like the game screen",
 			"lo que lleva el bot: el equipo, la barra casilla a casilla y el inventario; grid: como la pantalla del juego"},
