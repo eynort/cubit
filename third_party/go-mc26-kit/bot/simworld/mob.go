@@ -446,8 +446,14 @@ func (g *Game) hurtPlayer(amount float32, damageType string, cause, direct int32
 		return false, nil
 	}
 	switch damageType { // (armor and protection: blows, arrows, blasts; not a fall, not fire)
-	case "minecraft:mob_attack", "minecraft:player_attack", "minecraft:arrow", "minecraft:explosion":
+	case "minecraft:mob_attack", "minecraft:player_attack", "minecraft:arrow":
 		amount = float32(g.playerDefense().reduce(float64(amount)))
+	case "minecraft:explosion": // PATCH (arsenal.go): blast protection counts twice a level
+		d := g.playerDefense()
+		for s := 5; s <= 8; s++ {
+			d.prot += 2 * float64(level(g.slots[s].ench, "blast_protection"))
+		}
+		amount = float32(d.reduce(float64(amount)))
 	}
 	full := amount
 	if g.invuln > 10 && amount <= g.lastDamage {
@@ -549,7 +555,7 @@ func (g *Game) attackMob(id int32) error {
 		}
 	}
 	// PATCH (arsenal.go): the mace's smash, falling more than 1.5 (not scaled by the charge); the fall forgotten
-	if g.heldItem().item == "minecraft:mace" && !g.onGround && g.fall > 1.5 {
+	if g.heldItem().item == "minecraft:mace" && !g.onGround && !g.gliding && g.fall > 1.5 {
 		dmg += smashBonus(g.fall)
 		g.ars.smashes++
 		g.ars.smashMax = math.Max(g.ars.smashMax, smashBonus(g.fall))

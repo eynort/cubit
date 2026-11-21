@@ -130,6 +130,7 @@ var notToBuild = []string{
 	"budding", "head", "skull", "melon", "pumpkin", "hay_block", "beehive", "bee_nest", "target", "lectern",
 	"loom", "stonecutter", "grindstone", "smithing", "cartography", "fletching", "composter", "cauldron",
 	"enchanting", "brewing", "conduit", "vault", "trial_spawner", "crafter", "creaking", "sculk",
+	"glowstone", "respawn_anchor", // (lo de las anclas, combat/expert.go)
 }
 
 // anySolid: el objeto pone un bloque entero y sólido apto para construir.

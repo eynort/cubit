@@ -358,6 +358,67 @@ Tests (`arsenal_test.go`, en el simulador, que modela todo lo de arriba):
 | Tridente con lealtad a 14 (`TestTridentThrow`) | le da y no lo pierde |
 | Foso detrás de él (`TestWindPushEdge`) | carga de viento |
 
+### Experto (`expert.go`, y en `think.go` lo del golpe)
+
+- **Cristales del End** (explosión de 6) **y anclas de reaparición** (5,
+  fuera del Nether). Antes de usarlas se calcula el daño de verdad a los dos
+  (`ServerExplosion`: distancia, la parte de cada cuerpo que se ve desde la
+  explosión, armadura, protección y protección contra explosiones, que cuenta
+  doble). Solo si le mata dejando al bot con 6 o más, o si al bot le quita
+  como mucho el 40 % de la vida y a él 6 o más y 1,6 veces lo del bot. El
+  cristal, sobre obsidiana o roca madre (pone la obsidiana si hace falta),
+  donde se le pueda romper desde donde está el bot. El ancla: ponerla,
+  cargarla con piedra luminosa y usarla (al estallar desaparece: no tapa
+  nada). Contra un cristal suyo cerca: el escudo de cara a él, porque la
+  explosión de frente no entra.
+- **Escoger cuándo pegar:**
+  - No pega en su invulnerabilidad (10 ticks tras otro daño: el golpe solo
+    contaría lo que pase de aquel).
+  - A uno que viene, le espera en el borde del alcance con el golpe cargado
+    y pega al entrar él (15 ticks como mucho).
+  - Su golpe al aire: a por él antes de que recargue.
+- **Encadenar empujones:** tras un golpe con sprint, 20 ticks a por él
+  corriendo, sin saltar (el crítico no empuja), con W-tap, para pegarle antes
+  de que se recupere. Se corta si le pegan. No cuando ya gana de calle (ahí
+  valen más los críticos).
+- **Caña de pescar:** a uno que se va, o al que se ve sin camino recto (un
+  foso, agua), se le engancha y se le trae (`TestRodPull`: al foso).
+- **Perla ofensiva:** a uno que huye a más de 14 o al que no se llega,
+  al lado suyo (con 12 de vida o más: cuesta 5).
+- **Élitros y maza:** con cielo libre sobre los dos, élitros puestos con un
+  uso, despegue y cohetes casi en vertical hasta 22 sobre él, picado en
+  diagonal mirándole, fuera los élitros (un clic: la maza sigue en la mano)
+  cuando va a pasar por encima, y la maza. `TestElytraMace`: +39 de golpe y
+  sin daño de caída. Si falla, agua antes del suelo.
+- **Tótems:** gastado uno, otro a la mano izquierda con un clic (el aviso
+  llega antes que el inventario: se espera a verlo vacío). Los que se le
+  saltan al rival, contados en el log.
+- **Agua:** contra uno con maza que le cae encima, agua a sus pies (en el
+  agua la caída se olvida). En una telaraña, la rompe con la espada.
+- **Encantamientos:**
+  - Filo, golpe (no muertos) y perdición de artrópodos, en la elección del
+    arma (`TestSmite`). La brecha de la maza resta armadura.
+  - Empuje del arco: con el vacío detrás de él, flecha. Poder: el arco
+    compensa antes.
+  - Carga rápida de la ballesta. Propulsión del tridente: en el agua, a por
+    él volando.
+  - Protección contra explosiones: en la cuenta de los cristales. La ráfaga
+    de viento de la maza encadena sola (cada caída nueva es otro golpe).
+
+| Test | Resultado |
+|---|---|
+| `TestCrystal` (protección contra explosiones IV) | obsidiana, cristal, lo rompe: le mata; el bot con 18-19 |
+| `TestCrystalSafe` (sin armadura) | solo donde algo le tapa; nunca baja de 14 |
+| `TestAnchor` | la pone, la carga y explota |
+| `TestRetotem` | el segundo tótem, a la mano en cuanto se gasta el primero |
+| `TestRodPull` | le engancha y le tira al foso |
+| `TestPearlChase` | perla al otro lado de un foso de 12, a su lado |
+| `TestElytraMace` | +39 con la maza, sin daño |
+
+Escoger cuándo pegar y encadenar empujones no se pueden medir en el
+simulador: su rival no reacciona a los empujones ni espera como una persona
+(en el banco de espada sola, la diferencia queda dentro del ruido).
+
 ## 3. Medidas (simulador, 4 ticks de retraso)
 
 Duelista: corre a 0.28 bloques/tick y pega con espada de hierro (6) en cuanto

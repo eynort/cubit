@@ -27,7 +27,10 @@ package simworld
 import (
 	"math"
 	"slices"
+	"strings"
 
+	"github.com/mj41/go-mc26-kit/bot/world"
+	"github.com/mj41/go-mc26/data/entitydata"
 	itemdata "github.com/mj41/go-mc26/data/item"
 	"github.com/mj41/go-mc26/data/registryid"
 	"github.com/mj41/go-mc26/level/block"
@@ -67,11 +70,20 @@ type arsenalSim struct {
 	fires      int
 	tridents   int // tridents thrown
 	tridentHit int
+	// II
+	crystals      []*crystal
+	hook          *hook
+	crystalBlasts int
+	anchorBlasts  int
+	pearls        int
+	pearlLanded   int
+	pulls         int
 }
 
 // thrown is a wind charge or a trident in flight.
 type thrown struct {
 	wind       bool
+	pearl      bool
 	x, y, z    float64
 	vx, vy, vz float64
 	age        int
@@ -82,13 +94,15 @@ type thrown struct {
 type Arsenal struct {
 	Stabs, Lunges, Smashes, Winds, Lava, Webs, Fires, Tridents, TridentHits int
 	SmashMax                                                                float64
+	CrystalBlasts, AnchorBlasts, Pearls, PearlLanded, Pulls                 int
 }
 
 // Arsenal is a test's look at the weapons used.
 func (g *Game) Arsenal() Arsenal {
 	a := &g.ars
 	return Arsenal{Stabs: a.stabs, Lunges: a.lunges, Smashes: a.smashes, Winds: a.winds, Lava: a.lavaPoured,
-		Webs: a.webs, Fires: a.fires, Tridents: a.tridents, TridentHits: a.tridentHit, SmashMax: a.smashMax}
+		Webs: a.webs, Fires: a.fires, Tridents: a.tridents, TridentHits: a.tridentHit, SmashMax: a.smashMax,
+		CrystalBlasts: a.crystalBlasts, AnchorBlasts: a.anchorBlasts, Pearls: a.pearls, PearlLanded: a.pearlLanded, Pulls: a.pulls}
 }
 
 func heldComponent[T component.DataComponent](item string) T {
@@ -126,6 +140,12 @@ func (g *Game) useArsenal(u play.UseItem) (bool, error) {
 	case held.item == "minecraft:trident":
 		g.ars.tridentAt = g.Tick
 		return true, g.ack(u.Sequence)
+	}
+	if ok, err := g.throwPearl(u); ok || err != nil {
+		return ok, err
+	}
+	if ok, err := g.castRod(u); ok || err != nil {
+		return ok, err
 	}
 	return false, nil
 }
@@ -274,6 +294,12 @@ func (g *Game) arsenalTick() error {
 	if err := g.thrownTick(); err != nil {
 		return err
 	}
+	if err := g.hookTick(); err != nil {
+		return err
+	}
+	if err := g.glideTick(); err != nil {
+		return err
+	}
 	for _, m := range append([]*mob(nil), g.mobs...) {
 		if m.dying > 0 {
 			continue
@@ -387,6 +413,22 @@ func (g *Game) thrownTick() error {
 		}
 		gone := false
 		switch {
+		case p.pearl && (hit != nil || hitBlock):
+			t := tBlock
+			if hit != nil {
+				t = bestT
+			}
+			t = math.Max(0, t-0.05)
+			at := [3]float64{p.x + way[0]*t, p.y + way[1]*t, p.z + way[2]*t}
+			if hit == nil { // (on a block's top: stand on it)
+				if c := [3]int{int(math.Floor(at[0])), int(math.Floor(at[1] - 0.1)), int(math.Floor(at[2]))}; len(block.CollisionShape(g.S.World.At(c[0], c[1], c[2]))) > 0 {
+					at[1] = float64(c[1] + 1)
+				}
+			}
+			if err := g.pearlLands(at); err != nil {
+				return err
+			}
+			gone = true
 		case hit != nil:
 			at := [3]float64{p.x + way[0]*bestT, p.y + way[1]*bestT, p.z + way[2]*bestT}
 			if p.wind {
@@ -426,7 +468,10 @@ func (g *Game) thrownTick() error {
 			continue
 		}
 		p.x, p.y, p.z = to[0], to[1], to[2]
-		if !p.wind {
+		switch {
+		case p.pearl:
+			p.vx, p.vy, p.vz = p.vx*0.99, p.vy*0.99-0.03, p.vz*0.99
+		case !p.wind:
 			p.vx, p.vy, p.vz = p.vx*0.99, p.vy*0.99-0.05, p.vz*0.99
 		}
 	}
@@ -464,6 +509,236 @@ func (g *Game) windBurst(c [3]float64) error {
 			m.vx, m.vy, m.vz = m.vx+v[0], m.vy+v[1], m.vz+v[2]
 			m.onGround = false
 		}
+	}
+	return nil
+}
+
+// PATCH (arsenal, II): end crystals, respawn anchors, the ender pearl, the fishing rod; an elytra taken off
+// ends the glide.
+//
+//   - An end crystal used on the top of obsidian or bedrock, with the two cells over it free of blocks and of
+//     anyone (EndCrystalItem.useOn), is an entity there; a blow on it is a blast of 6 where it stands, and it
+//     is gone (EndCrystal.hurt).
+//   - A respawn anchor placed is a block with no charge; glowstone used on it charges it (to 4); anything else
+//     used on it charged blows it up — out of the Nether — with a blast of 5 at its centre (RespawnAnchorBlock).
+//   - An ender pearl thrown (1.5 a tick, gravity 0.03, drag 0.99) takes the player where it lands, with 5 of
+//     damage (ThrownEnderpearl.onHit).
+//   - A fishing rod cast throws the hook (about 1.1 a tick, gravity 0.03, drag 0.92) that hooks the first mob
+//     it meets and rides it; used again it comes back, pulling a hooked mob toward the player by a tenth of
+//     the way (FishingHook.pullEntity). The bobber is told as an entity, its owner in the add packet's data
+//     and the mob it hooked in its data (id + 1).
+
+type crystal struct {
+	id      int32
+	x, y, z float64
+}
+
+type hook struct {
+	id         int32
+	x, y, z    float64
+	vx, vy, vz float64
+	hooked     *mob
+	ground     bool
+}
+
+const crystalPower, anchorPower = 6.0, 5.0
+
+func (g *Game) addEntity(kind string, x, y, z float64, data int32) (int32, error) {
+	g.nextID++
+	id := g.nextID
+	var u pk.UUID
+	u[15], u[14] = byte(id), byte(id>>8)
+	u[0] = 4
+	return id, g.S.Send(play.AddEntity{ID: pk.VarInt(id), UUID: u, Type: pk.VarInt(slices.Index(registryid.EntityType, kind)),
+		X: pk.Double(x), Y: pk.Double(y), Z: pk.Double(z), Data: pk.VarInt(data)})
+}
+
+// placeCrystal is an end crystal used on (x, y, z) from the face; it says whether it was one.
+func (g *Game) placeCrystal(x, y, z, face int, seq pk.VarInt) (bool, error) {
+	if g.heldItem().item != "minecraft:end_crystal" {
+		return false, nil
+	}
+	base := block.StateList[g.S.World.At(x, y, z)].ID()
+	if face != 1 || base != "minecraft:obsidian" && base != "minecraft:bedrock" || g.S.World.At(x, y+1, z) != 0 || g.S.World.At(x, y+2, z) != 0 {
+		return true, g.ack(seq)
+	}
+	box := func(px, py, pz, half, high float64) bool {
+		return px+half > float64(x) && px-half < float64(x+1) && pz+half > float64(z) && pz-half < float64(z+1) &&
+			py+high > float64(y+1) && py < float64(y+3)
+	}
+	if box(g.pos[0], g.pos[1], g.pos[2], playerHalf, playerHigh) {
+		return true, g.ack(seq)
+	}
+	for _, m := range g.mobs {
+		if m.dying == 0 && box(m.x, m.y, m.z, m.half, m.high) {
+			return true, g.ack(seq)
+		}
+	}
+	c := &crystal{x: float64(x) + 0.5, y: float64(y + 1), z: float64(z) + 0.5}
+	id, err := g.addEntity("minecraft:end_crystal", c.x, c.y, c.z, 0)
+	if err != nil {
+		return true, err
+	}
+	c.id = id
+	g.ars.crystals = append(g.ars.crystals, c)
+	g.takeHeld()
+	g.broadcast()
+	return true, g.ack(seq)
+}
+
+// hitCrystal: a blow on a crystal blows it up; it says whether id was one.
+func (g *Game) hitCrystal(id int32) (bool, error) {
+	for i, c := range g.ars.crystals {
+		if c.id != id {
+			continue
+		}
+		g.ars.crystals = slices.Delete(g.ars.crystals, i, i+1)
+		g.ars.crystalBlasts++
+		if err := g.S.Send(play.RemoveEntities{EntityIds: []pk.VarInt{pk.VarInt(id)}}); err != nil {
+			return true, err
+		}
+		return true, g.explode([3]float64{c.x, c.y, c.z}, crystalPower, &mob{id: -1, kind: "minecraft:end_crystal"})
+	}
+	return false, nil
+}
+
+// useAnchor is a use on a respawn anchor: glowstone charges it, anything else blows a charged one up.
+func (g *Game) useAnchor(pos pk.Position, seq pk.VarInt) error {
+	st := world.StateString(g.S.World.At(pos.X, pos.Y, pos.Z))
+	charges := 0
+	if i := strings.Index(st, "charges="); i >= 0 {
+		charges = int(st[i+8] - '0')
+	}
+	if g.heldItem().item == "minecraft:glowstone" && charges < 4 {
+		g.takeHeld()
+		g.S.World.SetState(pos.X, pos.Y, pos.Z, stateByText("minecraft:respawn_anchor[charges="+string(rune('0'+charges+1))+"]"))
+		if err := g.S.Send(play.BlockUpdate{Pos: pos, BlockState: pk.VarInt(g.S.World.At(pos.X, pos.Y, pos.Z))}); err != nil {
+			return err
+		}
+		g.broadcast()
+		return g.ack(seq)
+	}
+	if charges == 0 {
+		return g.ack(seq)
+	}
+	g.S.World.Set(pos.X, pos.Y, pos.Z, "minecraft:air")
+	if err := g.S.Send(play.BlockUpdate{Pos: pos, BlockState: 0}); err != nil {
+		return err
+	}
+	g.ars.anchorBlasts++
+	if err := g.explode([3]float64{float64(pos.X) + 0.5, float64(pos.Y) + 0.5, float64(pos.Z) + 0.5}, anchorPower, &mob{id: -1, kind: "minecraft:respawn_anchor"}); err != nil {
+		return err
+	}
+	return g.ack(seq)
+}
+
+// throwPearl and castRod are their UseItems; they say whether the hand held one.
+func (g *Game) throwPearl(u play.UseItem) (bool, error) {
+	if g.heldItem().item != "minecraft:ender_pearl" {
+		return false, nil
+	}
+	g.yaw, g.pitch = float64(u.YRot), float64(u.XRot)
+	d := g.look()
+	g.takeHeld()
+	g.broadcast()
+	g.ars.pearls++
+	g.ars.flying = append(g.ars.flying, &thrown{pearl: true, x: g.pos[0], y: g.pos[1] + playerEye - 0.1, z: g.pos[2],
+		vx: d[0] * 1.5, vy: d[1] * 1.5, vz: d[2] * 1.5})
+	return true, g.ack(u.Sequence)
+}
+
+func (g *Game) castRod(u play.UseItem) (bool, error) {
+	if g.heldItem().item != "minecraft:fishing_rod" {
+		return false, nil
+	}
+	if h := g.ars.hook; h != nil { // reeled in
+		g.ars.hook = nil
+		if h.hooked != nil && h.hooked.dying == 0 {
+			m := h.hooked
+			m.vx += (g.pos[0] - m.x) * 0.1
+			m.vy += (g.pos[1] - m.y) * 0.1
+			m.vz += (g.pos[2] - m.z) * 0.1
+			m.onGround = false
+			g.ars.pulls++
+		}
+		if err := g.S.Send(play.RemoveEntities{EntityIds: []pk.VarInt{pk.VarInt(h.id)}}); err != nil {
+			return true, err
+		}
+		return true, g.ack(u.Sequence)
+	}
+	g.yaw, g.pitch = float64(u.YRot), float64(u.XRot)
+	d := g.look()
+	h := &hook{x: g.pos[0], y: g.pos[1] + playerEye, z: g.pos[2], vx: d[0] * 1.1, vy: d[1] * 1.1, vz: d[2] * 1.1}
+	id, err := g.addEntity("minecraft:fishing_bobber", h.x, h.y, h.z, 1)
+	if err != nil {
+		return true, err
+	}
+	h.id = id
+	g.ars.hook = h
+	return true, g.ack(u.Sequence)
+}
+
+// hookTick moves the hook, or keeps it on the mob it hooked.
+func (g *Game) hookTick() error {
+	h := g.ars.hook
+	if h == nil {
+		return nil
+	}
+	switch {
+	case h.hooked != nil:
+		if h.hooked.dying > 0 {
+			h.hooked = nil
+			break
+		}
+		h.x, h.y, h.z = h.hooked.x, h.hooked.y+h.hooked.high*0.8, h.hooked.z
+	case !h.ground:
+		from := [3]float64{h.x, h.y, h.z}
+		way := [3]float64{h.vx, h.vy, h.vz}
+		tBlock, hitBlock := g.clipBlocks(from, [3]float64{h.x + h.vx, h.y + h.vy, h.z + h.vz})
+		for _, m := range g.mobs {
+			if m.dying > 0 {
+				continue
+			}
+			lo := [3]float64{m.x - m.half - 0.1, m.y - 0.1, m.z - m.half - 0.1}
+			hi := [3]float64{m.x + m.half + 0.1, m.y + m.high + 0.1, m.z + m.half + 0.1}
+			if t, ok := rayBox(from, way, lo, hi); ok && (!hitBlock || t <= tBlock) {
+				h.hooked = m
+				if err := g.S.Send(play.SetEntityData{ID: pk.VarInt(h.id), PackedItems: types.EntityData{
+					{Index: entitydata.FishingHookHookedEntity, Serializer: 1, Value: ptr(pk.VarInt(m.id + 1))}}}); err != nil {
+					return err
+				}
+				break
+			}
+		}
+		if h.hooked == nil {
+			if hitBlock {
+				h.ground = true
+				h.x, h.y, h.z = h.x+way[0]*tBlock, h.y+way[1]*tBlock, h.z+way[2]*tBlock
+			} else {
+				h.x, h.y, h.z = h.x+h.vx, h.y+h.vy, h.z+h.vz
+				h.vx, h.vy, h.vz = h.vx*0.92, h.vy*0.92-0.03, h.vz*0.92
+			}
+		}
+	}
+	return g.S.Send(positionSync(h.id, h.x, h.y, h.z, 0, 0, h.ground))
+}
+
+// pearlLands takes the player where its pearl landed.
+func (g *Game) pearlLands(at [3]float64) error {
+	g.tp++
+	g.pos, g.fall, g.tpWait = at, 0, true
+	g.ars.pearlLanded++
+	if err := g.S.Send(play.PlayerPosition{ID: pk.VarInt(g.tp), Change: types.PositionMoveRotation{Position: types.Vec3{X: pk.Double(at[0]), Y: pk.Double(at[1]), Z: pk.Double(at[2])}}}); err != nil {
+		return err
+	}
+	return g.hurt(5)
+}
+
+// glideTick: a glide with no elytra worn ends (LivingEntity.updateFallFlying: canGlide).
+func (g *Game) glideTick() error {
+	if g.gliding && g.Worn(6) != "minecraft:elytra" {
+		g.gliding = false
+		return g.tellGlide()
 	}
 	return nil
 }

@@ -36,6 +36,19 @@ func (g *Game) click(c play.ContainerClick) error {
 	if slot < 0 || slot >= m.size() {
 		return fmt.Errorf("simworld: not modelled: a click on slot %d (outside the menu: dropping)", slot)
 	}
+	// PATCH (arsenal.go): a shift-click on a worn piece takes it off, into the pack then the hotbar
+	// (InventoryMenu.quickMoveStack: armor to the inventory)
+	if !m.table && !m.furnace && !m.chest && slot >= 5 && slot <= 8 && c.ContainerInput == types.ContainerInputQuickMove {
+		sp := g.at(m, slot)
+		if sp.n > 0 {
+			sp.n = g.moveTo(m, *sp, 9, 45, false)
+			if sp.n == 0 {
+				*sp = slotItem{}
+			}
+		}
+		g.broadcast()
+		return nil
+	}
 	if !m.table && !m.furnace && !m.chest && restricted(slot) {
 		return fmt.Errorf("simworld: not modelled: a click on slot %d (armor, offhand)", slot)
 	}

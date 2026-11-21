@@ -2,6 +2,7 @@ package simworld
 
 import (
 	"fmt"
+	itemdata "github.com/mj41/go-mc26/data/item"
 	"slices"
 	"strings"
 
@@ -49,9 +50,14 @@ func itemStack(s slotItem) types.ItemStack {
 }
 
 // stackLimit is how many of an item go in a slot: tools, weapons and armor one.
+// PATCH (arsenal.go): the item's own max stack size when its data has one under 64 (a totem, a trident,
+// a mace, a spear, a fishing rod, ender pearls 16).
 func stackLimit(item string) int {
 	if item == "minecraft:elytra" { // PATCH
 		return 1
+	}
+	if m := itemdata.DefaultComponent[*component.MaxStackSize](itemdata.ID(slices.Index(registryid.Item, item))); m != nil && int(m.Value) < maxStack {
+		return int(m.Value)
 	}
 	for _, s := range []string{"_pickaxe", "_axe", "_shovel", "_hoe", "_sword", "_helmet", "_chestplate", "_leggings", "_boots", "_bucket"} {
 		if len(item) > len(s) && item[len(item)-len(s):] == s {

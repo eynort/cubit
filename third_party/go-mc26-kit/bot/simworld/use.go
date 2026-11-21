@@ -30,6 +30,12 @@ func (g *Game) useItemOn(p fakeserver.Packet) error {
 	if _, places := placeable(g.heldItem().item); g.shift && places && g.heldItem().n > 0 {
 		name = "" // PATCH (build): sneaking with a block in hand, the block clicked is not used: the block is placed
 	}
+	if ok, err := g.placeCrystal(pos.X, pos.Y, pos.Z, int(face), seq); ok || err != nil { // PATCH (arsenal.go)
+		return err
+	}
+	if name == "minecraft:respawn_anchor" && !g.shift { // PATCH (arsenal.go)
+		return g.useAnchor(pos, seq)
+	}
 	switch {
 	case name == "minecraft:crafting_table":
 		if err := g.openTable(); err != nil {
@@ -235,7 +241,7 @@ func placeable(item string) (string, bool) {
 	case item == "minecraft:torch", item == "minecraft:crafting_table", item == "minecraft:furnace", item == "minecraft:chest", item == "minecraft:cobblestone", item == "minecraft:dirt", item == "minecraft:stone", item == "minecraft:obsidian", item == "minecraft:netherrack",
 		item == "minecraft:white_bed", item == "minecraft:oak_fence", item == "minecraft:oak_fence_gate",
 		item == "minecraft:oak_log", item == "minecraft:glass", item == "minecraft:stone_bricks", // PATCH (build)
-		item == "minecraft:cobweb", // PATCH (arsenal.go)
+		item == "minecraft:cobweb", item == "minecraft:respawn_anchor", // PATCH (arsenal.go)
 		item == "minecraft:oak_stairs", item == "minecraft:stone_brick_stairs", item == "minecraft:oak_slab", item == "minecraft:stone_brick_slab",
 		strings.HasSuffix(item, "_planks"):
 		return item, true

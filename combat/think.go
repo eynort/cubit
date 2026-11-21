@@ -41,6 +41,8 @@ type thinkState struct {
 	charging    bool       // embistiendo con la lanza (el uso mantenido; arsenal.go)
 	chargeFrom  uint64     // desde qué tick
 	peakY       float64    // lo más alto desde que dejó el suelo (la caída de la maza)
+	comboUntil  uint64     // encadenando empujones hasta este tick (cada golpe con sprint, sin saltar)
+	waitFrom    uint64     // desde cuándo espera en el borde de su alcance a que entre él
 	lastPos     basic.Position
 }
 
@@ -105,6 +107,10 @@ func (f *Fighter) Think(s *control.State, bp *basic.Player) {
 	case sheltering:
 		f.thinkShelter(s, bp, pl)
 	case acting: // (las manos miran solas a lo suyo)
+		if pl.fly > 0 { // con élitros (expert.go)
+			f.thinkFly(s, bp, pl)
+			return
+		}
 		f.lowerShield()
 		s.Input = control.Input{}
 		if pl.steer {
@@ -137,6 +143,9 @@ func (f *Fighter) thinkFight(s *control.State, bp *basic.Player, pl *plan) {
 	delay := 20 / pl.weapon.speed
 	charge := float64(tick-f.lastAttack.Load()) / delay
 	reach := pl.weapon.hitReach() // (la lanza llega a 4,5)
+	if time.Since(time.UnixMilli(f.lastHurt.Load())) < 300*time.Millisecond {
+		f.t.comboUntil = 0 // (le pegó: el combo se rompió)
+	}
 	// dónde está de verdad: lo que se ve llegó con retraso, y el golpe tarda en
 	// llegar al servidor, que lo mide con su posición. Se apunta y se mide el
 	// alcance con la posición prevista (unos 3 ticks por delante)
@@ -159,14 +168,32 @@ func (f *Fighter) thinkFight(s *control.State, bp *basic.Player, pl *plan) {
 		f.lowerShield()
 		in := control.Input{Forward: flat > 0.5}
 		s.Input = in
-		if phys.Vel.Y < 0 && f.t.peakY-pos.Y > 1.5 && dist <= reach && !f.d.Hands.Busy() {
-			id := pl.target
-			f.d.Hands.Attack(id, func() (entities.Entity, bool) { return f.d.Entities.Get(id) }, nil)
+		// (también si a tiro estará el tick que viene: cayendo a más de un
+		// bloque por tick, la ventana es de uno o dos ticks; y el golpe va ya,
+		// sin la cola de las manos)
+		next := pos
+		next.X, next.Y, next.Z = pos.X+phys.Vel.X, pos.Y+phys.Vel.Y, pos.Z+phys.Vel.Z
+		if phys.Vel.Y < 0 && f.t.peakY-pos.Y > 1.5 && (dist <= reach || boxDistance(next, ahead) <= reach) && tick != f.lastAttack.Load() {
+			a := play.Attack{EntityID: pk.VarInt(pl.target)}
+			if f.d.Client.Conn.WritePacket(pk.Marshal(a.PacketID(), a)) == nil {
+				sw := play.Swing{Hand: types.InteractionHandMainHand}
+				_ = f.d.Client.Conn.WritePacket(pk.Marshal(sw.PacketID(), sw))
+			}
 			f.lastAttack.Store(tick + 1)
 		}
 		return
 	}
 
+	// un cristal suyo cerca: el escudo de cara a él (la explosión de frente
+	// no entra) y un paso atrás, sin pegar (expert.go)
+	if pl.guard && pl.shield && !f.shieldOff(tick) {
+		f.aim(bp, pl.gx, pl.gy, pl.gz)
+		f.raiseShield(tick, pos)
+		in := control.Input{Backward: true}
+		f.terrain(s, bp, &in)
+		s.Input = in
+		return
+	}
 	// un creeper (vanilla: mecha a menos de 3 bloques, 30 ticks; se apaga a
 	// más de 7): con la mecha encendida, o cerca sin el golpe listo, correr
 	// lejos de él; con la mecha apagada y el golpe cargado, entrar, pegar y
@@ -239,7 +266,17 @@ func (f *Fighter) thinkFight(s *control.State, bp *basic.Player, pl *plan) {
 	// con escudo, a uno que pega de cerca y viene: no se le sale al paso; se le
 	// espera con el escudo arriba (su golpe da en el escudo y le echa atrás) y
 	// se le pega cuando entra a tiro con el golpe cargado
-	comes := melee && pl.shield && f.closingSpeed(pos, ahead, vx, vz) > 0.08 && flat < 8
+	// (escoger cuándo pegar: con escudo, o sin él con el golpe cargado, a uno
+	// que viene no se le sale al paso: se le espera en el borde del alcance y
+	// pega el bot al entrar él; como mucho 15 ticks, que no se quede esperando
+	// a uno que también espera)
+	closingIn := f.closingSpeed(pos, ahead, vx, vz)
+	if closingIn <= 0.08 || dist <= reach {
+		f.t.waitFrom = 0
+	} else if f.t.waitFrom == 0 {
+		f.t.waitFrom = tick
+	}
+	comes := melee && (pl.shield || charge >= 0.95 && tick-f.t.waitFrom < 15) && closingIn > 0.08 && flat < 8
 	switch {
 	case edgeBehind:
 		in.Forward = flat > 1.6 // hacia él (lejos del borde), sin pegarse
@@ -261,6 +298,18 @@ func (f *Fighter) thinkFight(s *control.State, bp *basic.Player, pl *plan) {
 	if f.t.wtap > 0 {
 		f.t.wtap--
 		in.Forward, in.Sprint = false, false
+	}
+	// su golpe al aire (fuera de alcance): le falta la recarga entera. Sin
+	// escudo, a por él ya (con escudo lo hace la ventana de castigo)
+	if !pl.shield && melee && !pl.weapon.stab && tick-f.t.enemyHit <= 8 && dist > reach && charge >= 0.8 && !edgeBehind {
+		in.Forward, in.Sprint, in.Backward = true, true, false
+	}
+	// encadenando empujones: tras un golpe con sprint él sale despedido y
+	// tarda en volver; a por él corriendo para el siguiente (también con
+	// sprint) antes de que se recupere. Sin saltar (el crítico no empuja)
+	combo := tick < f.t.comboUntil && melee && !pl.weapon.stab && !edgeBehind
+	if combo && f.t.wtap == 0 {
+		in.Forward, in.Sprint, in.Backward = flat > 1.2, flat > 1.2, false
 	}
 	// strafe: moverse de lado como una persona, cambiando a ratos
 	if f.t.strafeTicks--; f.t.strafeTicks <= 0 {
@@ -311,7 +360,7 @@ func (f *Fighter) thinkFight(s *control.State, bp *basic.Player, pl *plan) {
 	// golpes de 6 de un full diamante entraron así, saltando para el crítico.
 	// Tapado siempre, y se pega en su ventana (tras su golpe), en el suelo
 	defensive := pl.shield && !f.shieldOff(tick) && (pl.stance == stanceCautious || pl.stance == stanceAvoid) && !creeper
-	canCrit := phys != nil && !water && !defensive && !pl.noCrit && !creeper && !edgeBehind && !edgeAhead && !sweep && !pl.weapon.stab // (creeper: golpe ya, la mecha corre; bordes: en el suelo y con sprint; barrido: en el suelo)
+	canCrit := phys != nil && !water && !defensive && !pl.noCrit && !creeper && !edgeBehind && !edgeAhead && !sweep && !pl.weapon.stab && !combo // (creeper: golpe ya, la mecha corre; bordes: en el suelo y con sprint; barrido: en el suelo)
 	if edgeAhead && charge >= 0.8 {
 		in.Sprint = true // el golpe con sprint empuja un nivel más: al vacío
 	}
@@ -386,9 +435,20 @@ func (f *Fighter) thinkFight(s *control.State, bp *basic.Player, pl *plan) {
 	// golpe
 	falling := phys != nil && !phys.OnGround && phys.Vel.Y < -0.08 && !phys.Sprinting
 	jumpFailed := tick-f.t.jumpedAt > 12 // techo bajo o no pudo saltar
-	if charge >= 1 && dist <= reach && !f.d.Hands.Busy() && !f.t.blocking && !pl.holdFire &&
+	// su invulnerabilidad: otra cosa (lava, una flecha, otro jugador) le dio
+	// hace menos de 10 ticks: un golpe ahora solo cuenta lo que pase de aquel.
+	// Se espera a que acabe (el golpe sigue cargado)
+	iframes := f.enemyHurt.Load() == pl.target && time.Since(time.Unix(0, f.enemyHurtAt.Load())) < 420*time.Millisecond &&
+		f.enemyHurtAt.Load()-f.ourHitAt.Load() > int64(350*time.Millisecond)
+	if charge >= 1 && dist <= reach && !f.d.Hands.Busy() && !f.t.blocking && !pl.holdFire && !iframes &&
 		(!canCrit || falling || jumpFailed || onGround || rising) && (!pl.weapon.stab || dist >= pl.weapon.minReach) {
 		id := pl.target
+		f.ourHitAt.Store(time.Now().UnixNano())
+		// con sprint y sin ir ganando de calle: a encadenar (un golpe con
+		// sprint lo aleja; el siguiente, antes de que vuelva)
+		if (s.Sprinting || in.Sprint) && melee && !pl.weapon.stab && pl.stance != stancePress && !creeper {
+			f.t.comboUntil = tick + 20
+		}
 		if pl.weapon.stab {
 			f.stab() // (la lanza: la estocada, a todo lo que haya en la línea)
 		} else {

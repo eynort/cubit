@@ -91,6 +91,8 @@ type Deps struct {
 	Friend func(uuid.UUID) bool
 	// Builder pone bloques (el búnker, bunker.go); nil: no se encierra.
 	Builder Builder
+	// Nether: el bot está en el Nether (las anclas no explotan allí); nil: nunca.
+	Nether func() bool
 }
 
 type mode int
@@ -131,6 +133,9 @@ type plan struct {
 	fleeX, fleeZ float64 // de dónde huir al retirarse
 	lunge        bool    // la embestida con la lanza (arsenal.go)
 	smash        bool    // en el aire con la maza: pegar en cuanto esté a tiro (arsenal.go)
+	fly          int     // con élitros: 1 subiendo, 2 en picado (expert.go)
+	guard        bool    // un cristal cerca: el escudo de cara a él (expert.go)
+	gx, gy, gz   float64 // dónde está
 }
 
 type aggressor struct {
@@ -183,6 +188,12 @@ type Fighter struct {
 	dropShelter    atomic.Bool  // olvidar el búnker (ForgetFights: una orden "stop", morir)
 	handsBusy      atomic.Bool  // una táctica usa las manos (el cubo): hasta que acabe, nada de cambiar de objeto
 	lunging        atomic.Bool  // Think está embistiendo con la lanza (arsenal.go)
+	popped         atomic.Bool  // se gastó un tótem del bot (expert.go)
+	enemyPop       atomic.Int32 // a quién se le acaba de gastar uno
+	glideOn        atomic.Bool  // planeando, según el servidor
+	glideTold      atomic.Uint64
+	enemyHurtAt    atomic.Int64 // cuándo (UnixNano) se le hizo daño a enemyHurt
+	ourHitAt       atomic.Int64 // cuándo pegó el bot por última vez
 	enemyHurt      atomic.Int32 // a quién se le acaba de hacer daño (la embestida: le dio)
 
 	// solo la goroutine de Run
@@ -218,6 +229,7 @@ type Fighter struct {
 	stagedAt     uint64            // el de la última vez que dejó escudo o tótem en la barra
 
 	ars         arsenalState            // lanza, maza, lava, telarañas… (arsenal.go)
+	ex          expertState             // cristales, anclas, caña, perla, élitros… (expert.go)
 	bk          bunkerState             // el búnker (bunker.go)
 	tac         tacticsState            // romperle el suelo, quitarle el agua, encerrarle (tactics.go)
 	myBlocks    map[world.BlockPos]bool // los bloques que puso en búnkeres (para salir si se queda encerrado)
@@ -246,6 +258,7 @@ func New(d Deps) *Fighter {
 	}, bot.PacketHandler{
 		Priority: 0, ID: packetid.ClientboundPlayAnimate, F: f.onAnimate,
 	})
+	f.initExpert()
 	return f
 }
 
@@ -333,6 +346,7 @@ func (f *Fighter) onDamage(p pk.Packet) error {
 	}
 	if int32(ev.EntityID) != int32(f.d.Player.Login.PlayerID) {
 		f.enemyHurt.Store(int32(ev.EntityID))
+		f.enemyHurtAt.Store(time.Now().UnixNano())
 		f.defend(int32(ev.EntityID), int32(ev.SourceCauseID)-1) // ¿le pegaron al protegido?
 		return nil
 	}
@@ -378,6 +392,9 @@ func (f *Fighter) onEntityEvent(p pk.Packet) error {
 	if int32(ev.EntityID) == int32(f.d.Player.Login.PlayerID) && ev.EventID == 29 {
 		f.shieldHit.Store(true)
 	}
+	if ev.EventID == 35 { // un tótem gastado (expert.go)
+		f.onPop(int32(ev.EntityID))
+	}
 	return nil
 }
 
@@ -415,6 +432,9 @@ func (f *Fighter) step(ctx context.Context) {
 	}
 	if f.Reflex != nil && f.Reflex() {
 		return // (volver a la espada aquí es quitarle el cubo de la mano)
+	}
+	if f.retotem() { // (gastado un tótem: otro a la mano antes que nada)
+		return
 	}
 	cur := *f.plan.Load()
 	if f.d.Flying != nil && f.d.Flying() {
@@ -692,6 +712,14 @@ func (f *Fighter) step(ctx context.Context) {
 	if f.toWater(st, target) {
 		return
 	}
+	// en una telaraña: romperla (expert.go)
+	if f.escapeWeb(ctx) {
+		return
+	}
+	// el picado con élitros y maza (expert.go)
+	if isPlayer && f.diveStep(ctx, target, st) {
+		return
+	}
 	// la maza: cayendo encima de él, o el salto con la carga de viento (arsenal.go)
 	if f.smashStep(ctx, target, st) {
 		return
@@ -704,7 +732,8 @@ func (f *Fighter) step(ctx context.Context) {
 			f.setPlan(plan{mode: acting, target: target.id})
 			return
 		}
-		if f.cover(target, shield) || f.arsenal(ctx, target, st) || f.clearFluids(ctx, target) || f.breakIn(ctx, target) || f.knockDown(ctx, target) || f.cage(target) {
+		if f.cover(target, shield) || f.counterMace(ctx, target) || f.crystalStep(ctx, target, st) || f.anchorStep(ctx, target, st) ||
+			f.arsenal(ctx, target, st) || f.rodStep(ctx, target) || f.pearlChase(ctx, target, st) || f.riptide(ctx, target) || f.clearFluids(ctx, target) || f.breakIn(ctx, target) || f.knockDown(ctx, target) || f.cage(target) {
 			return
 		}
 	}
@@ -814,9 +843,9 @@ func (f *Fighter) pickTarget(foes []foe, current int32) (*foe, weapon, int, floa
 	for i := range foes {
 		fo := &foes[i]
 		armor, tough := armorOf(fo.e.Equipment)
-		slot, w, ttk := f.bestWeapon(health(fo.e), armor, tough, false)
+		slot, w, ttk := f.bestWeapon(health(fo.e), armor, tough, false, kind(fo.e))
 		if blocking(fo.e) { // con escudo arriba: un hacha se lo desactiva
-			if s, aw, t := f.bestWeapon(health(fo.e), armor, tough, true); !math.IsInf(t, 1) {
+			if s, aw, t := f.bestWeapon(health(fo.e), armor, tough, true, kind(fo.e)); !math.IsInf(t, 1) {
 				slot, w, ttk = s, aw, t
 			}
 		}
@@ -950,7 +979,14 @@ func (f *Fighter) fight(ctx context.Context, t *foe, w weapon, slot int, shield 
 	} else {
 		lunge = false
 	}
+	// un cristal cerca que le quitaría bastante: el escudo de cara a él (expert.go)
+	guard, gx, gy, gz := false, 0.0, 0.0, 0.0
+	if c, ok := f.crystalThreat(t, f.d.Player.Status()); ok && shield {
+		guard, gx, gy, gz = true, c.X, c.Y+0.5, c.Z
+		closeIn = true
+	}
 	f.setPlan(plan{
+		guard: guard, gx: gx, gy: gy, gz: gz,
 		mode: fighting, target: t.id, closeIn: closeIn, weapon: w, shield: shield, stance: f.stanceNow, holdFire: f.tac.approach && f.tac.id == t.id, lunge: lunge,
 		noCrit:      blocking(t.e) && isAxe(func() string { inv, h := f.inventory(); return nameOf(inv[slotHotbar+h]) }()),
 		hisCooldown: f.hisCooldown(t),
@@ -985,7 +1021,7 @@ func (f *Fighter) trade(t *foe, st basic.Status) (bool, string) {
 		return m.ratio >= 1, fmt.Sprintf("le hacen falta %d golpes (%.1f s) y a mí me matan en %d (%.1f s)", m.myHits, m.myTime, m.hisHits, m.hisTime)
 	}
 	armor, tough := armorOf(t.e.Equipment)
-	_, w, _ := f.bestWeapon(health(t.e), armor, tough, false)
+	_, w, _ := f.bestWeapon(health(t.e), armor, tough, false, kind(t.e))
 	mine := afterArmor(w.damage, armor, tough)
 	myArmor, myTough := f.myArmor()
 	theirs := afterArmor(theirHit(t.e), myArmor, myTough)

@@ -230,7 +230,7 @@ func excavateKeeps(n string) bool {
 	switch n {
 	case "shears", "flint_and_steel", "shield", "elytra", "bow", "crossbow", "arrow", "trident", "torch",
 		"bucket", "water_bucket", "lava_bucket", "ender_pearl", "firework_rocket", "totem_of_undying",
-		"mace", "wind_charge", "cobweb": // (lo de pelear: combat/arsenal.go)
+		"mace", "wind_charge", "cobweb", "end_crystal", "respawn_anchor", "glowstone", "fishing_rod": // (lo de pelear: combat/arsenal.go, expert.go)
 		return true
 	}
 	_, food := goodFood(n)

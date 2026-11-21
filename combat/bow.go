@@ -122,7 +122,22 @@ func (f *Fighter) wantBow(t *foe) bool {
 			return true
 		}
 	}
-	if t.dist < 9 {
+	// empuje: con el vacío, la lava o un precipicio detrás de él, una flecha le echa
+	if s, ok := f.bowSlot(); ok && t.dist >= 5 && t.e.Type == "minecraft:player" {
+		inv, _ := f.inventory()
+		p := f.d.Player.Position()
+		if fl := math.Hypot(t.e.X-p.X, t.e.Z-p.Z); fl > 0.5 && f.enchant(inv[s], "punch") > 0 &&
+			!f.d.Walker.Safe(basic.Position{X: t.e.X, Y: t.e.Y, Z: t.e.Z}, (t.e.X-p.X)/fl, (t.e.Z-p.Z)/fl) && f.clearShot(t.e) {
+			return true
+		}
+	}
+	// (con poder, el arco compensa antes: cada nivel, un 25 % más)
+	far := 9.0
+	if s, ok := f.bowSlot(); ok {
+		inv, _ := f.inventory()
+		far -= float64(f.enchant(inv[s], "power"))
+	}
+	if t.dist < far {
 		return false
 	}
 	// lo que se acerca mientras se tensa (unos 24 ticks con el giro): que
@@ -210,7 +225,7 @@ func (f *Fighter) thinkBow(s *control.State, bp *basic.Player, pl *plan, e entit
 			if f.d.Client.Conn.WritePacket(pk.Marshal(u.PacketID(), u)) == nil {
 				f.t.drawing, f.t.drawFrom = true, s.Ticks
 			}
-		case f.t.drawing && s.Ticks-f.t.drawFrom >= crossbowLoad:
+		case f.t.drawing && s.Ticks-f.t.drawFrom >= uint64(max(6, crossbowLoad-5*f.enchant(hand, "quick_charge"))): // (carga rápida: 5 ticks menos por nivel)
 			f.stopDraw() // cargada (el disparo es el clic siguiente)
 		}
 		return

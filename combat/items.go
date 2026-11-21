@@ -165,7 +165,8 @@ func (f *Fighter) inventory() ([slotOffhand + 1]screen.Slot, int) {
 
 // bestWeapon elige el arma que mata antes a un objetivo con hp vida y esa armadura.
 // Con axeOnly (el objetivo bloquea con escudo) solo cuenta hachas.
-func (f *Fighter) bestWeapon(hp, armor, toughness float64, axeOnly bool) (slot int, w weapon, ttk float64) {
+// kind es la especie del objetivo (para golpe a no muertos y perdición de artrópodos; "": cualquiera).
+func (f *Fighter) bestWeapon(hp, armor, toughness float64, axeOnly bool, kind string) (slot int, w weapon, ttk float64) {
 	inv, held := f.inventory()
 	slot, ttk = slotHotbar+held, math.Inf(1)
 	for i := slotMainStart; i <= slotHotbar+8; i++ {
@@ -178,7 +179,9 @@ func (f *Fighter) bestWeapon(hp, armor, toughness float64, axeOnly bool) (slot i
 		if cw.stab { // (la estocada no es crítico)
 			crit = 1
 		}
-		t := timeToKill(hp, afterArmor(cw.damage*crit, armor, toughness), cw.speed)
+		// los encantamientos (filo, golpe, perdición; la brecha de la maza quita armadura)
+		cw.damage += f.enchantBonus(s, kind)
+		t := timeToKill(hp, afterArmor(cw.damage*crit, armor*f.breachFactor(s), toughness), cw.speed)
 		if i != slotHotbar+held && cw.speed > 0 {
 			// cambiar de arma reinicia la carga: el primer golpe espera una
 			// recarga entera (sin esto, contra el mismo zombi: espada, hacha,

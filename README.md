@@ -6,7 +6,7 @@
 
 ## What it does
 
-- **PvP**: fights one player or everyone in an area, or works as a bodyguard. It never runs from a player: it wins, or walls itself in to heal and comes back. It uses everything it carries: sword and shield with crits, the spear (jabs from out of reach, charges), the mace (with a wind charge under its feet it lands on you), tridents, bows, lava buckets, cobwebs, flint and steel, wind charges near edges and harmful splash potions. Details in [combat/PVP.md](combat/PVP.md).
+- **PvP**: fights one player or everyone in an area, or works as a bodyguard. It never runs from a player: it wins, or walls itself in to heal and comes back. It uses everything it carries: sword and shield with crits, the spear (jabs from out of reach, charges), the mace (from a wind-charge jump or an elytra dive), end crystals and respawn anchors (only when the blast hurts you much more than it), tridents, bows, fishing rods, ender pearls to catch runners, lava buckets, cobwebs, flint and steel, wind charges near edges and harmful splash potions. It picks its moment to hit, chains knockback, re-totems instantly and plays its enchantments. Details in [combat/PVP.md](combat/PVP.md).
 - **Excavate**: empties a box between two corners, 4 blocks high at a time, never breaking a pickaxe. No chests: it keeps what's valuable and throws away the junk (dirt, stone, gravel…). Give it a chunk written with its edges (Z -48 to -63) and it fits the whole chunk.
 - **Move**: goes to coordinates or to a player, and follows you. It plans paths with A*, places blocks for towers and bridges when needed, and saves itself from lava, falls and fire.
 - **Vanilla only**: no plugin commands (no /tpa, /home or /login).

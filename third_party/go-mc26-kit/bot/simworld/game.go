@@ -581,6 +581,9 @@ func (g *Game) play(p fakeserver.Packet) error {
 		if err := p.Scan(&a); err != nil {
 			return err
 		}
+		if ok, err := g.hitCrystal(int32(a.EntityID)); ok || err != nil { // PATCH (arsenal.go)
+			return err
+		}
 		return g.attackMob(int32(a.EntityID))
 	case packetid.ServerboundPlayClientCommand:
 		var c play.ClientCommand
