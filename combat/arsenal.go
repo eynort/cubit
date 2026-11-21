@@ -66,6 +66,7 @@ type arsenalState struct {
 	lungeNext   uint64
 	lungeAt     uint64 // el paso en que se decidió la última
 	smashNext   uint64
+	pushNext    uint64 // entre dos cargas de viento para echarle (windPush)
 	smash       int    // el salto de la maza: 0 nada, 1 carga tirada, 2 en el aire
 	smashAt     uint64 // el paso en que empezó la fase
 	smashTarget int32
@@ -302,7 +303,7 @@ func (f *Fighter) setFire(ctx context.Context, t *foe) bool {
 // windPush: con un precipicio, lava o el vacío detrás de él (lo que hay a
 // 2-3 bloques en la dirección contraria al bot), una carga de viento: le echa.
 func (f *Fighter) windPush(ctx context.Context, t *foe) bool {
-	if f.steps < f.ars.windNext || t.dist < 2.5 || t.dist > 10 {
+	if f.steps < f.ars.windNext || f.steps < f.ars.pushNext || t.dist < 2.5 || t.dist > 10 {
 		return false
 	}
 	slot, ok := f.slotOf("minecraft:wind_charge")
@@ -322,6 +323,7 @@ func (f *Fighter) windPush(ctx context.Context, t *foe) bool {
 		return false
 	}
 	f.ars.windNext = f.steps + windEvery
+	f.ars.pushNext = f.steps + 60 // (una basta: tres seguidas era gastarlas; a ver si cae)
 	f.stopMoving()
 	f.setPlan(plan{mode: acting, target: t.id})
 	f.handsBusy.Store(true)

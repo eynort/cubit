@@ -60,7 +60,7 @@ func TestCrystal(t *testing.T) {
 		blown := g.Until(15*20, func() bool { return g.Arsenal().CrystalBlasts > 0 })
 		g.Step(10)
 		t.Logf("explosiones %d, vida del rival %.1f, la del bot %.1f", g.Arsenal().CrystalBlasts, mobHP(g, id), g.Health)
-		if !blown || !lg.has("cristal junto a") {
+		if !blown || !lg.has("cristal") {
 			t.Fatal("no usó el cristal")
 		}
 		if mobHP(g, id) > 5 {

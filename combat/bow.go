@@ -319,8 +319,26 @@ func (f *Fighter) Shots() int64 { return f.shots.Load() }
 
 // bowFight: con el arco contra t (lo pone en la mano). Dice si va con el arco.
 func (f *Fighter) bowFight(ctx context.Context, t *foe) bool {
-	if !f.wantBow(t) {
+	// sin ir y venir: cada cambio de arma reinicia el golpe (contra una
+	// persona: arco, espada, arco… varias veces en un segundo). Dejado el
+	// arco, 1,5 s sin él (salvo que se aleje mucho); tomado, 1 s con él
+	// (salvo que llegue encima)
+	cur := f.plan.Load()
+	want := f.wantBow(t)
+	switch {
+	case cur.bow && !want && f.steps < f.ex.bowKeep && t.dist > 4:
+		want = true
+	case !cur.bow && want && f.steps < f.ex.bowRest && t.dist < 16:
+		want = false
+	}
+	if !want {
+		if cur.bow {
+			f.ex.bowRest = f.steps + 30
+		}
 		return false
+	}
+	if !cur.bow {
+		f.ex.bowKeep = f.steps + 20
 	}
 	slot, _ := f.bowSlot()
 	inv, held := f.inventory()

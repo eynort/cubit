@@ -71,6 +71,11 @@ type expertState struct {
 	popAt       uint64         // el paso en que se gastó un tótem del bot (0: nada pendiente)
 	blastSkip   world.BlockPos // la celda que la explosión quita antes de estallar (el ancla): no tapa
 	trapNext    uint64         // hasta este paso no se mira otra vez si le encerraron (defense.go)
+	bowKeep     uint64         // hasta aquí se sigue con el arco (bow.go: sin ir y venir)
+	obby        world.BlockPos // la obsidiana recién puesta para un cristal
+	obbyUntil   uint64         // hasta aquí se espera a verla y se pone el cristal encima
+	obbyNext    uint64         // hasta aquí, ninguna obsidiana más
+	bowRest     uint64         // y hasta aquí, sin él
 }
 
 // initExpert: los ganchos de los élitros en la física (si no los puso nadie)
@@ -308,6 +313,24 @@ func (f *Fighter) crystals(x, y, z, r float64) []entities.Entity {
 // crystalStep: romper un cristal que compense, o poner uno (y la obsidiana
 // debajo si hace falta) donde compense. Dice si el paso se fue en eso.
 func (f *Fighter) crystalStep(ctx context.Context, t *foe, st basic.Status) bool {
+	// la obsidiana recién puesta: el cristal encima en cuanto se vea, sin
+	// volver a la espada entre medias (contra una persona: obsidiana, espada,
+	// obsidiana… 25 veces en 12 s, y cada cambio reinicia el golpe)
+	if f.steps < f.ex.obbyUntil {
+		b := f.ex.obby
+		if f.d.Hands.Busy() || !strings.HasPrefix(f.blockName(b), "minecraft:obsidian") {
+			f.setPlan(plan{mode: acting, target: t.id})
+			return true
+		}
+		f.ex.obbyUntil = 0
+		if slot, ok := f.slotOf("minecraft:end_crystal"); ok && f.airAt(world.BlockPos{X: b.X, Y: b.Y + 1, Z: b.Z}) && !f.crystalBlocked(b, t.e) && f.holdChecked(ctx, slot, "minecraft:end_crystal") {
+			f.setPlan(plan{mode: acting, target: t.id})
+			f.d.Hands.PlaceOn(world.BlockPos{X: b.X, Y: b.Y + 1, Z: b.Z}, b, f.busy(""))
+			f.ex.blastNext = f.steps + 4
+			f.logf("cristal sobre la obsidiana, junto a %s", t.name)
+			return true
+		}
+	}
 	if f.d.Hands.Busy() {
 		return false
 	}
@@ -348,7 +371,7 @@ func (f *Fighter) crystalStep(ctx context.Context, t *foe, st basic.Status) bool
 				place := false
 				if !onBase {
 					// obsidiana en una celda libre con suelo debajo, que no pise nadie
-					if !obby || dy != 0 || !f.replaceable(b) || !f.solid(world.BlockPos{X: b.X, Y: b.Y - 1, Z: b.Z}) || f.cellHasBody(b, t.e) {
+					if !obby || f.steps < f.ex.obbyNext || dy != 0 || !f.replaceable(b) || !f.solid(world.BlockPos{X: b.X, Y: b.Y - 1, Z: b.Z}) || f.cellHasBody(b, t.e) {
 						continue
 					}
 					place = true
@@ -386,7 +409,7 @@ func (f *Fighter) crystalStep(ctx context.Context, t *foe, st basic.Status) bool
 		below := world.BlockPos{X: b.X, Y: b.Y - 1, Z: b.Z}
 		f.d.Hands.PlaceOn(b, below, f.busy("la obsidiana no se puso"))
 		f.logf("obsidiana junto a %s para el cristal", t.name)
-		f.ex.blastNext = f.steps + 6 // (a que conteste el servidor)
+		f.ex.obby, f.ex.obbyUntil, f.ex.obbyNext = b, f.steps+12, f.steps+20
 		return true                  // (el cristal, el paso siguiente: con la obsidiana ya puesta)
 	}
 	slot, _ := f.slotOf("minecraft:end_crystal")
