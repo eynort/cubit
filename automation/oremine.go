@@ -8,7 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mj41/go-mc26-kit/bot/entities"
 	"github.com/mj41/go-mc26-kit/bot/world"
+	"github.com/mj41/go-mc26/data/entitydata"
 	"github.com/mj41/go-mc26/protocol/types"
 )
 
@@ -589,8 +591,8 @@ func (m *oreMine) harvest() error {
 	}
 	if took {
 		// (solo lo que sueltan los minerales: lo demás cae en las celdas que se andan)
-		if err := j.fetchDrops(m.itemOK, 8); err != nil {
-			j.Logf("minar: recoger lo picado: %v", err)
+		if err := m.fetchDrops(); err != nil {
+			return err
 		}
 	}
 	if j.Feet() != m.cur {
@@ -620,7 +622,7 @@ func (m *oreMine) take(p world.BlockPos) bool {
 		return false
 	}
 	if !j.canDig(p) {
-		if err := j.TunnelTo(p); err != nil {
+		if err := m.digTo(p, func() bool { return j.canDig(p) }); err != nil {
 			return fail("no llego:", err)
 		}
 	}
@@ -957,4 +959,137 @@ func (m *oreMine) waitForPick() bool {
 		}
 	}
 	return false
+}
+
+// digTo cava un túnel corto hacia target (andando por lo que ya está abierto,
+// sin buscar caminos largos) hasta que there() sea cierto: un escalón cada vez,
+// con suelo firme, sin agua ni lava. Para cosas que se ven cerca: lo de lejos
+// (una cueva, subir a la superficie a dar la vuelta) no es esto.
+func (m *oreMine) digTo(target world.BlockPos, there func() bool) error {
+	j := m.j
+	visited := map[world.BlockPos]bool{j.Feet(): true}
+	dist := func(p world.BlockPos) int { return abs(target.X-p.X) + abs(target.Z-p.Z) + 2*abs(target.Y-p.Y) }
+	if dist(j.Feet()) > 3*sightRadius {
+		return fmt.Errorf("%v queda lejos", target)
+	}
+	best, since := dist(j.Feet()), 0
+	for steps := 0; steps < 40; steps++ {
+		if err := j.Wait(1); err != nil {
+			return err
+		}
+		if there() {
+			return nil
+		}
+		cur := j.Feet()
+		visited[cur] = true
+		if d := dist(cur); d < best {
+			best, since = d, 0
+		} else if since++; since > 6 {
+			return fmt.Errorf("no avanzo hacia %v (estoy en %v)", target, cur)
+		}
+		next, ok := j.nextTunnelCell(cur, target, visited)
+		if !ok || next == target || next == (world.BlockPos{X: target.X, Y: target.Y - 1, Z: target.Z}) {
+			if there() {
+				return nil
+			}
+			return fmt.Errorf("no puedo cavar hacia %v (agua, lava o nada donde pisar)", target)
+		}
+		cells := []world.BlockPos{{X: next.X, Y: next.Y + 1, Z: next.Z}, next}
+		if next.Y > cur.Y {
+			cells = append([]world.BlockPos{{X: cur.X, Y: cur.Y + 2, Z: cur.Z}}, cells...)
+		}
+		if next.Y < cur.Y {
+			cells = append([]world.BlockPos{{X: next.X, Y: next.Y + 2, Z: next.Z}}, cells...)
+		}
+		for _, c := range cells {
+			if err := j.clearCell(c); err != nil {
+				return err
+			}
+		}
+		if err := j.GoTo(next); err != nil {
+			return fmt.Errorf("túnel: %w", err)
+		}
+	}
+	return fmt.Errorf("demasiado lejos para un túnel corto: %v", target)
+}
+
+// fetchDrops recoge lo que soltaron los minerales picados (que cae en su hueco,
+// a veces cerrado): se cava hasta allí, sin dar vueltas por fuera.
+func (m *oreMine) fetchDrops() error {
+	j := m.j
+	if j.FreeSlots() == 0 {
+		return nil
+	}
+	tried := map[int32]bool{}
+	for round := 0; round < 8; round++ {
+		p := j.Pos()
+		var target *entities.Entity
+		for _, e := range j.r.d.Entities.Nearby(p.X, p.Y, p.Z, 7) {
+			if e.Type != "minecraft:item" || tried[e.ID] {
+				continue
+			}
+			v, has := e.Data[entitydata.ItemEntityItem]
+			if !has {
+				continue
+			}
+			if st, ok := v.Value.(*types.ItemStack); ok && m.itemOK(strings.TrimPrefix(itemName(int32(st.Item)), "minecraft:")) && !j.burning(itemCell(e)) {
+				e := e
+				target = &e
+				break
+			}
+		}
+		if target == nil {
+			return nil
+		}
+		tried[target.ID] = true
+		id, cell := target.ID, itemCell(*target)
+		gone := func() bool {
+			_, still := j.r.d.Entities.Get(id)
+			return !still
+		}
+		near := func() bool {
+			f := j.Feet()
+			return gone() || abs(f.X-cell.X) <= 1 && abs(f.Z-cell.Z) <= 1 && (f.Y == cell.Y || f.Y == cell.Y+1)
+		}
+		m.status(fmt.Sprintf("a por lo que soltó el mineral (%v)", cell))
+		if err := m.digTo(cell, near); err != nil {
+			if j.Fatal() != nil {
+				return j.Fatal()
+			}
+			j.Logf("minar: no llego a lo que soltó el mineral en %v: %v", cell, err)
+			continue
+		}
+		for t := 0; t < 10 && !gone(); t++ {
+			if err := j.Wait(1); err != nil {
+				return err
+			}
+		}
+		if gone() {
+			continue
+		}
+		// al lado pero sin cogerlo: meterse en su celda, abriendo encima para que quepa
+		var err error
+		for _, dy := range []int{2, 1, 0} {
+			c := world.BlockPos{X: cell.X, Y: cell.Y + dy, Z: cell.Z}
+			if dy == 2 && j.Feet().Y == cell.Y {
+				continue
+			}
+			if err = j.clearCell(c); err != nil {
+				break
+			}
+		}
+		if err == nil {
+			err = j.GoTo(cell)
+		}
+		for t := 0; t < 20 && !gone() && err == nil; t++ {
+			err = j.Wait(1)
+		}
+		if j.Fatal() != nil {
+			return j.Fatal()
+		}
+		if !gone() {
+			j.Logf("minar: no consigo coger lo de %v: %v", cell, err)
+		}
+	}
+	return nil
 }
