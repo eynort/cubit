@@ -292,6 +292,46 @@ func (bd *HandsBuilder) place(pos, against world.BlockPos, now bool) bool {
 	return true
 }
 
+// Equip deja en la mano el mejor bloque de construir, para poder poner uno en
+// el momento (un salto dura pocos ticks: no hay tiempo de pasarlo a la barra
+// entonces). Devuelve true cuando ya lo tiene en la mano; si no, hay que
+// volver a llamar dentro de unos ticks.
+func (bd *HandsBuilder) Equip() bool {
+	if bd.Busy() {
+		return false
+	}
+	if _, _, eating := bd.Hands.Using(); eating {
+		return false
+	}
+	slot, _ := bd.best()
+	if slot < 0 {
+		return false
+	}
+	if slot < 36 {
+		bd.moving.Store(true)
+		to := bd.freeHotbar()
+		go func() {
+			defer bd.moving.Store(false)
+			if err := bd.Screens.Click(0, slot, to, types.ContainerInputSwap); err != nil {
+				log.Print("construir: ", err)
+			}
+			_ = bd.Ctl.WaitTicks(bd.Ctx, 2)
+		}()
+		return false
+	}
+	bd.Screens.Lock()
+	held := bd.Screens.HeldSlot
+	bd.Screens.Unlock()
+	if held != slot-36 {
+		if err := bd.Screens.SelectHotbar(slot - 36); err != nil {
+			log.Print("construir: ", err)
+		}
+		return false
+	}
+	inHand := bd.heldName()
+	return rank(inHand) >= 0 && !bd.kept(inHand)
+}
+
 // heldName es lo que tiene en la mano ("" nada).
 func (bd *HandsBuilder) heldName() string {
 	bd.Screens.Lock()

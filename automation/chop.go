@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/mj41/go-mc26-kit/bot/basic"
 	"github.com/mj41/go-mc26-kit/bot/control"
 	"github.com/mj41/go-mc26-kit/bot/world"
 
@@ -135,6 +136,10 @@ func Chop(kinds []string, center world.BlockPos) func(j *Job) error {
 			c.ws[k] = true
 		}
 		before := c.carried()
+		// solo se recoge la madera (no las hojas: manzanas, palos, brotes…: ir
+		// a por lo que cae sobre las hojas era subir y bajar para nada)
+		j.ignore = func(item string) bool { return !isLogBlock(item) }
+		defer func() { j.ignore = nil }()
 		j.Logf("talar %s alrededor de %v (radio %d)", strings.Join(kinds, ","), center, ChopRadius)
 		if axe := j.bestAxe(); axe != "" {
 			j.Logf("uso el %s (sin romperlo)", axe)
@@ -151,7 +156,6 @@ func Chop(kinds []string, center world.BlockPos) func(j *Job) error {
 			if j.Fatal() != nil {
 				return j.Fatal()
 			}
-			j.makeRoom()
 			if j.Underground() { // los árboles están arriba
 				if err := j.ToSky(); err != nil && j.Fatal() != nil {
 					return j.Fatal()
@@ -216,9 +220,28 @@ func (c *chopper) summary(before map[string]int) {
 		}
 	}
 	j.Logf("talado: %d árboles y %d troncos (%s); recogidos: %s", c.total(c.trees), c.total(c.logs), strings.Join(parts, "; "), strings.Join(got, ", "))
+	if n := c.remaining(); n > 0 {
+		j.Logf("quedan %d troncos de esas maderas a menos de %d bloques que no son de un árbol (construcciones, troncos caídos) o que dejé", n, ChopRadius)
+	}
 	if c.left > 0 || c.abandoned > 0 {
 		j.Problem("talar: dejé %d árboles con %d troncos en pie (sin camino, zona protegida…)", c.abandoned, c.left)
 	}
+}
+
+// remaining cuenta los troncos de las maderas pedidas que siguen en pie en el radio.
+func (c *chopper) remaining() int {
+	j := c.j
+	n, r := 0, ChopRadius
+	for y := c.center.Y - 24; y <= c.center.Y+48; y++ {
+		for dx := -r; dx <= r; dx++ {
+			for dz := -r; dz <= r; dz++ {
+				if dx*dx+dz*dz <= r*r && c.ws.has(j.Block(world.BlockPos{X: c.center.X + dx, Y: y, Z: c.center.Z + dz})) {
+					n++
+				}
+			}
+		}
+	}
+	return n
 }
 
 // bestAxe es el hacha que lleva con la que talaría (la mejor): "" si no lleva ninguna.
@@ -473,6 +496,7 @@ func (c *chopper) process(t *chopTree) {
 	c.trees[t.kind]++
 	j.Status("recogiendo lo que cayó")
 	c.removeScaffold(t.logs)
+	c.descend(ground)
 	if err := c.collect(t); err != nil && j.Fatal() != nil {
 		return
 	}
@@ -608,15 +632,20 @@ func (c *chopper) removeScaffold(logs []world.BlockPos) {
 		return
 	}
 	cx, cz := logs[0].X, logs[0].Z
-	for _, p := range b.Placed() {
-		if abs(p.X-cx) > 12 || abs(p.Z-cz) > 12 || j.Fatal() != nil {
+	placed := b.Placed()
+	// de arriba abajo: si el bot está subido en una torre, la deshace desde la
+	// cima (empezando por abajo se quedaba en un trozo flotando)
+	sort.Slice(placed, func(a, b int) bool { return placed[a].Y > placed[b].Y })
+	for _, p := range placed {
+		f := j.Feet()
+		near := func(x, z int) bool { return abs(p.X-x) <= 12 && abs(p.Z-z) <= 12 }
+		if !near(cx, cz) && !near(f.X, f.Z) || j.Fatal() != nil {
 			continue
 		}
 		if n := j.Block(p); n == "" || n == "air" {
 			b.Forget(p)
 			continue
 		}
-		f := j.Feet()
 		if p.X == f.X && p.Z == f.Z && p.Y < f.Y { // bajo los pies: bajar deshaciendo
 			c.climbDown(p.Y)
 			continue
@@ -629,6 +658,22 @@ func (c *chopper) removeScaffold(logs []world.BlockPos) {
 		j.Status("quitando los bloques que puse")
 		if err := j.Dig(p); err == nil {
 			b.Forget(p)
+		}
+	}
+}
+
+// descend: si el bot sigue en alto (una copa, una torre que no se deshizo), al suelo.
+func (c *chopper) descend(ground int) {
+	j := c.j
+	c.climbDown(ground)
+	f := j.Feet()
+	if f.Y <= ground+1 {
+		return
+	}
+	if g, ok := j.r.d.Walker.Ground(f.X, f.Z, ground); ok && g.Y < f.Y-1 {
+		j.Logf("sigo a %d de alto: bajo al suelo (%v)", f.Y-g.Y, g)
+		if err := j.GoTo(g); err != nil && j.Fatal() == nil {
+			j.Logf("bajar: %v", err)
 		}
 	}
 }
@@ -683,6 +728,22 @@ func (c *chopper) pillarUp() error {
 	if math.Hypot(p.X-(float64(f.X)+0.5), p.Z-(float64(f.Z)+0.5)) > 0.15 {
 		_ = j.GoTo(f)
 	}
+	// el bloque en la mano antes de saltar (un salto dura pocos ticks)
+	for t := 0; t < 40 && !b.Equip(); t++ {
+		if err := j.Wait(1); err != nil {
+			return err
+		}
+	}
+	// mirando abajo (como el pathfinding en sus torres): girar al poner lleva ticks
+	for t := 0; t < 12 && j.Pos().Pitch < 89; t++ {
+		j.r.d.Player.UpdatePosition(func(p basic.Position) basic.Position {
+			p.Pitch += max(-10, min(10, 90-p.Pitch))
+			return p
+		})
+		if err := j.r.d.Ctl.WaitTicks(j.ctx, 1); err != nil {
+			return err
+		}
+	}
 	j.r.d.Ctl.SetInput(control.Input{Jump: true})
 	for t := 0; t < 12 && j.Pos().Y < float64(feet.Y)+1.05; t++ {
 		if err := j.r.d.Ctl.WaitTicks(j.ctx, 1); err != nil {
@@ -701,7 +762,7 @@ func (c *chopper) pillarUp() error {
 		_ = j.r.d.Ctl.WaitTicks(j.ctx, 1)
 	}
 	if j.Pos().Y < float64(feet.Y)+0.9 {
-		return fmt.Errorf("el bloque bajo los pies en %v no quedó", feet)
+		return fmt.Errorf("el bloque bajo los pies en %v no quedó (y %.2f, bloque ahí: %s)", feet, j.Pos().Y, j.Block(feet))
 	}
 	return nil
 }
