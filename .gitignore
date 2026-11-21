@@ -29,3 +29,6 @@ avatares/
 .microsoft/
 /minecraft-bot
 /minecraft-bot.exe
+
+# copias de trabajo de los subagentes
+.claude/worktrees/
