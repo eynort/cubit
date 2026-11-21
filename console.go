@@ -70,9 +70,9 @@ type command struct {
 
 // usages son formas de uso escritas a mano, para órdenes con variantes.
 var usages = map[string]string{
-	"fight":     "/fight <player> | in <x> <z> [<x2> <z2>]",
-	"goto":      "/goto <player> | <x> <z>",
-	"drop":      "/drop [<item> [<amount>] [<player>] | <player>]",
+	"fight": "/fight <player> | in <x> <z> [<x2> <z2>]",
+	"goto":  "/goto <player> | <x> <z>",
+	"drop":  "/drop [<item> [<amount>] [<player>] | <player>]",
 }
 
 // usage es la forma de uso: "/fight <player>".
@@ -144,15 +144,18 @@ func init() {
 			args: []arg{{name: "mode", kind: argChoice, choices: []string{"on", "off"},
 				descs: map[string]text{"on": {"it may sprint", "puede correr"}, "off": {"it always walks", "siempre camina"}}}}, run: cmdSprint},
 		"excavate": {
-			desc: text{"dig out a whole box of blocks between two corners (/excavate 10 70 10 30 50 30), 4 blocks deep at a time: each 4-block pass through the whole box before going down to the next (the ground goes down evenly); in each pass it stands on the bottom and digs the 4 blocks high it reaches around it, then moves on, and picks up what fell when the pass is done. It uses the pickaxes it carries, never breaking one (with none left, it asks for one in chat); it uses no chests: when full it throws away the junk (dirt, stone, gravel…) and keeps what is valuable",
-				"vaciar una caja de bloques entre dos esquinas (/excavate 10 70 10 30 50 30), de 4 en 4 bloques de alto: cada pasada de 4 en toda la caja antes de bajar a la siguiente (el terreno baja parejo); en cada pasada se pone en el fondo y pica los 4 de alto que alcanza alrededor, y sigue, y al acabarla recoge lo que cayó. Usa los picos que lleve, sin romper ninguno (si no le queda ninguno, lo pide por el chat); no usa cofres: cuando se llena tira la basura (tierra, piedra, grava…) y se queda lo valioso"},
+			desc: text{"dig out a whole box of blocks between two corners (/excavate 10 70 10 30 50 30), 4 blocks deep at a time: each 4-block pass through the whole box before going down to the next (the ground goes down evenly); in each pass it stands on the bottom and digs the 4 blocks high it reaches around it, then moves on, and picks up what fell when the pass is done. It uses the pickaxes it carries, never breaking one (with none left, it asks for one in chat). When full it throws away the junk (dirt, stone, gravel…) and keeps what is valuable; with chests given (/excavate chests <x> <y> <z>), it takes the valuables there",
+				"vaciar una caja de bloques entre dos esquinas (/excavate 10 70 10 30 50 30), de 4 en 4 bloques de alto: cada pasada de 4 en toda la caja antes de bajar a la siguiente (el terreno baja parejo); en cada pasada se pone en el fondo y pica los 4 de alto que alcanza alrededor, y sigue, y al acabarla recoge lo que cayó. Usa los picos que lleve, sin romper ninguno (si no le queda ninguno, lo pide por el chat). Cuando se llena tira la basura (tierra, piedra, grava…) y se queda lo valioso; si le das cofres (/excavate chests <x> <y> <z>), lo valioso lo lleva ahí"},
 			args: append(withDesc(xyz(false), text{"one corner (~ = where the bot is)", "una esquina (~ = donde está el bot)"}),
 				append(withDesc([]arg{{name: "x2", kind: argCoord, corner: true}, {name: "y2", kind: argCoord}, {name: "z2", kind: argCoord}}, text{"the opposite corner", "la esquina opuesta"}),
 					arg{name: "exact", kind: argChoice, opt: true, choices: []string{"exact"},
 						descs: map[string]text{"exact": {"exactly those blocks (without it, a box of whole chunks written with the chunk edges is fitted to the chunks)", "justo esos bloques (sin ello, una caja de chunks enteros escrita con los bordes se ajusta a los chunks)"}}})...),
 			subs: []sub{{name: "chunk", desc: text{"the whole 16×16 chunk the bot is in (or the one with block x z), from y1 to y2: the chunk edges are worked out for you",
 				"el chunk entero de 16×16 donde está el bot (o el del bloque x z), de y1 a y2: los bordes del chunk los calcula él"},
-				args: []arg{{name: "y1", kind: argCoord, desc: text{"from this height", "desde esta altura"}}, {name: "y2", kind: argCoord, desc: text{"to this height", "hasta esta altura"}}}}},
+				args: []arg{{name: "y1", kind: argCoord, desc: text{"from this height", "desde esta altura"}}, {name: "y2", kind: argCoord, desc: text{"to this height", "hasta esta altura"}}}},
+				{name: "chests", desc: text{"where /excavate (only /excavate) keeps what is valuable: <x> <y> <z> adds a chest (or barrel, or shulker box; either half of a double chest), list shows them, remove <x> <y> <z> forgets one, clear forgets them all. Remembered across restarts. When full it first throws the junk; if still full, it walks to the nearest chest and stores the valuables (never its tools, armor, food or fighting gear), the next chest when one is full, and again when the excavation ends",
+					"dónde guarda /excavate (solo /excavate) lo valioso: <x> <y> <z> apunta un cofre (o barril, o caja de shulker; de uno doble vale cualquier mitad), list los enseña, remove <x> <y> <z> olvida uno, clear los olvida todos. Se recuerdan tras reiniciar. Al llenarse, primero tira la basura; si sigue lleno, va al cofre más cercano y guarda lo valioso (nunca sus herramientas, armadura, comida ni equipo de pelea), al siguiente si uno está lleno, y otra vez al acabar"},
+					args: withDesc(xyz(true, "list", "clear", "remove"), text{"the chest (~ = where the bot is), or list / clear / remove", "el cofre (~ = donde está el bot), o list / clear / remove"})}},
 			run: cmdExcavate,
 		},
 		"inventory": {desc: text{"what the bot carries: equipment, hotbar slot by slot and the inventory; grid: like the game screen",
@@ -212,8 +215,6 @@ func (b *Bot) runCommand(c command, name string, args []string) error {
 	return nil
 }
 
-
-
 // console lee órdenes línea a línea: la consola simple, para cuando la
 // salida no es una terminal (si lo es, se usa la interfaz de tui.go).
 func console(ctx context.Context) {
@@ -247,7 +248,7 @@ func cmdHelp(*Bot, []string) error {
 	sort.Strings(lines)
 	lines = append(lines, "  /<other command>           "+tr("is sent to the server (e.g. /time set day)", "se manda al servidor (ej: /time set day)"),
 		"  text without /             "+tr("is written in the chat", "se escribe en el chat"),
-)
+	)
 	log.Print(tr("commands:", "órdenes:") + "\n" + strings.Join(lines, "\n"))
 	return nil
 }
@@ -472,7 +473,6 @@ func keys(in control.Input) string {
 	return strings.Join(k, "+")
 }
 
-
 // diag muestra los bloques que el bot cree tener alrededor y prueba, mirando
 // hacia donde mira, saltar, andar, andar saltando y correr saltando, contando
 // las correcciones del servidor de cada prueba.
@@ -578,8 +578,6 @@ func (b *Bot) diag() {
 	}
 	log.Print("diag: fin")
 }
-
-
 
 func cmdSprint(b *Bot, args []string) error {
 	if len(args) != 1 || (args[0] != "on" && args[0] != "off") {
@@ -815,7 +813,6 @@ func (b *Bot) segment(p basic.Position, x, z, d float64, fails int) (world.Block
 	return world.BlockPos{}, false
 }
 
-
 // dimShort: "minecraft:the_nether" → "el Nether".
 func dimShort(d string) string {
 	switch d {
@@ -826,13 +823,3 @@ func dimShort(d string) string {
 	}
 	return strings.TrimPrefix(d, "minecraft:")
 }
-
-
-
-
-
-
-
-
-
-

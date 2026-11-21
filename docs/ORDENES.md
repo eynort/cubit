@@ -21,9 +21,9 @@ Tirar al suelo todo lo que lleva, o un objeto (todo, o la cantidad que se diga: 
 
 ## /excavate
 
-`/excavate <x> <y> <z> <x2> <y2> <z2> [<exact>] | chunk <y1> <y2>`
+`/excavate <x> <y> <z> <x2> <y2> <z2> [<exact>] | chunk <y1> <y2> | chests [<x>] [<y>] [<z>]`
 
-Vaciar una caja de bloques entre dos esquinas (/excavate 10 70 10 30 50 30), de 4 en 4 bloques de alto: cada pasada de 4 en toda la caja antes de bajar a la siguiente (el terreno baja parejo); en cada pasada se pone en el fondo y pica los 4 de alto que alcanza alrededor, y sigue, y al acabarla recoge lo que cayó. Usa los picos que lleve, sin romper ninguno (si no le queda ninguno, lo pide por el chat); no usa cofres: cuando se llena tira la basura (tierra, piedra, grava…) y se queda lo valioso.
+Vaciar una caja de bloques entre dos esquinas (/excavate 10 70 10 30 50 30), de 4 en 4 bloques de alto: cada pasada de 4 en toda la caja antes de bajar a la siguiente (el terreno baja parejo); en cada pasada se pone en el fondo y pica los 4 de alto que alcanza alrededor, y sigue, y al acabarla recoge lo que cayó. Usa los picos que lleve, sin romper ninguno (si no le queda ninguno, lo pide por el chat). Cuando se llena tira la basura (tierra, piedra, grava…) y se queda lo valioso; si le das cofres (/excavate chests <x> <y> <z>), lo valioso lo lleva ahí.
 
 - `<x>`: una esquina (~ = donde está el bot)
 - `<y>`: una esquina (~ = donde está el bot)
@@ -36,6 +36,10 @@ Vaciar una caja de bloques entre dos esquinas (/excavate 10 70 10 30 50 30), de 
 - `chunk <y1> <y2>`: el chunk entero de 16×16 donde está el bot (o el del bloque x z), de y1 a y2: los bordes del chunk los calcula él
   - `<y1>`: desde esta altura
   - `<y2>`: hasta esta altura
+- `chests [<x>] [<y>] [<z>]`: dónde guarda /excavate (solo /excavate) lo valioso: <x> <y> <z> apunta un cofre (o barril, o caja de shulker; de uno doble vale cualquier mitad), list los enseña, remove <x> <y> <z> olvida uno, clear los olvida todos. Se recuerdan tras reiniciar. Al llenarse, primero tira la basura; si sigue lleno, va al cofre más cercano y guarda lo valioso (nunca sus herramientas, armadura, comida ni equipo de pelea), al siguiente si uno está lleno, y otra vez al acabar
+  - `<x>` (opcional): el cofre (~ = donde está el bot), o list / clear / remove
+  - `<y>` (opcional): el cofre (~ = donde está el bot), o list / clear / remove
+  - `<z>` (opcional): el cofre (~ = donde está el bot), o list / clear / remove
 
 ## /fight
 

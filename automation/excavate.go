@@ -286,6 +286,7 @@ func Excavate(box Box) func(j *Job) error {
 		}
 		e.collectPass(box.Min.Y, box.Max.Y) // lo que cayó en la limpieza final
 		// pare como pare (menos /stop): lo cavado, a guardar
+		e.final = true
 		if serr := e.stash(false); serr != nil {
 			j.Problem("guardar lo cavado: %v", serr)
 		}
@@ -340,6 +341,11 @@ type excavation struct {
 	approached int
 	// wasFast, toldMode: si la pasada anterior fue corriendo (y si ya se dijo), para decirlo al cambiar
 	wasFast, toldMode bool
+	// los cofres de /excavate (excavate_chests.go): llenos o que fallaron, y lo ya dicho
+	chestFull      map[world.BlockPos]bool
+	farTold        bool
+	chestsFullTold bool
+	final          bool // la última guardada, al acabar
 }
 
 // errMoved: next se movió (se apartó, o se acercó a la caja): mirar otra vez.
@@ -729,6 +735,10 @@ func (e *excavation) waitForPick() bool {
 // en el suelo.
 func (e *excavation) stash(restock bool) error {
 	j := e.j
+	if e.final { // al acabar: lo valioso, a los cofres (si hay)
+		e.deposit(true)
+		return nil
+	}
 	if j.FreeSlots() >= 3 {
 		return nil
 	}
@@ -758,7 +768,11 @@ func (e *excavation) stash(restock bool) error {
 		}
 		j.ignore = junk // (la basura ya no se recoge)
 	}
-	if j.FreeSlots() == 0 && !e.fullWarned {
+	// sin sitio todavía: lo valioso, a los cofres de /excavate (si se dieron)
+	if j.FreeSlots() < 3 && e.deposit(false) {
+		return nil
+	}
+	if j.FreeSlots() == 0 && !e.fullWarned && len(j.r.Store.ExcavateChestList()) == 0 {
 		e.fullWarned = true
 		j.say("Llevo el inventario lleno de cosas valiosas: sigo cavando, pero lo que cae se queda en el suelo. Ven a por ello cuando quieras.")
 	}

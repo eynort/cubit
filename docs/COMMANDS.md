@@ -21,9 +21,9 @@ Throw on the ground everything it carries, or one item (all of it, or the amount
 
 ## /excavate
 
-`/excavate <x> <y> <z> <x2> <y2> <z2> [<exact>] | chunk <y1> <y2>`
+`/excavate <x> <y> <z> <x2> <y2> <z2> [<exact>] | chunk <y1> <y2> | chests [<x>] [<y>] [<z>]`
 
-Dig out a whole box of blocks between two corners (/excavate 10 70 10 30 50 30), 4 blocks deep at a time: each 4-block pass through the whole box before going down to the next (the ground goes down evenly); in each pass it stands on the bottom and digs the 4 blocks high it reaches around it, then moves on, and picks up what fell when the pass is done. It uses the pickaxes it carries, never breaking one (with none left, it asks for one in chat); it uses no chests: when full it throws away the junk (dirt, stone, gravel…) and keeps what is valuable.
+Dig out a whole box of blocks between two corners (/excavate 10 70 10 30 50 30), 4 blocks deep at a time: each 4-block pass through the whole box before going down to the next (the ground goes down evenly); in each pass it stands on the bottom and digs the 4 blocks high it reaches around it, then moves on, and picks up what fell when the pass is done. It uses the pickaxes it carries, never breaking one (with none left, it asks for one in chat). When full it throws away the junk (dirt, stone, gravel…) and keeps what is valuable; with chests given (/excavate chests <x> <y> <z>), it takes the valuables there.
 
 - `<x>`: one corner (~ = where the bot is)
 - `<y>`: one corner (~ = where the bot is)
@@ -36,6 +36,10 @@ Dig out a whole box of blocks between two corners (/excavate 10 70 10 30 50 30),
 - `chunk <y1> <y2>`: the whole 16×16 chunk the bot is in (or the one with block x z), from y1 to y2: the chunk edges are worked out for you
   - `<y1>`: from this height
   - `<y2>`: to this height
+- `chests [<x>] [<y>] [<z>]`: where /excavate (only /excavate) keeps what is valuable: <x> <y> <z> adds a chest (or barrel, or shulker box; either half of a double chest), list shows them, remove <x> <y> <z> forgets one, clear forgets them all. Remembered across restarts. When full it first throws the junk; if still full, it walks to the nearest chest and stores the valuables (never its tools, armor, food or fighting gear), the next chest when one is full, and again when the excavation ends
+  - `<x>` (optional): the chest (~ = where the bot is), or list / clear / remove
+  - `<y>` (optional): the chest (~ = where the bot is), or list / clear / remove
+  - `<z>` (optional): the chest (~ = where the bot is), or list / clear / remove
 
 ## /fight
 

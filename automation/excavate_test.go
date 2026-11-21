@@ -582,3 +582,42 @@ func TestExcavateProtectedSkip(t *testing.T) {
 		}
 	})
 }
+
+// TestExcavateChests: con un cofre dado (/excavate chests) y el inventario
+// casi lleno de hierro en bruto: al llenarse va al cofre y lo guarda ahí
+// (el pico no); al acabar, el resto también.
+func TestExcavateChests(t *testing.T) {
+	simworld.Run(t, func(t *testing.T) {
+		g := simworld.Start(t, simworld.Options{Setup: []string{
+			"setblock -3 64 0 minecraft:chest[facing=north,type=single,waterlogged=false]",
+			"give Tester raw_iron 2112", "give Tester diamond_pickaxe 1",
+		}})
+		r, _ := safeRunner(t, g)
+		if _, err := r.Store.AddExcavateChest(world.BlockPos{X: -3, Y: 64, Z: 0}); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { r.Store.RemoveExcavateChest(nil) })
+		g.Step(5)
+		box := automation.NewBox(world.BlockPos{X: 3, Y: 63, Z: 3}, world.BlockPos{X: 6, Y: 61, Z: 6})
+		var err error
+		r.Start(context.Background(), "excavar", func(j *automation.Job) error {
+			err = automation.Excavate(box)(j)
+			return err
+		})
+		g.Until(1500*20, func() bool { return r.Status() == "" })
+		stored := g.ChestCount(-3, 64, 0, "minecraft:raw_iron")
+		t.Logf("error %v; en el cofre %d de hierro en bruto; lleva %d; pico %d", err, stored, g.Count("minecraft:raw_iron"), g.Count("minecraft:diamond_pickaxe"))
+		if err != nil {
+			t.Fatalf("excavar: %v", err)
+		}
+		if stored == 0 {
+			t.Error("no guardó nada en el cofre")
+		}
+		if g.Count("minecraft:diamond_pickaxe") != 1 || g.ChestCount(-3, 64, 0, "minecraft:diamond_pickaxe") > 0 {
+			t.Error("guardó (o perdió) el pico")
+		}
+		if g.ChestCount(-3, 64, 0, "minecraft:dirt") > 0 {
+			t.Error("guardó basura en el cofre")
+		}
+	})
+}

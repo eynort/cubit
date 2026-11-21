@@ -19,6 +19,8 @@ type Storage struct {
 	file   string
 	// Protected: sitios donde el servidor no deja romper ni poner
 	Protected []world.BlockPos `json:"protected,omitempty"`
+	// ExcavateChests: los cofres donde /excavate guarda lo valioso (excavate_chests.go)
+	ExcavateChests []world.BlockPos `json:"excavate_chests,omitempty"`
 }
 
 // protectRadius: lo que se evita alrededor de un sitio donde el servidor dijo que no.

@@ -21,6 +21,9 @@ func cmdExcavate(b *Bot, args []string) error {
 	if len(args) > 0 && strings.EqualFold(args[0], "chunk") {
 		return cmdExcavateChunk(b, args[1:])
 	}
+	if len(args) > 0 && strings.EqualFold(args[0], "chests") {
+		return cmdExcavateChests(b, args[1:])
+	}
 	exact := len(args) == 7 && strings.EqualFold(args[6], "exact")
 	if exact {
 		args = args[:6]
@@ -56,6 +59,9 @@ func startExcavate(b *Bot, box automation.Box) error {
 			"esa caja tiene %d bloques: demasiados (como mucho %d); revisa las coordenadas", n, automation.ExcavateMax)
 	}
 	where := "lo valioso me lo quedo y la basura la tiro"
+	if n := len(b.Tasks.Store.ExcavateChestList()); n > 0 {
+		where = fmt.Sprintf("la basura la tiro y lo valioso lo guardo en los cofres (%d)", n)
+	}
 	log.Printf("excavar %s (%d bloques como mucho): %s (/stop para parar)", box, box.Volume(), where)
 	b.startWork("excavar", automation.Excavate(box))
 	return nil
@@ -174,4 +180,86 @@ func snapToChunks(box automation.Box) (automation.Box, string) {
 	}
 	return fixed, fmt.Sprintf("ajusto la caja %s (%s): lo escrito se salía un bloque del chunk. Para cavar justo esas coordenadas, añade exact al final",
 		which, strings.Join(notes, ", "))
+}
+
+// cmdExcavateChests: /excavate chests [list | clear | <x> <y> <z> | remove <x> <y> <z>]
+// — los cofres donde /excavate guarda lo valioso.
+func cmdExcavateChests(b *Bot, args []string) error {
+	st := b.Tasks.Store
+	usage := func() error {
+		return errf("usage: /excavate chests [list | clear | <x> <y> <z> | remove <x> <y> <z>]",
+			"uso: /excavate chests [list | clear | <x> <y> <z> | remove <x> <y> <z>]")
+	}
+	action := "list"
+	if len(args) > 0 {
+		action = strings.ToLower(args[0])
+	}
+	pos := func(a []string) (world.BlockPos, error) {
+		if len(a) != 3 {
+			return world.BlockPos{}, usage()
+		}
+		p := b.Player.Position()
+		base := []float64{p.X, p.Y + 1e-6, p.Z}
+		var v [3]int
+		for i, s := range a {
+			n, err := coord(s, base[i])
+			if err != nil {
+				return world.BlockPos{}, err
+			}
+			v[i] = int(math.Floor(n))
+		}
+		return world.BlockPos{X: v[0], Y: v[1], Z: v[2]}, nil
+	}
+	switch action {
+	case "list":
+		l := st.ExcavateChestList()
+		if len(l) == 0 {
+			log.Print(tr("excavate chests: none (it throws the junk and keeps the valuables)", "cofres de excavate: ninguno (tira la basura y se queda lo valioso)"))
+			return nil
+		}
+		for _, c := range l {
+			what := tr("not loaded from here", "no está cargado desde aquí")
+			if s, ok := b.World.BlockAt(c); ok {
+				what = strings.TrimPrefix(world.StateString(s), "minecraft:")
+				if i := strings.IndexByte(what, '['); i >= 0 {
+					what = what[:i]
+				}
+			}
+			log.Printf(tr("excavate chest: %d %d %d (%s)", "cofre de excavate: %d %d %d (%s)"), c.X, c.Y, c.Z, what)
+		}
+		return nil
+	case "clear":
+		log.Printf(tr("excavate chests: forgot all (%d)", "cofres de excavate: los olvido todos (%d)"), st.RemoveExcavateChest(nil))
+		return nil
+	case "remove":
+		c, err := pos(args[1:])
+		if err != nil {
+			return err
+		}
+		if st.RemoveExcavateChest(&c) == 0 {
+			return errf("%d %d %d is not one of the excavate chests", "%d %d %d no es uno de los cofres de excavate", c.X, c.Y, c.Z)
+		}
+		log.Printf(tr("excavate chest forgotten: %d %d %d", "cofre de excavate olvidado: %d %d %d"), c.X, c.Y, c.Z)
+		return nil
+	}
+	c, err := pos(args)
+	if err != nil {
+		return err
+	}
+	// (si se ve desde aquí, que sea de verdad un cofre; si no está cargado, se apunta igual)
+	if s, ok := b.World.BlockAt(c); ok && !automation.IsContainer(world.StateString(s)) {
+		return errf("there is no chest at %d %d %d (there is %s)", "en %d %d %d no hay un cofre (hay %s)", c.X, c.Y, c.Z,
+			strings.TrimPrefix(world.StateString(s), "minecraft:"))
+	}
+	added, err := st.AddExcavateChest(c)
+	if err != nil {
+		return errf("%v", "%v", err)
+	}
+	n := len(st.ExcavateChestList())
+	if !added {
+		log.Printf(tr("that chest was already there (%d in all)", "ese cofre ya estaba (%d en total)"), n)
+		return nil
+	}
+	log.Printf(tr("excavate chest: %d %d %d (%d in all): /excavate keeps the valuables there", "cofre de excavate: %d %d %d (%d en total): /excavate guarda ahí lo valioso"), c.X, c.Y, c.Z, n)
+	return nil
 }
