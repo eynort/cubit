@@ -3,6 +3,7 @@ package web
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -18,7 +19,7 @@ func call(ok func(http.ResponseWriter, *http.Request) bool, mod func(*http.Reque
 }
 
 func TestKeyCheckBearerQueryCookie(t *testing.T) {
-	ok := KeyCheck("tok", "en", "es")
+	ok := KeyCheck("tok", "missing key: open the URL", "falta la clave: abre la URL")
 	if w := call(ok, func(r *http.Request) { r.Header.Set("Authorization", "Bearer tok") }); w.Code != 200 || len(w.Result().Cookies()) != 0 {
 		t.Fatalf("bearer: %d, cookies %v", w.Code, w.Result().Cookies())
 	}
@@ -28,11 +29,11 @@ func TestKeyCheckBearerQueryCookie(t *testing.T) {
 	if w := call(ok, func(r *http.Request) { r.AddCookie(&http.Cookie{Name: "mcbot", Value: "tok"}) }); w.Code != 200 {
 		t.Fatalf("cookie: %d", w.Code)
 	}
-	if w := call(ok, func(r *http.Request) { r.Header.Set("Authorization", "Bearer nope") }); w.Code != 401 {
-		t.Fatalf("mala: %d", w.Code)
+	if w := call(ok, func(r *http.Request) { r.Header.Set("Authorization", "Bearer nope") }); w.Code != 401 || !strings.HasPrefix(w.Body.String(), "wrong key: open the URL") {
+		t.Fatalf("mala: %d %q", w.Code, w.Body.String())
 	}
-	if w := call(ok, func(r *http.Request) {}); w.Code != 401 {
-		t.Fatalf("sin clave: %d", w.Code)
+	if w := call(ok, func(r *http.Request) {}); w.Code != 401 || !strings.HasPrefix(w.Body.String(), "missing key") {
+		t.Fatalf("sin clave: %d %q", w.Code, w.Body.String())
 	}
 }
 

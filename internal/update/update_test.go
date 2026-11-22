@@ -51,11 +51,11 @@ func TestCompare(t *testing.T) {
 }
 
 const releaseJSON = `{"tag_name":"v1.2.0","name":"Cubit 1.2.0","html_url":"https://github.com/eynort/cubit/releases/tag/v1.2.0","draft":false,"prerelease":false,
-"assets":[{"name":"cubit-v1.2.0-linux-amd64","browser_download_url":"http://x/a","size":3},{"name":"cubit_1.2.0_amd64.deb","browser_download_url":"http://x/d","size":3},{"name":"cubit-1.2.0.x86_64.rpm","browser_download_url":"http://x/r","size":3}]}`
+"assets":[{"name":"cubit-v1.2.0-linux-amd64","browser_download_url":"http://x/a","size":3},{"name":"cubit_1.2.0_amd64.deb","browser_download_url":"http://x/d","size":3},{"name":"cubit-1.2.0.x86_64.rpm","browser_download_url":"http://x/r","size":3},{"name":"SHA256SUMS","browser_download_url":"http://x/s","size":3},{"name":"SHA256SUMS.sig","browser_download_url":"http://x/g","size":3}]}`
 
 func TestParseRelease(t *testing.T) {
 	r, err := ParseRelease([]byte(releaseJSON))
-	if err != nil || r.Tag != "v1.2.0" || len(r.Assets) != 3 || r.Page == "" {
+	if err != nil || r.Tag != "v1.2.0" || len(r.Assets) != 5 || r.Page == "" {
 		t.Fatalf("%+v %v", r, err)
 	}
 	if _, ok := r.Asset("cubit-v1.2.0-linux-amd64"); !ok {
@@ -190,6 +190,11 @@ func TestPlanFor(t *testing.T) {
 	}
 	if p := PlanFor("rpm", true, rel); p.Kind != "command" || !strings.HasPrefix(p.Command, "sudo dnf install ./") || !strings.HasSuffix(p.Command, ".rpm") {
 		t.Errorf("rpm: %+v", p)
+	}
+	// v0.0.1 se publicó sin SHA256SUMS.sig: no ofrecer «Actualizar ahora» (Apply se negaría)
+	unsigned, _ := ParseRelease([]byte(`{"tag_name":"v0.0.1","assets":[{"name":"cubit-v0.0.1-linux-amd64","browser_download_url":"http://x/a"},{"name":"SHA256SUMS","browser_download_url":"http://x/s"}]}`))
+	if p := PlanFor("script", true, unsigned); p.Kind != "manual" {
+		t.Errorf("unsigned release: %+v", p)
 	}
 	if p := PlanFor("deb", true, nil); !strings.Contains(p.Command, ".deb") {
 		t.Errorf("deb without release: %+v", p)

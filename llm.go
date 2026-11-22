@@ -146,9 +146,9 @@ func llmSystem(botName, language, info string) string {
 	if language == "es" {
 		lang = "Spanish"
 	}
-	return fmt.Sprintf(`You are %s, a Minecraft bot playing with a friend (the owner). Talk like a friendly mate: short, warm, natural, no emojis, no markdown. Write "say" in %s, max 150 characters.
+	return fmt.Sprintf(`You are %s, a Minecraft bot playing with a friend (the owner). Talk like a friendly mate: short, warm, natural, no emojis, no markdown. Write "say" in the language the owner writes in (if unsure, %s), max 150 characters.
 Reply ONLY with JSON: {"say": text, "actions": [{"command": name, "args": [strings]}], "done": bool}.
-Use actions to do what the owner asks (max %d per reply); you will get their results and can continue. Set done=true when finished or when there is nothing to do. Long tasks run in the background: use the "wait" action before a step that needs them finished (e.g. mine, wait, goto the owner, drop). Never invent coordinates or results: use status/inventory. Politely refuse destructive or abusive requests, server commands, op and quitting (no actions, explain in say).
+Use actions to do what the owner asks (max %d per reply); you will get their results and can continue. "say" goes to the game chat: say what you will do at the start and the result at the end; leave it "" while you only check or wait. Set done=true when finished or when there is nothing to do. Long tasks run in the background: use the "wait" action before a step that needs them finished (e.g. "bring me 10 iron" = mine iron total 10, wait, inventory, drop raw_iron 10 me). Never invent coordinates or results: use status/inventory. Use stop only when the owner asks you to stop (it cancels what you are doing, a drop walk too). Politely refuse destructive or abusive requests, server commands, op and quitting (no actions, explain in say).
 Commands (command = name without /, args = its words in order; "me" = the owner):
 %s
 State: %s`, botName, lang, llmMaxActions, llmCommandList(), info)
@@ -159,7 +159,8 @@ State: %s`, botName, lang, llmMaxActions, llmCommandList(), info)
 // pasos. reply se llama con cada frase para el jugador. Devuelve la última.
 func llmRun(ctx context.Context, model llmModel, host llmHost, from, said, language string, reply func(string)) (string, error) {
 	msgs := append(llm.recall(from, time.Now()), llmMsg{Role: "user", Text: said})
-	var final string
+	var final, pending string
+	spoke := false
 	bad := 0
 	for step := 0; step < llmMaxSteps; step++ {
 		raw, err := model.Chat(ctx, llmSystem(botName, language, host.Info(from)), msgs)
@@ -174,11 +175,32 @@ func llmRun(ctx context.Context, model llmModel, host llmHost, from, said, langu
 			msgs = append(msgs, llmMsg{Role: "assistant", Text: raw}, llmMsg{Role: "user", Text: "That was not valid JSON. Reply only with the JSON object."})
 			continue
 		}
+		// acciones sin orden ({"command":""}, a veces de gemma4): ni se ejecutan ni se cuentan
+		kept := r.Actions[:0]
+		for _, a := range r.Actions {
+			if strings.TrimSpace(a.Command) != "" {
+				kept = append(kept, a)
+			}
+		}
+		r.Actions = kept
+		// al chat, solo lo primero (qué va a hacer) y lo último (cómo ha ido):
+		// los modelos pequeños narran cada paso ("voy a mirar el inventario…")
+		terminal := len(r.Actions) == 0 || r.Done
 		if t := strings.TrimSpace(r.Say); t != "" {
 			final = t
-			reply(t)
+			if terminal || !spoke {
+				reply(t)
+				spoke, pending = true, ""
+			} else {
+				pending = t // (si acaba sin decir nada, se dice esto)
+				log.Printf("[ia] (solo en el log) %s", t)
+			}
 		}
-		if len(r.Actions) == 0 || r.Done && len(r.Actions) == 0 {
+		if terminal && pending != "" {
+			reply(pending)
+			pending = ""
+		}
+		if len(r.Actions) == 0 {
 			llm.remember(from, said, final, time.Now())
 			return final, nil
 		}
@@ -198,6 +220,9 @@ func llmRun(ctx context.Context, model llmModel, host llmHost, from, said, langu
 		msgs = append(msgs, llmMsg{Role: "assistant", Text: raw}, llmMsg{Role: "user", Text: "Results:\n" + strings.Join(results, "\n")})
 	}
 	// se acabaron los pasos: lo que haya hecho ya está hecho
+	if pending != "" {
+		reply(pending)
+	}
 	if final == "" {
 		final = tr("I got a bit tangled up, I'll stop here", "me he liado un poco, lo dejo aquí")
 		reply(final)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -139,6 +140,30 @@ func TestLLMLoopRunsInOrder(t *testing.T) {
 	}
 	if !strings.Contains(m.systems[0], "/chop") || !strings.Contains(m.systems[0], "position 1 64 2") {
 		t.Errorf("el prompt no lleva órdenes y estado")
+	}
+}
+
+// Al chat solo va lo primero y lo último: lo de en medio ("miro el
+// inventario…", que gemma4 narra en cada paso) se queda en el log, salvo que
+// el final venga sin texto.
+func TestLLMChatOnlyFirstAndLast(t *testing.T) {
+	step := `{"say":"%s","actions":[{"command":"status","args":[]}],"done":false}`
+	for _, c := range []struct {
+		last string
+		want []string
+	}{
+		{`{"say":"done!","actions":[],"done":true}`, []string{"on it", "done!"}},
+		{`{"say":"","actions":[],"done":true}`, []string{"on it", "checking again"}},
+	} {
+		resetLLM()
+		m := &fakeModel{replies: []string{fmt.Sprintf(step, "on it"), fmt.Sprintf(step, "checking"), fmt.Sprintf(step, "checking again"), c.last}}
+		var said []string
+		if _, err := llmRun(context.Background(), m, &fakeHost{}, "Steve", "do it", "en", func(s string) { said = append(said, s) }); err != nil {
+			t.Fatal(err)
+		}
+		if strings.Join(said, "|") != strings.Join(c.want, "|") {
+			t.Errorf("said = %q, want %q", said, c.want)
+		}
 	}
 }
 

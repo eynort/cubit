@@ -58,8 +58,15 @@ func ParseWoods(s string) ([]string, error) {
 			continue
 		}
 		ok := false
-		for _, w := range WoodKinds {
-			ok = ok || w == k
+		for _, cand := range []string{k, strings.TrimSuffix(k, "s"), strings.TrimSuffix(k, "es")} { // (oaks, birches)
+			for _, w := range WoodKinds {
+				if w == cand {
+					k, ok = cand, true
+				}
+			}
+			if ok {
+				break
+			}
 		}
 		if !ok {
 			return nil, fmt.Errorf("unknown wood %q (try: %s)", k, strings.Join(WoodKinds, ", "))

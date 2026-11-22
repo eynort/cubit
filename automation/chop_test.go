@@ -297,6 +297,13 @@ func TestParseWoods(t *testing.T) {
 	if _, err := automation.ParseWoods("crimson,warped"); err != nil {
 		t.Fatal(err)
 	}
+	// en plural (como lo escribe la IA: "chop oaks")
+	if got, err := automation.ParseWoods("oaks,birches,acacias"); err != nil || len(got) != 3 || got[0] != "oak" || got[1] != "birch" || got[2] != "acacia" {
+		t.Fatalf("plurales: %v, %v", got, err)
+	}
+	if got, err := automation.ParseOres("irons,emeralds"); err != nil || len(got) != 2 || got[0].Key != "iron" || got[1].Key != "emerald" {
+		t.Fatalf("ores en plural: %v, %v", got, err)
+	}
 }
 
 // TestChopNoBlocks: sin bloques de construir, junta la tierra justa para la

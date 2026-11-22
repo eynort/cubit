@@ -57,10 +57,10 @@ func Writable(dir string) bool {
 func PlanFor(method string, writable bool, rel *Release) Plan {
 	switch method {
 	case "script", "zip", "":
-		if writable {
+		if writable && signed(rel) {
 			return Plan{Kind: "self"}
 		}
-		return Plan{Kind: "manual"}
+		return Plan{Kind: "manual"} // (sin firma, Apply se negaría: mejor la página de la versión)
 	case "deb":
 		name, url := pkgAsset(rel, ".deb", map[string]string{"amd64": "amd64", "arm64": "arm64", "arm": "armhf"})
 		return Plan{Kind: "command", Command: "sudo apt install ./" + name, File: url}
@@ -75,6 +75,17 @@ func PlanFor(method string, writable bool, rel *Release) Plan {
 		return Plan{Kind: "command", Command: "./up.sh update"}
 	}
 	return Plan{Kind: "manual"}
+}
+
+// signed: la release trae SHA256SUMS y su firma (sin ellas Apply no instala).
+// Sin release (nil) no se sabe todavía: se da por buena.
+func signed(rel *Release) bool {
+	if rel == nil {
+		return true
+	}
+	_, a := rel.Asset("SHA256SUMS")
+	_, b := rel.Asset("SHA256SUMS.sig")
+	return a && b
 }
 
 // pkgAsset: el paquete de esta arquitectura en la release (o un nombre por defecto).

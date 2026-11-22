@@ -12,7 +12,7 @@ import (
 	"cubit/internal/update"
 )
 
-const fakeRelease = `{"tag_name":"v2.0.0","html_url":"https://example.invalid/notes","assets":[]}`
+const fakeRelease = `{"tag_name":"v2.0.0","html_url":"https://example.invalid/notes","assets":[{"name":"SHA256SUMS","browser_download_url":"https://example.invalid/s"},{"name":"SHA256SUMS.sig","browser_download_url":"https://example.invalid/g"}]}`
 
 func TestUpdateRoutes(t *testing.T) {
 	t.Chdir(t.TempDir()) // (hub.json se guarda en la carpeta actual)
