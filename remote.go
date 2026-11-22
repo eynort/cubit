@@ -44,9 +44,9 @@ func (b *Bot) onWhisper(from, text string) {
 	}
 	line := remoteLine(text, from)
 	log.Printf("[orden de %s por /msg] %s", from, line)
-	reply := "ok: " + line
+	reply := tr("on it", "voy")
 	if err := asOrderFrom(from, func() error { return b.run(line) }); err != nil {
-		reply = "error: " + err.Error()
+		reply = tr("can't: ", "no puedo: ") + errText(err)
 		log.Print(err)
 	}
 	b.whisper(from, reply)

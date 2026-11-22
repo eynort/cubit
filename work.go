@@ -13,6 +13,7 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/world"
 
 	"cubit/automation"
+	"cubit/internal/i18n"
 )
 
 // El trabajo largo (talar, escombros, granja, camas) sobrevive a una muerte:
@@ -58,7 +59,8 @@ func asOrderFrom(who string, f func() error) error {
 
 // reportWork cuenta en el chat qué le pasa al trabajo: por privado a quien lo
 // mandó por /msg, o en el chat si vino de la consola (lo ve quien lo vigila).
-func (b *Bot) reportWork(text string) {
+func (b *Bot) reportWork(format string, args ...any) {
+	text := fmt.Sprintf(format, args...)
 	b.work.mu.Lock()
 	by := b.work.by
 	b.work.mu.Unlock()
@@ -86,13 +88,37 @@ func shortChat(text string, n int) string {
 	return text[:cut] + "…"
 }
 
+// taskNames: cómo se nombra cada tarea en el chat ("con lo de …").
+var taskNames = map[string]text{
+	"excavar": {"the digging", "excavar"},
+	"talar":   {"the chopping", "talar"},
+	"minar":   {"the mining", "minar"},
+	"recoger": {"picking stuff up", "recoger cosas"},
+}
+
+func taskName(name string) string {
+	if t, ok := taskNames[name]; ok {
+		return t.String()
+	}
+	return name
+}
+
+// errText: el texto de un error en el idioma del bot (los de i18n vienen en los dos).
+func errText(err error) string {
+	var e *i18n.Error
+	if errors.As(err, &e) {
+		return tr(e.EN, e.ES)
+	}
+	return err.Error()
+}
+
 // onTaskStall: el vigilante vio la tarea atascada (la reempieza, o la para).
 func (b *Bot) onTaskStall(name, status string, attempt int, gaveUp bool) {
 	if gaveUp {
-		b.reportWork(fmt.Sprintf("[%s] me he atascado otra vez en \"%s\": lo dejo", name, status))
+		b.reportWork(tr("still stuck with %s, I'm leaving it", "nada, sigo trabado con %s, lo dejo"), taskName(name))
 		return
 	}
-	b.reportWork(fmt.Sprintf("[%s] me he atascado en \"%s\": vuelvo a empezar (%d de 3)", name, status, attempt))
+	b.reportWork(tr("I got stuck with %s, trying again (%d/3)", "me trabé con %s, lo intento otra vez (%d/3)"), taskName(name), attempt)
 }
 
 // startWork empieza una tarea larga (apuntando dónde, para volver si muere).
@@ -116,7 +142,7 @@ func (b *Bot) startWork(name string, task func(*automation.Job) error) {
 func (b *Bot) onTaskEnd(name string, err error) {
 	// por qué paró, en el chat: si no, quien lo mandó no se entera
 	if err != nil && !errors.Is(err, context.Canceled) {
-		b.reportWork(fmt.Sprintf("[%s] paro: %v", name, err))
+		b.reportWork(tr("I stopped %s: %s", "dejo %s: %s"), taskName(name), errText(err))
 	}
 	b.work.mu.Lock()
 	if b.work.name == name && !b.work.resuming {

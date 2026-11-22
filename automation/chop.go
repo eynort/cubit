@@ -1,6 +1,7 @@
 package automation
 
 import (
+	"cubit/internal/i18n"
 	"fmt"
 	"math"
 	"sort"
@@ -184,8 +185,12 @@ func Chop(kinds []string, center world.BlockPos) func(j *Job) error {
 			}
 		}
 		if c.total(c.trees) == 0 {
-			return fmt.Errorf("no encontré árboles de %s a menos de %d bloques de %v (hojas naturales y chunks cargados)", strings.Join(kinds, ","), ChopRadius, center)
+			return i18n.Errorf("I can't see any %s trees within %d blocks of there", "no veo ningún árbol de %s a menos de %d bloques de ahí", strings.Join(kinds, ", "), ChopRadius)
 		}
+		// la zona está acabada: que se entere quien juega (si no, parece que se paró sin más)
+		j.sayf("done here, I chopped %d trees (%d logs). there's no more %s around, move me or tell me another spot",
+			"listo por aquí, talé %d árboles (%d troncos). ya no queda %s cerca, muéveme o dime otro sitio",
+			c.total(c.trees), c.total(c.logs), strings.Join(kinds, ", "))
 		return nil
 	}
 }

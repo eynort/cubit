@@ -184,7 +184,7 @@ func (b *Bot) askWhere(name string, uid uuid.UUID) {
 	travel.asked[strings.ToLower(name)] = uid
 	travel.Unlock()
 	log.Printf("goto: no sé dónde está %s; se lo pregunto por privado", name)
-	c := play.ChatCommand{Command: pk.String(fmt.Sprintf("msg %s ¿Dónde estás? Respóndeme con tus coordenadas: x z", name))}
+	c := play.ChatCommand{Command: pk.String(fmt.Sprintf("msg %s %s", name, tr("where are you? send me your coords (x z)", "¿dónde estás? pásame tus coords (x z)")))}
 	if err := b.Client.Conn.WritePacket(pk.Marshal(c.PacketID(), c)); err != nil {
 		log.Print("goto: ", err)
 	}

@@ -52,6 +52,8 @@ type Deps struct {
 	StorageFile string
 	// Say escribe en el chat del juego (nil: no escribe).
 	Say func(text string)
+	// Lang: el idioma del bot para lo que dice en el chat ("es" o "en"; nil: inglés).
+	Lang func() string
 	// BuildFile es dónde se guarda la construcción apuntada (/build).
 	BuildFile string
 	// Trace escribe en el log de la sesión (solo el archivo): la traza de una tarea atascada.

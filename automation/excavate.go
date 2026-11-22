@@ -310,8 +310,10 @@ func Excavate(box Box) func(j *Job) error {
 		}
 		if left == "" {
 			j.Logf("excavado %s: %d bloques", box, e.dug)
+			j.sayf("done digging, %d blocks out", "listo, terminé de excavar: %d bloques fuera", e.dug)
 		} else {
 			j.Logf("excavado %s: %d bloques; quedan sin cavar: %s", box, e.dug, left)
+			j.sayf("done digging (%d blocks), but I had to leave a few I couldn't reach", "terminé de excavar (%d bloques), pero dejé algunos a los que no llegaba", e.dug)
 		}
 		return nil
 	}
@@ -720,7 +722,7 @@ func (e *excavation) waitForPick() bool {
 	}
 	j.pickAsked = true
 	secs := int(pickWait / time.Second)
-	j.say(fmt.Sprintf("No tengo pico (o los que tengo están gastados). Tírame uno; te espero %d s.", secs))
+	j.sayf("I'm out of pickaxes, can you toss me one? I'll wait %d s", "me quedé sin pico, ¿me tiras uno? te espero %d s", secs)
 	for waited := 0; waited < secs; waited++ {
 		j.Status("esperando un pico (%d s de %d)", waited, secs)
 		if err := j.Rest(20); err != nil {
@@ -779,7 +781,7 @@ func (e *excavation) stash(restock bool) error {
 	}
 	if j.FreeSlots() == 0 && !e.fullWarned && len(j.r.Store.ExcavateChestList()) == 0 {
 		e.fullWarned = true
-		j.say("Llevo el inventario lleno de cosas valiosas: sigo cavando, pero lo que cae se queda en el suelo. Ven a por ello cuando quieras.")
+		j.sayf("my inventory is packed with good stuff. I'll keep digging, but drops stay on the ground, come grab them whenever", "llevo el inventario a tope de cosas buenas. sigo cavando, pero lo que caiga se queda en el suelo, pásate cuando puedas")
 	}
 	return nil
 }

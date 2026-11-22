@@ -48,8 +48,17 @@ func TestExcavateWaitsForPick(t *testing.T) {
 			}
 		}
 		t.Logf("pidió %v; mensajes %q; error %v; quedan %d", asked, said, err, left)
-		if !asked || len(said) != 1 || !strings.Contains(said[0], "pico") {
+		asks := 0
+		for _, s := range said {
+			if strings.Contains(s, "pickaxe") {
+				asks++
+			}
+		}
+		if !asked || asks != 1 {
 			t.Fatalf("tenía que pedir el pico una vez por el chat: %q", said)
+		}
+		if last := said[len(said)-1]; !strings.Contains(last, "done digging") {
+			t.Errorf("al acabar tenía que avisar por el chat: %q", said)
 		}
 		if err != nil {
 			t.Fatalf("con el pico tenía que seguir: %v", err)

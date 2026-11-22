@@ -321,6 +321,7 @@ func (b *Bot) setupModules() {
 				log.Printf("chat: %v", err)
 			}
 		},
+		Lang:    lang,
 		Trace:   func(format string, args ...any) { session.Trace(format, args...) },
 		OnEnd:   func(name string, err error) { go b.onTaskEnd(name, err) },
 		OnStall: b.onTaskStall,

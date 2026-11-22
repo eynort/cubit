@@ -155,6 +155,9 @@ func MineOres(cfg MineConfig) func(j *Job) error {
 				err = terr
 			}
 		}
+		if err == nil && j.Fatal() == nil {
+			j.sayf("done mining, everything I found is in the chest", "listo con la mina, lo que encontré está en el cofre")
+		}
 		return err
 	}
 }
@@ -1050,8 +1053,16 @@ func (m *oreMine) waitForPick() bool {
 	}
 	m.asked = true
 	secs := int(pickWait / time.Second)
-	j.say(fmt.Sprintf("No tengo pico para minar (hace falta uno de nivel %d o más con usos de sobra) y no hay en el cofre %v. Déjalos en el cofre o tírame uno; te espero %d s.",
-		m.need, m.cfg.Chest, secs))
+	tiers := [][2]string{{"wooden", "de madera"}, {"stone", "de piedra"}, {"iron", "de hierro"}, {"diamond", "de diamante"}, {"netherite", "de netherita"}}
+	tier := tiers[min(max(m.need, 0), len(tiers)-1)]
+	name := tier[0]
+	if j.r.d.Lang != nil && j.r.d.Lang() == "es" {
+		name = tier[1]
+	}
+	c := m.cfg.Chest
+	j.sayf("I'm out of pickaxes (I need a %s one or better) and the chest at %d %d %d is empty. leave me one there or toss it over, I'll wait %d s",
+		"me quedé sin pico (me hace falta uno %s o mejor) y en el cofre de %d %d %d no hay. déjame uno ahí o tíramelo, te espero %d s",
+		name, c.X, c.Y, c.Z, secs)
 	for waited := 0; waited < secs; waited++ {
 		j.Status("esperando un pico (%d s de %d)", waited, secs)
 		if err := j.Rest(20); err != nil {

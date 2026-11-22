@@ -52,7 +52,15 @@ func logsLeft(g *simworld.Game, x, z, x2, z2 int) int {
 }
 
 func runChop(t *testing.T, g *simworld.Game, kinds []string, center world.BlockPos) error {
+	_, err := runChopSaid(t, g, kinds, center)
+	return err
+}
+
+// runChopSaid: runChop, y lo que dijo por el chat.
+func runChopSaid(t *testing.T, g *simworld.Game, kinds []string, center world.BlockPos) ([]string, error) {
 	r := runner(t, g)
+	var said []string
+	r.SetSay(func(s string) { said = append(said, s) })
 	g.Step(5)
 	var err error
 	r.Start(context.Background(), "talar", func(j *automation.Job) error {
@@ -60,7 +68,7 @@ func runChop(t *testing.T, g *simworld.Game, kinds []string, center world.BlockP
 		return err
 	})
 	g.Until(300*20, func() bool { return r.Status() == "" })
-	return err
+	return said, err
 }
 
 // TestChopOak: un roble alto: tala todos los troncos (subiendo con bloques),
@@ -68,8 +76,11 @@ func runChop(t *testing.T, g *simworld.Game, kinds []string, center world.BlockP
 func TestChopOak(t *testing.T) {
 	simworld.Run(t, func(t *testing.T) {
 		g := simworld.Start(t, simworld.Options{Setup: append(treeOf("oak", 6, 0, 8), "give Tester dirt 16", "give Tester iron_axe 1")})
-		err := runChop(t, g, []string{"oak"}, world.BlockPos{X: 0, Y: 64, Z: 0})
+		said, err := runChopSaid(t, g, []string{"oak"}, world.BlockPos{X: 0, Y: 64, Z: 0})
 		p := g.B.Player.Position()
+		if len(said) == 0 || !strings.Contains(said[len(said)-1], "done here") {
+			t.Errorf("al acabar la zona tenía que avisar por el chat: %q", said)
+		}
 		t.Logf("error %v; el bot en %.1f %.1f %.1f; troncos %d", err, p.X, p.Y, p.Z, g.Count("minecraft:oak_log"))
 		if err != nil {
 			t.Fatal(err)

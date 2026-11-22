@@ -145,7 +145,7 @@ func (e *excavation) deposit(final bool) bool {
 	}
 	if len(j.toStore()) > 0 && !e.chestsFullTold && !final {
 		e.chestsFullTold = true
-		j.say("Los cofres de /excavate están llenos (o no llego a ellos): sigo cavando y tiro la basura; lo valioso que no quepa se queda en el suelo.")
+		j.sayf("the chests are full (or I can't reach them). I'll keep digging, but anything good that doesn't fit stays on the ground", "los cofres están llenos (o no llego). sigo cavando, pero lo bueno que no quepa se queda en el suelo")
 	}
 	return stored > 0
 }

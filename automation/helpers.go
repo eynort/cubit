@@ -3,6 +3,7 @@ package automation
 // Utilidades pequeñas que usan varias tareas (excavar, cavar, recoger).
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -116,6 +117,17 @@ func (j *Job) say(text string) {
 	if j.r.d.Say != nil {
 		j.r.d.Say(text)
 	}
+}
+
+// sayf lo dice en el chat en el idioma del bot. Los mensajes suenan a un
+// colega que juega contigo, no a una máquina: en minúsculas, cortos y sin
+// prefijos ni corchetes.
+func (j *Job) sayf(en, es string, args ...any) {
+	t := en
+	if j.r.d.Lang != nil && j.r.d.Lang() == "es" {
+		t = es
+	}
+	j.say(fmt.Sprintf(t, args...))
 }
 
 // NoteChat: llegó un mensaje de un jugador.
