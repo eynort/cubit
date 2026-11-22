@@ -1,14 +1,14 @@
 # Promo image sources
 
-The promotional images in `brand/promo/` (except the `panel-*.png` screenshots and
-`title-mc-style.png`) are HTML pages rendered to PNG with headless Chromium.
+The promotional images in `brand/promo/` (except `title-mc-style.png`) are HTML
+pages rendered to PNG with headless Chromium.
 
 | File | What it is |
 |---|---|
 | `gen.mjs` | Generator: texts (EN/ES), pixel icons, styles and layout. Edit this, not the HTML. |
 | `<name>.html`, `<name>-es.html` | Generated pages, one per image (committed so they can be opened directly). |
 | `list.txt` | `name width height scale` for each page (generated). |
-| `shots/` | Panel screenshots used inside `hero` and `social-preview`. |
+| `shots/` | Real panel screenshots (desktop 1440×900 @2x, phone 390×844 @3x, `-en`/`-es`) placed inside `hero`, `social-preview` and the three `panel-*` images. They were taken from a demo hub with headless Chromium; the bot/server data shown was filled in through the browser to show a fight, an inventory and a running test server. |
 | `render.sh` | Renders every page to `../<name>.png` at its exact size. |
 
 ## Render
@@ -23,8 +23,8 @@ node gen.mjs          # writes the .html pages and list.txt
 ```
 
 Each page is a CSS-pixel layout (1280 wide) captured with
-`--force-device-scale-factor` 1 or 2, so `hero`, `features`, `install` and
-`runs-on` come out at 2560 px wide, and `social-preview` and `banner-mc` at 1280.
+`--force-device-scale-factor` 1 or 2, so `hero`, `features`, `install`,
+`runs-on` and `panel-*` come out at 2560 px wide, and `social-preview` and `banner-mc` at 1280.
 The equivalent single command is:
 
 ```sh
