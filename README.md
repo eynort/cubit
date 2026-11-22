@@ -7,7 +7,7 @@
 <p align="center">
   <img alt="Minecraft Java 26.2, other versions via ViaProxy" src="https://img.shields.io/badge/Minecraft%20Java-26.2%20%2B%20ViaProxy-6b8f71?style=flat-square">
   <img alt="RAM per bot" src="https://img.shields.io/badge/RAM-~70%20MB%20per%20bot-4a5a6a?style=flat-square">
-  <img alt="Binary" src="https://img.shields.io/badge/binary-17%20MB-5a6470?style=flat-square">
+  <img alt="Binary" src="https://img.shields.io/badge/binary-~20%20MB-5a6470?style=flat-square">
   <img alt="Local AI" src="https://img.shields.io/badge/AI-local%20%26%20free-7a6a8a?style=flat-square">
   <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-8a7f6a?style=flat-square">
 </p>
@@ -20,7 +20,7 @@
 
 - **Ready to use, not a library.** Install it, open the panel, create a bot, give it a job. You never write a line of code.
 - **It does real work.** Expert PvP, whole-area excavation, legit strip mining, tree chopping and 24/7 AFK, all built in.
-- **Featherweight.** One 17 MB program with no Java, Node or runtime. About 70 MB of RAM per bot: ten bots fit in 0.7 GB.
+- **Featherweight.** One ~20 MB program with no Java, Node or runtime. About 70 MB of RAM per bot: ten bots fit in 0.7 GB.
 - **Talk to it in plain words.** An optional AI runs **on your own machine** (Ollama): free, no accounts, no API keys, nothing leaves your network.
 - **Yours, on your hardware.** Your accounts and your bots stay on your PC, a Raspberry Pi, a $5 VPS or an old Android phone. No subscription, no third-party servers.
 
@@ -28,7 +28,7 @@
 |---|---|
 | **~70 MB** | RAM per bot (75 MB at the peak of a PvP fight) |
 | **0.7 GB** | ten bots at the same time |
-| **17 MB** | one binary, with no Java, Node or runtime to install |
+| **~20 MB** | one binary, with no Java, Node or runtime to install |
 
 ## What it does
 

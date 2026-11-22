@@ -7,7 +7,7 @@
 <p align="center">
   <img alt="Minecraft Java 26.2, otras versiones con ViaProxy" src="https://img.shields.io/badge/Minecraft%20Java-26.2%20%2B%20ViaProxy-6b8f71?style=flat-square">
   <img alt="RAM por bot" src="https://img.shields.io/badge/RAM-~70%20MB%20por%20bot-4a5a6a?style=flat-square">
-  <img alt="Programa" src="https://img.shields.io/badge/programa-17%20MB-5a6470?style=flat-square">
+  <img alt="Programa" src="https://img.shields.io/badge/programa-~20%20MB-5a6470?style=flat-square">
   <img alt="IA local" src="https://img.shields.io/badge/IA-local%20y%20gratis-7a6a8a?style=flat-square">
   <img alt="Licencia MIT" src="https://img.shields.io/badge/licencia-MIT-8a7f6a?style=flat-square">
 </p>
@@ -20,7 +20,7 @@
 
 - **Listo para usar, no una librería.** Lo instalas, abres el panel, creas un bot y le das un trabajo. No escribes ni una línea de código.
 - **Trabaja de verdad.** PvP de experto, excavación de zonas enteras, minería en ramas sin trampas, tala de árboles y AFK 24/7, todo de serie.
-- **Ligerísimo.** Un solo programa de 17 MB, sin Java, Node ni nada que instalar. Unos 70 MB de RAM por bot: caben diez en 0,7 GB.
+- **Ligerísimo.** Un solo programa de ~20 MB, sin Java, Node ni nada que instalar. Unos 70 MB de RAM por bot: caben diez en 0,7 GB.
 - **Háblale con normalidad.** Una IA opcional que corre **en tu propia máquina** (Ollama): gratis, sin cuentas ni claves de API, y nada sale de tu red.
 - **Tuyo y en tu equipo.** Tus cuentas y tus bots se quedan en tu PC, una Raspberry Pi, un VPS de 5 $ o un Android viejo. Sin suscripciones ni servidores de terceros.
 
@@ -28,7 +28,7 @@
 |---|---|
 | **~70 MB** | de RAM por bot (75 MB en lo más fuerte de una pelea) |
 | **0,7 GB** | diez bots a la vez |
-| **17 MB** | un solo programa, sin Java, Node ni nada que instalar |
+| **~20 MB** | un solo programa, sin Java, Node ni nada que instalar |
 
 ## Qué hace
 

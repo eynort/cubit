@@ -46,7 +46,7 @@ Before: `7ab36a9` (main when this work started). After: this branch.
 | real overworld chunk in memory | 29.8 KB | 24.5 KB | −18 % |
 | one more bot in a shared process, live heap (`swarmbench`; before = before change 4 only) | 5.7 MB | 4.9 MB | −14 % |
 | idle CPU per bot | 0.3 % of a core | 0.3 % of a core | — |
-| binary (release flags, linux/amd64, uncompressed; the README says 17 MB) | 19.4 MB | 19.5 MB | — |
+| binary (release flags, linux/amd64, uncompressed) | 19.4 MB | 19.5 MB | — |
 
 The README's "~70 MB per bot" was measured on a real server (more entities, players, compressed
 traffic). It was **not re-measured** here, because the bots do not connect to real servers for
