@@ -16,7 +16,7 @@ jobs:
       - name: vet
         run: go vet ./...
       - name: test
-        run: go test -count=1 ./...
+        run: ./tools/ci-test.sh
       - name: docs up to date
         run: |
           go run . --gen-docs docs

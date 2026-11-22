@@ -19,7 +19,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: test
-        run: go test -count=1 ./...
+        run: ./tools/ci-test.sh
       - name: build
         run: |
           mkdir -p dist
