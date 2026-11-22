@@ -259,11 +259,14 @@ const TX={
      cmd:[['','App menu:  <b>Cubit</b>'],['','Terminal:  cubit --hub :8080 --open'],['','Panel:     http://localhost:8080/?t=…']]},
    {h:'Create your bot',p:'A wizard asks for name, server, owner and language, and can set up a test server for you.',
      cmd:[['','Name:       Sentry'],['','Server:     <em>Test server</em>'],['','Owner:      YourName'],['','Minecraft:  localhost:25565']]}],
-  runs_code:'Runs on',runs_h:'Small enough for anything',runs_p:'One 17 MB binary, no Java or Node. About 70 MB of RAM per bot.',
+  runs_code:'Runs on',runs_h:'Small enough for anything',runs_p:'One ~20 MB binary, no Java or Node. About 70 MB of RAM per bot.',
   plat:[['linux','Linux'],['mac','macOS'],['win','Windows'],['pi','Raspberry Pi'],['phone','Android · Termux'],['vps','Any VPS']],
   mcv:'Minecraft Java',mcx:'+ ViaProxy',proto:'protocol 776 · other versions',
   disclaimer:'Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.',
-  banner_s:'PvP · Mining · AFK 24/7 · Local AI · Web panel'},
+  banner_s:'PvP · Mining · AFK 24/7 · Local AI · Web panel',
+  pan:{bots:['MOD-P1 · Bots','All your bots, one panel','Each bot with its own head, live state, a console with autocomplete and one-key orders.'],
+   servers:['MOD-P2 · Servers','A test server, built in','Players, world and rules from the panel. External servers too, on other versions through ViaProxy.'],
+   wizard:['MOD-P3 · First run','Ready in five steps','Name, server, owner and language. The wizard does the rest.']}},
  es:{tag1:'Pelea.',tag2:'Mina.',tag3:'No se desconecta.',tag3s:'No se<br>desconecta.',sj:' ',kicker:'Bots de Minecraft que trabajan por ti',
   lead:'PvP de experto, minería, tala y AFK 24/7. IA local y gratis, un panel web para todos tus bots, ~70 MB de RAM cada uno.',
   specs:['~70 MB por bot','IA local','Sin programar'],three:['PvP','Minar','AFK 24/7','IA local'],
@@ -282,11 +285,14 @@ const TX={
      cmd:[['','Menú:      <b>Cubit</b>'],['','Terminal:  cubit --hub :8080 --open'],['','Panel:     http://localhost:8080/?t=…']]},
    {h:'Crea tu bot',p:'Un asistente te pide nombre, servidor, dueño e idioma, y puede montarte un servidor de pruebas.',
      cmd:[['','Nombre:     Sentry'],['','Servidor:   <em>Servidor de pruebas</em>'],['','Dueño:      TuNombre'],['','Minecraft:  localhost:25565']]}],
-  runs_code:'Dónde corre',runs_h:'Cabe en cualquier sitio',runs_p:'Un programa de 17 MB, sin Java ni Node. Unos 70 MB de RAM por bot.',
+  runs_code:'Dónde corre',runs_h:'Cabe en cualquier sitio',runs_p:'Un programa de ~20 MB, sin Java ni Node. Unos 70 MB de RAM por bot.',
   plat:[['linux','Linux'],['mac','macOS'],['win','Windows'],['pi','Raspberry Pi'],['phone','Android · Termux'],['vps','Cualquier VPS']],
   mcv:'Minecraft Java',mcx:'+ ViaProxy',proto:'protocolo 776 · otras versiones',
   disclaimer:'No es un producto oficial de Minecraft. Ni aprobado por Mojang o Microsoft ni asociado con ellos.',
-  banner_s:'PvP · Minería · AFK 24/7 · IA local · Panel web'},
+  banner_s:'PvP · Minería · AFK 24/7 · IA local · Panel web',
+  pan:{bots:['MOD-P1 · Bots','Todos tus bots, un panel','Cada bot con su cabeza, su estado en vivo, una consola con autocompletado y órdenes a una tecla.'],
+   servers:['MOD-P2 · Servidores','Servidor de pruebas incluido','Jugadores, mundo y reglas desde el panel. También servidores externos, de otras versiones con ViaProxy.'],
+   wizard:['MOD-P3 · Primer uso','Listo en cinco pasos','Nombre, servidor, dueño e idioma. El asistente hace el resto.']}},
 };
 
 // ---------- estilos ----------
@@ -440,6 +446,18 @@ for(const L of ['en','es']){const t=TX[L];const sfx=L=='en'?'':'-es';
   .pt{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;--c:14px}
   .fic{width:96px;height:96px;display:grid;place-items:center;background:#0c0d0f;box-shadow:inset 0 0 0 1px #25292f,inset 0 10px 24px rgba(0,0,0,.5);
    clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px)}`),1280,440,2]);
+ // ---------- capturas del panel (panel-bots, panel-servers, panel-wizard) 1280×800 @2x ----------
+ const phead=([c,h,p])=>`<div style="position:absolute;left:64px;top:52px;right:64px;display:flex;align-items:flex-end;gap:32px"><div><div class="code"><b>■</b> ${c}</div><h2 class="h" style="font-size:40px;margin-top:12px">${h}</h2><p class="p" style="margin-top:10px;font-size:15px">${p}</p></div><span class="ticks" style="margin-bottom:8px"></span>${lockup(40,18)}</div>`;
+ const AR=900/1440;
+ list.push([page('panel-bots'+sfx,1280,800,`<div class="floor" style="--fh:34%"></div>${marks}${phead(t.pan.bots)}
+  ${win(shot('list'),{x:58,y:206,w:700,ar:AR,clip:296,code:'MOD-P1',reflect:false})}
+  ${win(shot('bot'),{x:470,y:262,w:744,ar:AR,code:'MOD-01',z:2})}`),1280,800,2]);
+ list.push([page('panel-servers'+sfx,1280,800,`<div class="floor" style="--fh:34%"></div>${marks}${phead(t.pan.servers)}
+  ${win(shot('server'),{x:58,y:206,w:744,ar:AR,code:'MOD-S1',reflect:false})}
+  ${win(shot('servers'),{x:470,y:392,w:744,ar:AR,clip:276,code:'MOD-P2',z:2})}`),1280,800,2]);
+ list.push([page('panel-wizard'+sfx,1280,800,`<div class="floor" style="--fh:34%"></div>${marks}${phead(t.pan.wizard)}
+  ${win(shot('wizard'),{x:58,y:206,w:820,ar:AR,code:'MOD-W1'})}
+  ${phone(shot('wizard-mob'),{x:1000,y:262,w:200,ar:844/390})}`),1280,800,2]);
  // ---------- banner con el título de estilo Minecraft (secundaria) ----------
  list.push([page('banner-mc'+sfx,1280,400,`<div class="floor" style="--fh:52%"></div>${marks}
   <img src="../title-mc-style.png" alt="" style="position:absolute;left:64px;top:72px;width:620px;filter:drop-shadow(0 18px 24px rgba(0,0,0,.55))" class="reflect">

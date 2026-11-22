@@ -3,10 +3,16 @@ hero 1280 600 2
 features 1280 700 2
 install 1280 700 2
 runs-on 1280 440 2
+panel-bots 1280 800 2
+panel-servers 1280 800 2
+panel-wizard 1280 800 2
 banner-mc 1280 400 1
 social-preview-es 1280 640 1
 hero-es 1280 600 2
 features-es 1280 700 2
 install-es 1280 700 2
 runs-on-es 1280 440 2
+panel-bots-es 1280 800 2
+panel-servers-es 1280 800 2
+panel-wizard-es 1280 800 2
 banner-mc-es 1280 400 1
