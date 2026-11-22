@@ -68,20 +68,24 @@ const (
 	maxDrop    = 3    // blocks fallen without harm
 )
 
-// boxes returns the collision boxes of a cell in world coordinates.
-func (g *Graph) boxes(p world.BlockPos) ([]block.AABB, bool) {
+// boxes returns the collision boxes of a cell in world coordinates, appended
+// to buf. The callers pass make([]block.AABB, 0, boxesCap): a buffer on their
+// stack (it does not escape), so a search that looks at thousands of cells
+// allocates nothing for them; only a shape of more boxes than that grows it.
+func (g *Graph) boxes(p world.BlockPos, buf []block.AABB) ([]block.AABB, bool) {
 	s, ok := g.World.BlockAt(p)
 	if !ok {
 		return nil, false
 	}
-	shape := block.CollisionShape(s)
-	out := make([]block.AABB, len(shape))
-	for i, b := range shape {
-		out[i] = block.AABB{MinX: b.MinX + float64(p.X), MinY: b.MinY + float64(p.Y), MinZ: b.MinZ + float64(p.Z),
-			MaxX: b.MaxX + float64(p.X), MaxY: b.MaxY + float64(p.Y), MaxZ: b.MaxZ + float64(p.Z)}
+	for _, b := range block.CollisionShape(s) {
+		buf = append(buf, block.AABB{MinX: b.MinX + float64(p.X), MinY: b.MinY + float64(p.Y), MinZ: b.MinZ + float64(p.Z),
+			MaxX: b.MaxX + float64(p.X), MaxY: b.MaxY + float64(p.Y), MaxZ: b.MaxZ + float64(p.Z)})
 	}
-	return out, true
+	return buf, true
 }
+
+// boxesCap: room for the boxes of most shapes (a full block 1, stairs 2-3).
+const boxesCap = 4
 
 func (g *Graph) state(p world.BlockPos) block.StateID {
 	s, _ := g.World.BlockAt(p)
@@ -112,13 +116,13 @@ func (g *Graph) streamOverDrop(p world.BlockPos) bool {
 		}
 		for _, d := range [4][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
 			q := world.BlockPos{X: c.X + d[0], Y: c.Y, Z: c.Z + d[1]}
-			if bs, ok := g.boxes(q); !ok || len(bs) > 0 || g.water(q) {
+			if bs, ok := g.boxes(q, make([]block.AABB, 0, boxesCap)); !ok || len(bs) > 0 || g.water(q) {
 				continue // a wall, water on, or not loaded: not carried over
 			}
 			drop := true
 			for k := 1; k <= 3 && drop; k++ {
 				u := world.BlockPos{X: q.X, Y: q.Y - k, Z: q.Z}
-				if bs, ok := g.boxes(u); !ok || len(bs) > 0 || g.water(u) {
+				if bs, ok := g.boxes(u, make([]block.AABB, 0, boxesCap)); !ok || len(bs) > 0 || g.water(u) {
 					drop = false
 				}
 			}
@@ -161,7 +165,7 @@ func (g *Graph) overVine(p world.BlockPos) bool {
 	if !g.climbable(below) {
 		return false
 	}
-	bs, ok := g.boxes(below)
+	bs, ok := g.boxes(below, make([]block.AABB, 0, boxesCap))
 	return ok && len(bs) == 0
 }
 
@@ -178,7 +182,7 @@ func (g *Graph) afloat(p world.BlockPos) bool {
 	if !g.water(below) {
 		return false
 	}
-	bs, ok := g.boxes(below)
+	bs, ok := g.boxes(below, make([]block.AABB, 0, boxesCap))
 	if !ok {
 		return false
 	}
@@ -196,7 +200,7 @@ func (g *Graph) clear(x, z int, y0, y1 float64) bool {
 	box := block.AABB{MinX: float64(x) + 0.5 - halfWidth, MinY: y0, MinZ: float64(z) + 0.5 - halfWidth,
 		MaxX: float64(x) + 0.5 + halfWidth, MaxY: y1, MaxZ: float64(z) + 0.5 + halfWidth}
 	for y := int(math.Floor(y0)); y <= int(math.Floor(y1-1e-9)); y++ {
-		bs, ok := g.boxes(world.BlockPos{X: x, Y: y, Z: z})
+		bs, ok := g.boxes(world.BlockPos{X: x, Y: y, Z: z}, make([]block.AABB, 0, boxesCap))
 		if !ok || g.lava(world.BlockPos{X: x, Y: y, Z: z}) { // lava has no box, but is no room
 			return false
 		}
@@ -221,7 +225,7 @@ func (g *Graph) sweeps(a, b world.BlockPos, y0, y1 float64) bool {
 	}
 	for _, c := range [2]world.BlockPos{a, b} {
 		for y := int(math.Floor(y0)); y <= int(math.Floor(y1-1e-9)); y++ {
-			bs, ok := g.boxes(world.BlockPos{X: c.X, Y: y, Z: c.Z})
+			bs, ok := g.boxes(world.BlockPos{X: c.X, Y: y, Z: c.Z}, make([]block.AABB, 0, boxesCap))
 			if !ok {
 				return false
 			}
@@ -239,7 +243,7 @@ func (g *Graph) sweeps(a, b world.BlockPos, y0, y1 float64) bool {
 // whether it can be there at all: on what is below, on a low block in the
 // cell itself (a slab), on a ladder, in water.
 func (g *Graph) floor(p world.BlockPos) (float64, bool) {
-	cell, ok := g.boxes(p)
+	cell, ok := g.boxes(p, make([]block.AABB, 0, boxesCap))
 	if !ok || g.dangerous(p) || g.lava(world.BlockPos{X: p.X, Y: p.Y + 1, Z: p.Z}) {
 		return 0, false // lava at the feet, or at the head (pouring down from above)
 	}
@@ -268,7 +272,7 @@ func (g *Graph) floor(p world.BlockPos) (float64, bool) {
 		f = float64(p.Y) + top
 	default:
 		below := world.BlockPos{X: p.X, Y: p.Y - 1, Z: p.Z}
-		bs, ok := g.boxes(below)
+		bs, ok := g.boxes(below, make([]block.AABB, 0, boxesCap))
 		if !ok || g.dangerous(below) {
 			return 0, false
 		}
