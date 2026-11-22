@@ -16,3 +16,10 @@ func SetPickWait(d time.Duration) func() {
 
 // SetSay cambia cómo escribe en el chat.
 func (r *Runner) SetSay(f func(string)) { r.d.Say = f }
+
+// SetAfkTimes cambia cada cuántos ticks hace un gesto el afk (devuelve cómo dejarlo).
+func SetAfkTimes(min, max int) func() {
+	old := afkIdleTicks
+	afkIdleTicks = [2]int{min, max}
+	return func() { afkIdleTicks = old }
+}

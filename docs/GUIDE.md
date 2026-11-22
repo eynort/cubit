@@ -92,6 +92,7 @@ The full list is in [COMMANDS.md](COMMANDS.md). `/help` in the console shows it 
 ## 4. Good to know
 
 - **Owners**: only the owners may give orders in game. Set them with `--owner A,B`, or in the bot's settings in the panel.
+- **Server login (AuthMe / nLogin)**: if the server asks for `/login` or `/register`, put the password in the bot's settings in the panel ("Server login password"); the bot answers by itself, in English or Spanish prompts. It is saved only in `bot.json` and never shown again or written to the log.
 - **Premium servers**: add `--microsoft`. The first time it shows a code to sign in with your Microsoft account.
 - **Memory**: about 70 MB per bot. `--view` (view distance in chunks) and `--memlimit` (in MB) lower it for phones.
 - **Version**: Minecraft Java **26.2** (protocol 776), and other versions through ViaProxy (see section 5). Vanilla servers only: it uses no plugin commands.

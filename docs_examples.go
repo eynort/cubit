@@ -40,6 +40,12 @@ var commandExamples = map[string][]example{
 		{"/chop dark_oak,pale_oak ~ ~ ~", text{"big 2×2 trees too", "también los árboles grandes de 2×2"}},
 		{"/chop crimson,warped ~ ~ ~", text{"Nether stems", "tallos del Nether"}},
 	},
+	"afk": {
+		{"/afk", text{"stay where it stands, until /stop", "quedarse donde está, hasta /stop"}},
+		{"/afk here", text{"the same", "lo mismo"}},
+		{"/afk 120 64 -340", text{"walk to that block and stay there", "ir a ese bloque y quedarse"}},
+		{"/afk ~ ~ ~", text{"the block it stands on now", "el bloque donde está ahora"}},
+	},
 	"inventory": {
 		{"/inventory", text{}},
 		{"/inventory grid", text{"laid out like the game screen", "como en la pantalla del juego"}},

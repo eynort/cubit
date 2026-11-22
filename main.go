@@ -70,6 +70,8 @@ type Bot struct {
 	lastDeath atomic.Pointer[deathSpot] // dónde murió llevando cosas (para volver a recogerlas)
 	lastCarry atomic.Int64              // la última vez (UnixNano) que llevaba algo en el inventario
 	work      workState                 // el trabajo largo en curso (para retomarlo tras morir)
+	weather   worldState                // la hora y las tormentas (/afk: cuándo dormir)
+	login     loginState                // el inicio de sesión del servidor (autologin.go)
 
 	noRetry atomic.Bool // no volver a entrar (el login falló)
 	resume  *carryOver  // lo que había que retomar de la conexión anterior (reconnect.go)
@@ -176,6 +178,7 @@ func run(ctx context.Context, quit func(), prev *Bot) (b *Bot, again bool, err e
 	b.watchPlayers()
 	b.watchSeen()
 	b.watchThrown() // recoger lo que le tiran (y ponérselo, si es equipo mejor)
+	b.setupAfk()    // la hora y el tiempo (dormir)
 	b.inherit(prev) // la cola y el trabajo de la conexión anterior
 	current.Store(b)
 

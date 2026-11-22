@@ -120,9 +120,11 @@ var botWord = regexp.MustCompile(`\bbot\b`)
 // onSystemChat recibe los mensajes del sistema (entradas, salidas, comandos...).
 func (b *Bot) onSystemChat(m chat.Message, overlay bool) error {
 	if overlay { // overlay = texto encima de la hotbar
+		b.checkLoginPrompt(m.ClearString()) // (algunos plugins piden el login ahí)
 		return nil
 	}
 	text := m.ClearString()
+	b.checkLoginPrompt(text)
 	log.Print("[sistema] ", text)
 	return nil
 }
