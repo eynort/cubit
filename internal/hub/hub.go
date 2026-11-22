@@ -303,6 +303,9 @@ func (h *hub) spawn(b *hubBot) error {
 	cmd := exec.Command(exe, args...)
 	cmd.Dir = filepath.Join(botsDir, b.id)
 	cmd.Env = append(os.Environ(), "MCBOT_PANEL_TOKEN="+h.cfg.Token)
+	if va := h.viaFor(h.info(b.id).Server); va != "" {
+		cmd.Env = append(cmd.Env, "MCBOT_VIAPROXY="+va) // (servidores de otra versión)
+	}
 	cmd.Stdin = nil
 	ownGroup(cmd) // (Ctrl-C en la terminal es para el hub: él los para en orden)
 	out, _ := cmd.StdoutPipe()

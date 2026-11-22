@@ -3,7 +3,7 @@
 <h3 align="center">Un bot de Minecraft que pelea, excava y se mueve.<br>Ligerísimo: <b>~70 MB de RAM por bot</b>.</h3>
 
 <p align="center">
-  <img alt="Minecraft Java 26.2" src="https://img.shields.io/badge/Minecraft%20Java-26.2-6b8f71?style=flat-square">
+  <img alt="Minecraft Java 26.2, other versions via ViaProxy" src="https://img.shields.io/badge/Minecraft%20Java-26.2%20%2B%20ViaProxy-6b8f71?style=flat-square">
   <img alt="RAM por bot" src="https://img.shields.io/badge/RAM-~70%20MB%20por%20bot-4a5a6a?style=flat-square">
   <img alt="Programa" src="https://img.shields.io/badge/programa-17%20MB-5a6470?style=flat-square">
   <img alt="Licencia MIT" src="https://img.shields.io/badge/licencia-MIT-8a7f6a?style=flat-square">
@@ -55,6 +55,8 @@ Al terminar, te escribe el enlace de tu panel:
 3. **Juega con él**: en **Minecraft Java 26.2**, ve a *Multijugador → Conexión directa* y pon `localhost:25565`.
 
 También puedes usar el programa suelto, sin Docker: descárgalo en [Releases](../../releases). Todo lo demás está en la **[Guía](docs/GUIA.md)**: cómo controlar el bot, el panel, los servidores y los móviles.
+
+El bot habla Minecraft Java 26.2; en servidores de **otras versiones** entra solo a través de [ViaProxy](docs/GUIA.md#5-otras-versiones-de-minecraft).
 
 ## Instrucciones para usar el bot
 

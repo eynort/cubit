@@ -95,6 +95,7 @@ func main() {
 		return
 	}
 	if *hubFlag != "" {
+		hub.ViaProxy = *viaFlag
 		hub.Run(*hubFlag, hub.Options{DefaultOwner: *ownerFlag}) // (el panel para varios bots; no vuelve hasta Ctrl-C)
 		return
 	}
@@ -144,6 +145,14 @@ func run(ctx context.Context, quit func(), prev *Bot) (b *Bot, again bool, err e
 	conn, cancel := context.WithCancel(ctx) // lo de esta conexión acaba con ella
 	defer cancel()
 	b = &Bot{Client: bot.NewClient(), ctx: conn, quit: quit}
+	addr := serverAddr
+	if a := os.Getenv("MCBOT_ADDR"); a != "" {
+		addr = a // otro servidor (de pruebas: go run ./tools/fakesrv)
+	}
+	joinAddr, joinOpts, err := route(ctx, addr) // (otra versión: por ViaProxy)
+	if err != nil {
+		return b, false, err // (otra versión y sin ViaProxy: repetir no sirve)
+	}
 	if err := b.setAuth(ctx); err != nil {
 		return b, false, err
 	}
@@ -170,12 +179,8 @@ func run(ctx context.Context, quit func(), prev *Bot) (b *Bot, again bool, err e
 	b.inherit(prev) // la cola y el trabajo de la conexión anterior
 	current.Store(b)
 
-	addr := serverAddr
-	if a := os.Getenv("MCBOT_ADDR"); a != "" {
-		addr = a // otro servidor (de pruebas: go run ./tools/fakesrv)
-	}
 	log.Printf("conectando a %s como %s", addr, b.Client.Auth.Name)
-	if err := b.Client.JoinServer(addr); err != nil {
+	if err := b.Client.JoinServerWithOptions(joinAddr, joinOpts); err != nil {
 		return b, true, fmt.Errorf("no se pudo entrar: %w", err)
 	}
 	defer b.Client.Close()

@@ -35,6 +35,23 @@ services:
     volumes: ["./mc-data:/data"]
     restart: unless-stopped
 
+  # ViaProxy: para que los bots entren en servidores de otras versiones de
+  # Minecraft (opcional: COMPOSE_PROFILES=viaproxy en .env, o
+  # COMPOSE_PROFILES=local,viaproxy). Solo es visible desde la red de Docker.
+  # Ver docs/GUIA.md, "Otras versiones de Minecraft".
+  viaproxy:
+    build:
+      context: .
+      dockerfile: Dockerfile.viaproxy
+    image: cubit-viaproxy
+    profiles: ["viaproxy"]
+    environment:
+      VIAPROXY_AUTH: "${VIAPROXY_AUTH:-none}" # account: servidores premium (cuenta de ViaProxy)
+    volumes: ["./viaproxy-data:/app/run"] # (viaproxy.yml y la cuenta añadida)
+    stdin_open: true # (la consola de ViaProxy: account add microsoft)
+    tty: true
+    restart: unless-stopped
+
   # el hub: el panel siempre encendido y los bots (cada uno un proceso, en
   # bot-data/bots/<id>/); se crean, arrancan y paran desde el panel
   bot:
@@ -51,6 +68,7 @@ services:
       MCBOT_RCON_PASSWORD: "${RCON_PASSWORD:-cubit}"
       MCBOT_SERVER_DIR: /server
       MCBOT_TEST_SERVER: minecraft # (el servidor de pruebas, visto desde el bot)
+      MCBOT_VIAPROXY: "${VIAPROXY_ADDR:-viaproxy:25568}" # (para servidores de otra versión; sin el perfil viaproxy no hay nadie ahí y el panel avisa)
       MCBOT_TEST_PORT: "${MC_PORT:-25565}" # (y desde tu equipo: para decirte cómo entrar)
     command:
       - --hub=:8080
