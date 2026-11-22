@@ -1,11 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" role="img" aria-label="Cubit">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Cubit">
  <title>Cubit</title>
- <path d="M3.5 0H16V12.5L12.5 16H0V3.5Z" fill="#17191d"/>
- <path d="M1 4 4 1H15L12 4Z" fill="#f4f4f1"/>
- <path d="M1 4H12V15H1Z" fill="#cfd0cc"/>
- <path d="M12 4 15 1V12L12 15Z" fill="#83847f"/>
- <path d="M1 7H12V10H1Z" fill="#131417"/>
- <path d="M12 7 15 4V7L12 10Z" fill="#0a0b0d"/>
- <path d="M3 8h2v1H3zM8 8h2v1H8z" fill="#a8cfae"/>
- <path d="M1 12H12V15H1Z" fill="#b6b7b3"/>
+ <defs>
+  <linearGradient id="ft" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b2f35"/><stop offset="1" stop-color="#101215"/></linearGradient>
+  <linearGradient id="fg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9ccaa4"/><stop offset="1" stop-color="#4c7d56"/></linearGradient>
+  <linearGradient id="ffr" gradientUnits="userSpaceOnUse" x1="0" y1="12" x2="0" y2="24"><stop offset="0" stop-color="#e3e4e0"/><stop offset="1" stop-color="#b4b5b1"/></linearGradient>
+  <linearGradient id="fsd" gradientUnits="userSpaceOnUse" x1="0" y1="8" x2="0" y2="24"><stop offset="0" stop-color="#9a9b97"/><stop offset="1" stop-color="#686965"/></linearGradient>
+  <clipPath id="fc"><path d="M8 13Q8 12 8.71 11.29L11.29 8.71Q12 8 13 8L23 8Q24 8 24 9L24 19Q24 20 23.29 20.71L20.71 23.29Q20 24 19 24L9 24Q8 24 8 23Z"/></clipPath>
+ </defs>
+ <rect width="32" height="32" rx="7" fill="url(#ft)"/>
+ <circle cx="16" cy="16" r="15" fill="#f4f4f1"/>
+ <circle cx="16" cy="16" r="13.5" fill="url(#fg)"/>
+ <g clip-path="url(#fc)">
+  <path d="M8 12 12 8H24L20 12Z" fill="#fff"/>
+  <path d="M8 12H20V24H8Z" fill="url(#ffr)"/>
+  <path d="M20 12 24 8V20L20 24Z" fill="url(#fsd)"/>
+  <path d="M8 14H20V20H8Z" fill="#17191c"/>
+  <path d="M20 14 24 10V16L20 20Z" fill="#0b0c0e"/>
+  <path d="M10 16H12V18H10ZM16 16H18V18H16Z" fill="#b8e3c0"/>
+ </g>
 </svg>

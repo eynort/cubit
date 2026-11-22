@@ -8,14 +8,20 @@ const OUT=P;
 const BRAND=P+'../../';
 
 // ---------- marca ----------
-const WORD='M0 1L1 0H6V2H2V10H6V11L5 12H0ZM9 1L10 0H11V10H13V0H15V11L14 12H9ZM18 1L19 0H24V5H23V7H24V11L23 12H18ZM20 2V5H22V2ZM20 7V10H22V7ZM27 1L28 0H29V11L28 12H27ZM32 1L33 0H38V2H36V11L35 12H34V2H32Z';
-const symbol=fs.readFileSync(BRAND+'symbol.svg','utf8').replace(/<\?xml[^>]*>/,'').replace(/<title>.*?<\/title>/,'');
+// La insignia (brand/symbol.svg) y «Cubit» en trazados (brand/src/wordmark.json, Fredoka 600).
+const WM=JSON.parse(fs.readFileSync(BRAND+'src/wordmark.json','utf8')).name;
+const symbol=fs.readFileSync(BRAND+'symbol.svg','utf8').replace(/<\?xml[^>]*>/,'').replace(/\s*<title>.*?<\/title>/,'');
+const SYM_IN=32/856;          // aire entre el borde del símbolo y el aro, en fracción del tamaño
 let symN=0;
-const cube=(px)=>{symN++;return symbol.replace('<svg ',`<svg width="${px}" height="${px}" class="cube" aria-hidden="true" `).replace(/id="s(f|r)"/g,`id="s$1${symN}"`).replace(/url\(#s(f|r)\)/g,`url(#s$1${symN})`)};
-// nombre a escala entera + regla (como en el asistente del panel)
-const word=(s,ruler=true)=>{const ticks=[];for(let x=0;x<=34;x+=3)ticks.push(x%15==0?`M${x} 18h.5v4h-.5Z`:`M${x} 19.5h.5v2.5h-.5Z`);
- const h=ruler?22:12;return `<svg class="wm" width="${38*s}" height="${h*s}" viewBox="0 0 38 ${h}" aria-hidden="true"><path fill="#ecebe6" fill-rule="evenodd" d="${WORD}"/>${ruler?`<path fill="#878a8f" fill-opacity=".6" d="M0 21.5H38V22H0Z${ticks.join('')}"/><path fill="#a8cfae" d="M36 18h2v2h-2z"/>`:''}</svg>`};
-const lockup=(c,s,ruler=true)=>`<div class="lockup">${cube(c)}${word(s,ruler)}</div>`;
+// cada copia lleva sus propios id para que no choquen en la misma página
+const cube=(px)=>{symN++;const k='_'+symN;return symbol.replace(/ width="\d+" height="\d+"/,'').replace('<svg ',`<svg width="${px}" height="${px}" class="cube" aria-hidden="true" `)
+ .replace(/id="([^"]+)"/g,`id="$1${k}"`).replace(/url\(#([^)]+)\)/g,`url(#$1${k})`)};
+// «Cubit» en una caja de h px de alto, con la mayúscula (cap px) centrada en vertical
+const word=(h,cap)=>{const s=cap/WM.capHeight,w=Math.ceil((WM.bbox[2]-WM.bbox[0])*s);
+ const vb=[WM.bbox[0],-(h/2+cap/2)/s,w/s,h/s].map(v=>+v.toFixed(2)).join(' ');
+ return `<svg class="wm" width="${w}" height="${h}" viewBox="${vb}" aria-hidden="true"><path fill="#ecebe6" d="${WM.d}"/></svg>`};
+// insignia + nombre; la tinta del aro queda alineada con el borde de la columna
+const lockup=(c,cap,gap=Math.round(c*.2))=>`<div class="lockup" style="gap:${gap}px;margin-left:${-Math.round(c*SYM_IN)}px">${cube(c)}${word(c,cap)}</div>`;
 
 // ---------- iconos en píxel (16×16, propios) ----------
 const PAL={W:'#f4f4f1',L:'#cfd0cc',M:'#9a9b97',D:'#5d5e5b',E:'#3a3c40',K:'#131417',G:'#a8cfae',g:'#5f8f68',A:'#ddb877',a:'#9c7a3c',R:'#e5907f'};
@@ -310,7 +316,7 @@ body{width:var(--W);height:var(--H);overflow:hidden;position:relative;color:var(
 .code b{color:var(--ok);font-weight:600}
 .h{font-family:var(--cond);font-stretch:condensed;font-weight:700;text-transform:uppercase;letter-spacing:.03em;line-height:.95;margin:0}
 .p{color:var(--mut);margin:0}
-.lockup{display:flex;align-items:flex-end;gap:16px}
+.lockup{display:flex;align-items:center}
 .lockup svg{display:block;flex:none}
 .ticks{height:6px;flex:1;opacity:.55;background:repeating-linear-gradient(90deg,#3a3e45 0 1px,transparent 1px 6px)}
 /* placas */
@@ -363,7 +369,7 @@ for(const L of ['en','es']){const t=TX[L];const sfx=L=='en'?'':'-es';
  // ---------- social preview 1280×640 ----------
  list.push([page('social-preview'+sfx,1280,640,`<div class="floor" style="--fh:42%"></div>${marks}
  <div style="position:absolute;left:72px;top:88px;width:480px">
-  ${lockup(100,4)}
+  ${lockup(100,46)}
   <div class="code" style="margin-top:40px">${t.kicker}</div>
   <h1 class="h" style="font-size:72px;margin-top:16px">${t.tag1}${t.sj}${t.tag2}<br><span style="color:var(--mut)">${t.tag3s}</span></h1>
   <div style="display:flex;gap:8px;margin-top:36px;flex-wrap:wrap">${t.specs.map((s,i)=>`<span class="chip${i==0?' clay':''}">${i==0?'<i></i>':''}${s}</span>`).join('')}</div>
@@ -373,7 +379,7 @@ for(const L of ['en','es']){const t=TX[L];const sfx=L=='en'?'':'-es';
  // ---------- hero 1280×600 @2x ----------
  list.push([page('hero'+sfx,1280,600,`<div class="floor" style="--fh:40%"></div>${marks}
  <div style="position:absolute;left:64px;top:70px;width:400px">
-  ${lockup(76,3)}
+  ${lockup(76,35)}
   <div class="code" style="margin-top:34px">${t.kicker}</div>
   <h1 class="h" style="font-size:58px;margin-top:14px">${t.tag1} ${t.tag2}<br><span style="color:var(--mut)">${t.tag3}</span></h1>
   <p class="p" style="margin-top:20px;max-width:380px;font-size:15.5px;line-height:1.55">${t.lead}</p>
@@ -386,7 +392,7 @@ for(const L of ['en','es']){const t=TX[L];const sfx=L=='en'?'':'-es';
   <div><div class="code">${f.c}</div><h3 class="h" style="font-size:27px;margin-top:9px">${f.h}</h3></div></div><p class="p">${f.p}</p>
   <div class="fx"><span class="ticks"></span><span>${f.x}</span></div></div>`;
  list.push([page('features'+sfx,1280,700,`<div class="floor" style="--fh:30%"></div>${marks}
-  <div style="position:absolute;left:64px;top:52px;right:64px;display:flex;align-items:flex-end;gap:32px"><div><div class="code"><b>■</b> ${t.feat_code}</div><h2 class="h" style="font-size:40px;margin-top:12px">${t.feat_h}</h2></div><span class="ticks" style="margin-bottom:8px"></span>${lockup(36,2,false)}</div>
+  <div style="position:absolute;left:64px;top:52px;right:64px;display:flex;align-items:flex-end;gap:32px"><div><div class="code"><b>■</b> ${t.feat_code}</div><h2 class="h" style="font-size:40px;margin-top:12px">${t.feat_h}</h2></div><span class="ticks" style="margin-bottom:8px"></span>${lockup(40,18)}</div>
   <div class="fgrid">${t.f.map(card).join('')}</div>`,`
   .fgrid{position:absolute;left:64px;right:64px;top:168px;bottom:56px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:1fr 1fr;gap:24px}
   .fcard{display:flex;flex-direction:column;padding:22px 26px 22px 24px;--c:18px}
@@ -404,7 +410,7 @@ for(const L of ['en','es']){const t=TX[L];const sfx=L=='en'?'':'-es';
  const step=(s,i)=>`<div class="pl${i==2?' clay':''} st"><div class="num">0${i+1}</div><div class="sb"><h3 class="h" style="font-size:28px">${s.h}</h3><p class="p" style="margin-top:8px">${s.p}</p></div>
   <div class="term">${s.cmd.map(([pr,c])=>`<div><span class="pr">${pr||' '}</span><span class="${pr?'c':'o'}">${c.replace(/(http:\/\/localhost:8080\/\?t=…)/,'<u>$1</u>').replace(/Started$/,'<em>Started</em>')}</span></div>`).join('')}</div></div>`;
  list.push([page('install'+sfx,1280,700,`<div class="floor" style="--fh:30%"></div>${marks}
-  <div style="position:absolute;left:64px;top:52px;right:64px;display:flex;align-items:flex-end;gap:32px"><div><div class="code"><b>■</b> ${t.inst_code}</div><h2 class="h" style="font-size:40px;margin-top:12px">${t.inst_h}</h2></div><span class="ticks" style="margin-bottom:8px"></span>${lockup(36,2,false)}</div>
+  <div style="position:absolute;left:64px;top:52px;right:64px;display:flex;align-items:flex-end;gap:32px"><div><div class="code"><b>■</b> ${t.inst_code}</div><h2 class="h" style="font-size:40px;margin-top:12px">${t.inst_h}</h2></div><span class="ticks" style="margin-bottom:8px"></span>${lockup(40,18)}</div>
   <div class="steps">${t.steps.map(step).join('<div class="conn"></div>')}</div>`,`
   .steps{position:absolute;left:64px;right:64px;top:168px;bottom:52px;display:flex;flex-direction:column}
   .conn{height:16px;margin-left:58px;width:1px;background:repeating-linear-gradient(180deg,#3a3e45 0 3px,transparent 3px 6px)}
