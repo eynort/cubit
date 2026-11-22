@@ -9,10 +9,10 @@ import (
 // publicKeyB64 es la clave pública ed25519 (base64) con la que se comprueba la
 // firma de SHA256SUMS de cada versión.
 //
-// La privada está en el secreto CUBIT_SIGNING_KEY de GitHub Actions (nunca en
+// La privada está en el secreto CUBIT_SIGNING_KEY del entorno "release" de GitHub (nunca en
 // el repo). Para cambiarla: `go run ./tools/sign -gen`, pegar aquí la pública y
 // cambiar el secreto. Sin clave, la actualización con un clic se niega.
-var publicKeyB64 = "0HwbqVwW0k2RCMfepUqqTIKetZ6dD9WRFFXxFCBiraQ="
+var publicKeyB64 = "c1nhEnVvr7YtkO/tGCG7lD5Zl9iE7u9cL8i2R7y9vkE="
 
 // ErrNoKey: el binario no lleva clave pública (todavía).
 var ErrNoKey = errors.New("this build has no update signing key yet; update by hand from the Releases page")
