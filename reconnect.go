@@ -21,7 +21,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mj41/go-mc26-kit/bot"
 	"github.com/mj41/go-mc26-kit/microsoft"
-	"github.com/mj41/go-mc26/data/version"
+	mcversion "github.com/mj41/go-mc26/data/version"
 
 	"cubit/automation"
 )
@@ -160,7 +160,7 @@ func (b *Bot) resumeAfterReconnect() {
 }
 
 // versionName: la versión de Minecraft que habla el bot.
-func versionName() string { return version.Name }
+func versionName() string { return mcversion.Name }
 
 // markInterrupted: se corta la conexión con un trabajo en marcha: se marca
 // para retomarlo (como al morir), antes de que acabe con la conexión.

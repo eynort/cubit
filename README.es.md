@@ -78,6 +78,8 @@ cd cubit
 
 Al terminar, te escribe el enlace de tu panel (`http://localhost:8080/?t=…`) y la dirección de Minecraft (`localhost:25565`).
 
+**Actualizar:** el panel avisa cuando hay versión nueva y, según cómo lo instalaste, la pone con un clic o te dice qué comando ejecutar (`./up.sh update` con Docker). Mira [Actualizar](docs/GUIA.md#8-actualizar).
+
 ## Instrucciones para usar el bot
 
 Escribe las órdenes en la **consola del bot en el panel**. En el juego, mándaselas por privado siendo su dueño: `/msg MiBot follow Steve`. `~` es "donde está el bot", como en Minecraft.

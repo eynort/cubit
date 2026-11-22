@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
@@ -35,7 +36,7 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/world"
 	"github.com/mj41/go-mc26/chat"
 	"github.com/mj41/go-mc26/data/packetid"
-	"github.com/mj41/go-mc26/data/version"
+	mcversion "github.com/mj41/go-mc26/data/version"
 	pk "github.com/mj41/go-mc26/net/packet"
 	"github.com/mj41/go-mc26/protocol/play"
 
@@ -43,9 +44,27 @@ import (
 	"cubit/combat"
 	"cubit/internal/hub"
 	"cubit/internal/rcon"
+	"cubit/internal/update"
 	"cubit/pathing"
 	"cubit/safety"
 )
+
+// version: la versión de Cubit; la pone la release con -X main.version=<tag>.
+// Sin ella (go run, go build a secas) se usa la de debug.ReadBuildInfo si es
+// una etiqueta, y si no es "dev" (una compilación de desarrollo no busca actualizaciones).
+var version string
+
+func appVersion() string {
+	if version != "" {
+		return version
+	}
+	if bi, ok := debug.ReadBuildInfo(); ok && update.ValidVersion(bi.Main.Version) {
+		return bi.Main.Version
+	}
+	return "dev"
+}
+
+var versionFlag = flag.Bool("version", false, "muestra la versión de Cubit y sale")
 
 var hubFlag = flag.String("hub", "", "modo hub: el panel en esta dirección (ej: :8080), siempre encendido, para varios bots (cada uno en bots/<id>/); los bots se crean y se arrancan desde el panel")
 
@@ -96,6 +115,10 @@ type Bot struct {
 
 func main() {
 	flag.Parse()
+	if *versionFlag {
+		fmt.Println("cubit", appVersion())
+		return
+	}
 	if *genDocsFlag != "" {
 		if err := genDocs(*genDocsFlag); err != nil {
 			log.Fatal(err)
@@ -120,7 +143,7 @@ func main() {
 	}
 	if *hubFlag != "" {
 		hub.ViaProxy = *viaFlag
-		hub.Run(*hubFlag, hub.Options{DefaultOwner: *ownerFlag, Open: *openFlag}) // (el panel para varios bots; no vuelve hasta Ctrl-C)
+		hub.Run(*hubFlag, hub.Options{DefaultOwner: *ownerFlag, Open: *openFlag, Version: appVersion()}) // (el panel para varios bots; no vuelve hasta Ctrl-C)
 		return
 	}
 	if *demoFlag {
@@ -231,6 +254,7 @@ func run(ctx context.Context, quit func(), prev *Bot) (b *Bot, again bool, err e
 		}
 	}()
 	go b.resumeAfterReconnect()
+	go b.resumeAfterRestart()
 
 	for {
 		err := b.Client.HandleGame() // solo devuelve con error
@@ -383,7 +407,7 @@ func (b *Bot) setupModules() {
 	// simula el movimiento espera ese paquete: sin él sigue corrigiendo.
 	// Prioridad 40: después de que basic aplique el teletransporte (100) y el
 	// controlador lo confirme (50).
-	if version.ProtocolVersion < 777 {
+	if mcversion.ProtocolVersion < 777 {
 		b.Client.Events.AddListener(bot.PacketHandler{
 			Priority: 40, ID: packetid.ClientboundPlayPlayerPosition,
 			F: func(pk.Packet) error {

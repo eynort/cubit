@@ -34,6 +34,7 @@ type workState struct {
 	pos      world.BlockPos // dónde empezó (para volver andando si muere)
 	resuming bool           // parada por una muerte: se retoma
 	deaths   []time.Time
+	line     string // la orden que lo empezó (para retomarlo tras reiniciar el programa: resume.go)
 	by       string // quién lo mandó por /msg ("" desde la consola o la cola): a quién avisar
 }
 
@@ -129,6 +130,7 @@ func (b *Bot) startWork(name string, task func(*automation.Job) error) {
 	here := world.BlockPos{X: int(math.Floor(p.X)), Y: int(math.Floor(p.Y)), Z: int(math.Floor(p.Z))}
 	b.work.mu.Lock()
 	b.work.name, b.work.task, b.work.resuming = name, task, false
+	b.work.line = takeOrderLine()
 	orderFrom.Lock()
 	b.work.by = orderFrom.who
 	orderFrom.Unlock()

@@ -78,6 +78,8 @@ cd cubit
 
 When it finishes, it prints your panel link (`http://localhost:8080/?t=…`) and the Minecraft address (`localhost:25565`).
 
+**Updating:** the panel tells you when there is a new version and, depending on how you installed Cubit, updates it in one click or shows the command to run (`./up.sh update` with Docker). See [Updating](docs/GUIDE.md#8-updating).
+
 ## How to use the bot
 
 Type commands in the bot's **console in the panel**. In game, whisper them as an owner: `/msg MyBot follow Steve`. `~` means "where the bot is", just like in Minecraft.

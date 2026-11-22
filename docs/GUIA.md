@@ -125,7 +125,7 @@ Para manejar los bots desde scripts u otros programas (listarlos, mandarles órd
 - **Inicio de sesión del servidor (AuthMe / nLogin)**: si el servidor pide `/login` o `/register`, pon la contraseña en los ajustes del bot en el panel ("Contraseña de acceso al servidor"); el bot contesta solo, con avisos en inglés o en español. Se guarda solo en `bot.json` y no se vuelve a mostrar ni se escribe en el log.
 - **Servidores premium**: añade `--microsoft`. La primera vez te da un código para entrar con tu cuenta de Microsoft.
 - **Memoria**: unos 70 MB por bot. `--view` (distancia de visión en chunks) y `--memlimit` (en MB) la bajan para móviles.
-- **Versión**: Minecraft Java **26.2** (protocolo 776), y otras versiones por ViaProxy (ver el apartado 5). Solo servidores vanilla: no usa comandos de plugins.
+- **Versión**: Minecraft Java **26.2** (protocolo 776), y otras versiones por ViaProxy (ver el apartado 6). Solo servidores vanilla: no usa comandos de plugins.
 - **Juega limpio**: úsalo en tu servidor o en los que permiten bots.
 
 ## 6. Otras versiones de Minecraft
@@ -173,3 +173,24 @@ Es gratis: sin cuenta, sin clave de API y nada sale de tu red. Usa [Ollama](http
 **Modelos y RAM, con franqueza.** El de por defecto, `gemma4:e2b-it-q4_K_M` (4,6 GB de descarga), necesita más o menos **3-4 GB de RAM libre** mientras contesta. `gemma4:e4b` es más listo pero pide más (unos 7 GB de descarga). `qwen3:4b` es otra opción. Un móvil de 800 MB no puede con un modelo útil: ahí, pon Ollama en otro equipo y usa `--ollama`, o apaga la IA. En un PC contesta en unos segundos; en un móvil, bastante más.
 
 Ajustes (por bot, en el panel): encendida o no, modelo y dirección de Ollama. El bot recuerda 10 minutos los últimos intercambios con cada jugador, hace como mucho 6 pasos por frase y 60 frases por hora.
+
+## 8. Actualizar
+
+El hub mira en GitHub si hay una versión nueva al arrancar y luego cada 24 horas (no manda nada tuyo: una petición normal, sin cuenta ni identificadores). Si la hay, el panel enseña **Actualización disponible** con un enlace a las notas de la versión. Puedes apagar la comprobación, o hacerla ya, en *Bot* → *Buscar actualizaciones*.
+
+Lo que ofrece el aviso depende de cómo instalaste Cubit:
+
+| Instalado con | Se actualiza con |
+|---|---|
+| El script de instalación, o el zip (Linux, Windows, Termux) | **Actualizar ahora** en el panel (abajo) |
+| `.deb` | descarga el `.deb` nuevo de [Releases](../../../releases) y `sudo apt install ./cubit_<versión>_<arq>.deb` |
+| `.rpm` | descarga el `.rpm` nuevo y `sudo dnf install ./cubit_<versión>_<arq>.rpm` |
+| Scoop | `scoop update cubit` |
+| winget | `winget upgrade Cubit` |
+| Docker (`up.sh`) | `./up.sh update`: `git pull --ff-only`, reconstruye solo la imagen del bot y reinicia solo el hub (los bots vuelven a entrar a los pocos segundos; el mundo de Minecraft no se toca) |
+
+**Actualizar ahora** descarga el archivo de tu sistema, comprueba su SHA-256 con `SHA256SUMS` y la firma ed25519 de `SHA256SUMS` con la clave pública que lleva Cubit. Solo entonces copia `hub.json` y cada `bots/*/bot.json` a `backups/<versión anterior>/`, cambia el binario (el viejo queda al lado como `cubit.old`) y reinicia el hub y sus bots. Los bots que estaban trabajando retoman su tarea al volver (el panel avisa de cuántos trabajan antes de confirmar).
+
+Si la versión nueva no arranca (o no responde en 60 segundos), el siguiente arranque devuelve `cubit.old` y el panel cuenta que la actualización se deshizo. Si la carpeta del binario no admite escritura, el panel solo enlaza la página de la versión.
+
+Actualizar a mano: cambia el binario por el de [Releases](../../../releases). Los archivos de configuración llevan un número `"schema"` y se migran solos; uno escrito por un Cubit más nuevo no se toca: para volver atrás, restaura `backups/<versión>/`.

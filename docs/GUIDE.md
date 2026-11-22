@@ -125,7 +125,7 @@ To control the bots from scripts or other programs (list them, send commands, fo
 - **Server login (AuthMe / nLogin)**: if the server asks for `/login` or `/register`, put the password in the bot's settings in the panel ("Server login password"); the bot answers by itself, in English or Spanish prompts. It is saved only in `bot.json` and never shown again or written to the log.
 - **Premium servers**: add `--microsoft`. The first time it shows a code to sign in with your Microsoft account.
 - **Memory**: about 70 MB per bot. `--view` (view distance in chunks) and `--memlimit` (in MB) lower it for phones.
-- **Version**: Minecraft Java **26.2** (protocol 776), and other versions through ViaProxy (see section 5). Vanilla servers only: it uses no plugin commands.
+- **Version**: Minecraft Java **26.2** (protocol 776), and other versions through ViaProxy (see section 6). Vanilla servers only: it uses no plugin commands.
 - **Play fair**: use it on your own server, or on servers that allow bots.
 
 ## 6. Other Minecraft versions
@@ -173,3 +173,24 @@ It is free: no account, no API key, nothing leaves your network. It uses [Ollama
 **Models and RAM, honestly.** The default `gemma4:e2b-it-q4_K_M` (4.6 GB download) needs roughly **3-4 GB of free RAM** while it answers. `gemma4:e4b` is smarter but needs more (about 7 GB download). `qwen3:4b` is another option. A phone with 800 MB cannot run a useful model: there, run Ollama on another machine and use `--ollama`, or switch the AI off. Answers take a few seconds on a PC and longer on a phone.
 
 Settings (per bot, in the panel): on/off, model, Ollama address. The bot remembers the last few exchanges with each player for 10 minutes, does at most 6 steps per sentence and at most 60 sentences per hour.
+
+## 8. Updating
+
+The hub checks GitHub for a newer release when it starts and then every 24 hours (it sends nothing about you: a plain request, no account, no identifiers). When there is one, the panel shows **Update available** with a link to the release notes. You can turn the check off, or run it now, in *Bots* → *Check for updates*.
+
+What the notice offers depends on how you installed Cubit:
+
+| Installed with | Update with |
+|---|---|
+| Install script, or the zip (Linux, Windows, Termux) | **Update now** in the panel (see below) |
+| `.deb` | download the new `.deb` from [Releases](../../../releases), then `sudo apt install ./cubit_<version>_<arch>.deb` |
+| `.rpm` | download the new `.rpm`, then `sudo dnf install ./cubit_<version>_<arch>.rpm` |
+| Scoop | `scoop update cubit` |
+| winget | `winget upgrade Cubit` |
+| Docker (`up.sh`) | `./up.sh update`: `git pull --ff-only`, rebuilds only the bot image and restarts only the hub (the bots reconnect after a few seconds; the Minecraft world is never touched) |
+
+**Update now** downloads the file for your system, checks its SHA-256 against `SHA256SUMS`, and checks the ed25519 signature of `SHA256SUMS` against the public key built into Cubit. Only then does it back up `hub.json` and every `bots/*/bot.json` to `backups/<old version>/`, swap the binary (the old one stays next to it as `cubit.old`) and restart the hub and its bots. Bots that were working resume their task when they are back (the panel warns you how many are working before you confirm).
+
+If the new version does not start (or does not answer within 60 seconds), the next launch puts `cubit.old` back and the panel tells you the update was rolled back. If the folder of the binary is not writable, the panel just links the release page.
+
+Manual update: replace the binary with the one from [Releases](../../../releases). Config files carry a `"schema"` number and are migrated automatically; a file written by a newer Cubit is never touched, so go back by restoring `backups/<version>/`.

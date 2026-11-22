@@ -26,7 +26,7 @@ jobs:
           # build <os> <arch> <out> [method]: method = how it gets installed (cubit/internal/update.Method)
           build() {
             CGO_ENABLED=0 GOOS=$1 GOARCH=$2 go build -trimpath \
-              -ldflags "-s -w -X cubit/internal/update.Method=${4:-}" -o "$3" .
+              -ldflags "-s -w -X main.version=${GITHUB_REF_NAME} -X cubit/internal/update.Method=${4:-}" -o "$3" .
           }
           # the plain binaries (Method empty; install.sh marks its own installs with a file)
           build linux amd64 "dist/cubit-${GITHUB_REF_NAME}-linux-amd64"
@@ -42,7 +42,7 @@ jobs:
             for method in zip scoop winget; do
               stage="$(mktemp -d)"
               CGO_ENABLED=0 GOOS=windows GOARCH=$arch go build -trimpath \
-                -ldflags "-s -w -X cubit/internal/update.Method=$method" -o "$stage/cubit.exe" .
+                -ldflags "-s -w -X main.version=${GITHUB_REF_NAME} -X cubit/internal/update.Method=$method" -o "$stage/cubit.exe" .
               cp packaging/windows/README.txt LICENSE "$stage/"
               name="cubit-${GITHUB_REF_NAME}-windows-${arch}"
               [ "$method" = zip ] || name="${name}-${method}"
@@ -57,7 +57,7 @@ jobs:
           for arch in amd64 arm64; do
             for fmt in deb rpm; do
               CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath \
-                -ldflags "-s -w -X cubit/internal/update.Method=$fmt" -o "pkgtmp/cubit-$fmt-$arch" .
+                -ldflags "-s -w -X main.version=${GITHUB_REF_NAME} -X cubit/internal/update.Method=$fmt" -o "pkgtmp/cubit-$fmt-$arch" .
               VERSION="${GITHUB_REF_NAME#v}" GOARCH="$arch" CUBIT_BIN="pkgtmp/cubit-$fmt-$arch" \
                 nfpm package -f packaging/linux/nfpm.yaml -p "$fmt" -t dist/
             done
@@ -68,6 +68,17 @@ jobs:
           cp brand/png/icon-512.png dist/cubit-icon.png
       - name: checksums
         run: cd dist && sha256sum * > SHA256SUMS
+      # --- firma de SHA256SUMS (el actualizador del panel la comprueba; ver tools/sign) ---
+      - name: sign SHA256SUMS
+        env:
+          CUBIT_SIGNING_KEY: ${{ secrets.CUBIT_SIGNING_KEY }}
+        run: |
+          if [ -z "$CUBIT_SIGNING_KEY" ]; then
+            echo "::warning::CUBIT_SIGNING_KEY is not set: this release is NOT signed (the panel's one-click update will refuse it)"
+          else
+            go run ./tools/sign -in dist/SHA256SUMS -out dist/SHA256SUMS.sig
+          fi
+      # --- fin de la firma ---
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*

@@ -1,4 +1,5 @@
 package update
 
-// Method: cómo se instaló (lo pone la compilación con -ldflags "-X cubit/internal/update.Method=<m>"); vacío en compilaciones de desarrollo.
+// Method: cómo se instaló este binario (lo pone el empaquetado con ldflags):
+// "" (desarrollo), script, deb, rpm, scoop, winget, zip, docker.
 var Method string

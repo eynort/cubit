@@ -55,6 +55,9 @@ var (
 // remoteOwners y dataDir. Guarda lo nuevo.
 func loadConfig() error {
 	cfgPath = *configFlag
+	if err := config.MigrateFile(cfgPath, config.MigrateBot); err != nil {
+		return err // (p. ej. un bot.json de una versión más nueva: no se pisa)
+	}
 	if b, err := os.ReadFile(cfgPath); err == nil {
 		if err := json.Unmarshal(b, &cfg); err != nil {
 			return fmt.Errorf("%s: %w", cfgPath, err)
@@ -123,6 +126,7 @@ func saveConfigLocked() error {
 	if cfgPath == "" {
 		return nil
 	}
+	cfg.Schema = config.BotSchema
 	b, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return err
