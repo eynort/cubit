@@ -190,6 +190,91 @@ func TestChopNether(t *testing.T) {
 	})
 }
 
+// TestChopBush: un arbusto de la selva (un tronco rodeado de hojas por todas
+// partes, también por encima): el tronco que suelta queda encerrado y se abre
+// paso entre las hojas para recogerlo.
+func TestChopBush(t *testing.T) {
+	simworld.Run(t, func(t *testing.T) {
+		setup := []string{
+			fmt.Sprintf("fill 5 64 -1 7 65 1 %s", leafOf("jungle")),
+			"fill 6 64 0 6 64 0 minecraft:jungle_log[axis=y]",
+			"give Tester dirt 16", "give Tester iron_axe 1",
+		}
+		g := simworld.Start(t, simworld.Options{Setup: setup})
+		err := runChop(t, g, []string{"jungle"}, world.BlockPos{X: 0, Y: 64, Z: 0})
+		t.Logf("error %v; troncos %d", err, g.Count("minecraft:jungle_log"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if g.Count("minecraft:jungle_log") != 1 {
+			t.Errorf("recogió %d troncos, era 1", g.Count("minecraft:jungle_log"))
+		}
+		if g.Items() > 0 {
+			t.Errorf("dejó objetos tirados: %s", g.ItemsAt())
+		}
+	})
+}
+
+// TestChopFloating: lo que queda de un árbol a medias: el tronco empieza a 5
+// bloques del suelo. Se llega por debajo con una torre y se tala entero.
+func TestChopFloating(t *testing.T) {
+	simworld.Run(t, func(t *testing.T) {
+		setup := []string{
+			fmt.Sprintf("fill 4 69 -2 8 70 2 %s", leafOf("oak")),
+			fmt.Sprintf("fill 5 71 -1 7 71 1 %s", leafOf("oak")),
+			"fill 6 69 0 6 71 0 minecraft:oak_log[axis=y]",
+			"give Tester dirt 16", "give Tester iron_axe 1",
+		}
+		g := simworld.Start(t, simworld.Options{Setup: setup})
+		err := runChop(t, g, []string{"oak"}, world.BlockPos{X: 0, Y: 64, Z: 0})
+		p := g.B.Player.Position()
+		t.Logf("error %v; troncos %d; bot en y=%.1f", err, g.Count("minecraft:oak_log"), p.Y)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n := logsLeft(g, 6, 0, 6, 0); n > 0 {
+			t.Errorf("quedan %d troncos en pie", n)
+		}
+		if g.Count("minecraft:oak_log") != 3 {
+			t.Errorf("recogió %d troncos, eran 3", g.Count("minecraft:oak_log"))
+		}
+		if p.Y > 65.5 {
+			t.Errorf("se quedó arriba (y=%.1f)", p.Y)
+		}
+	})
+}
+
+// TestChopOnPillar: un árbol cuyo tronco nace de un pilar de piedra de 3 de
+// alto (como los de raíces del manglar): no se pisa su columna, y se tala
+// igual, subiendo en la de al lado, y el bot acaba en el suelo.
+func TestChopOnPillar(t *testing.T) {
+	simworld.Run(t, func(t *testing.T) {
+		setup := []string{
+			fmt.Sprintf("fill 4 68 -2 8 69 2 %s", leafOf("oak")),
+			fmt.Sprintf("fill 5 70 -1 7 70 1 %s", leafOf("oak")),
+			"fill 6 64 0 6 66 0 minecraft:stone",
+			"fill 6 67 0 6 69 0 minecraft:oak_log[axis=y]",
+			"give Tester dirt 16", "give Tester iron_axe 1",
+		}
+		g := simworld.Start(t, simworld.Options{Setup: setup})
+		err := runChop(t, g, []string{"oak"}, world.BlockPos{X: 0, Y: 64, Z: 0})
+		p := g.B.Player.Position()
+		t.Logf("error %v; troncos %d; bot en y=%.1f", err, g.Count("minecraft:oak_log"), p.Y)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n := logsLeft(g, 6, 0, 6, 0); n > 0 {
+			t.Errorf("quedan %d troncos en pie", n)
+		}
+		if g.Count("minecraft:oak_log") != 3 {
+			t.Errorf("recogió %d troncos, eran 3", g.Count("minecraft:oak_log"))
+		}
+		if p.Y > 65.5 {
+			t.Errorf("se quedó arriba (y=%.1f)", p.Y)
+		}
+	})
+}
+
 func TestParseWoods(t *testing.T) {
 	got, err := automation.ParseWoods("oak, birch,oak")
 	if err != nil || len(got) != 2 || got[0] != "oak" || got[1] != "birch" {

@@ -6,6 +6,7 @@ package pathing
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"math"
 	"strings"
@@ -41,13 +42,15 @@ type HandsBuilder struct {
 	Ctl     *control.Controller
 	Ctx     context.Context
 
-	placing atomic.Bool
-	moving  atomic.Bool // pasando un bloque del inventario a la barra
+	placing  atomic.Bool
+	placedAt atomic.Int64 // cuándo se puso placing (UnixNano)
+	moving   atomic.Bool  // pasando un bloque del inventario a la barra
 
 	refused    atomic.Int32 // bloques seguidos que el servidor no puso
 	placedMu   sync.Mutex
 	placed     map[world.BlockPos]bool // los que puso (para quitarlos luego: una torre)
 	pauseUntil atomic.Int64            // hasta cuándo no construir (UnixNano): zona protegida
+	byServer   atomic.Bool             // la pausa es por un aviso de zona protegida del servidor (y no solo por bloques rechazados)
 
 	keep    atomic.Pointer[func(item string) bool]    // objetos que no se gastan en torres (SetKeep)
 	noBreak atomic.Pointer[func(world.BlockPos) bool] // celdas que no se rompen para pasar (SetNoBreak)
@@ -206,7 +209,16 @@ func (bd *HandsBuilder) freeHotbar() int {
 	return 8
 }
 
-func (bd *HandsBuilder) Busy() bool { return bd.placing.Load() || bd.moving.Load() }
+func (bd *HandsBuilder) Busy() bool {
+	if bd.placing.Load() {
+		// la picada o el bloque en curso se cancelaron (el pathfinding paró en medio) y su
+		// respuesta no llegó nunca: con las manos quietas más de un momento, ya no está
+		if _, _, ok := bd.Hands.Target(); !ok && time.Now().UnixNano()-bd.placedAt.Load() > int64(500*time.Millisecond) {
+			bd.placing.Store(false)
+		}
+	}
+	return bd.placing.Load() || bd.moving.Load()
+}
 
 // Place pone el mejor bloque de construir en pos contra against. Si no está en
 // la barra, primero lo pasa a ella (en otra goroutine) y devuelve false: el
@@ -262,6 +274,7 @@ func (bd *HandsBuilder) place(pos, against world.BlockPos, now bool) bool {
 		return false
 	}
 	log.Printf("construir: pongo %s en %v (en la mano: %s)", short(inHand), pos, short(inHand))
+	bd.placedAt.Store(time.Now().UnixNano())
 	bd.placing.Store(true)
 	placeOn := bd.Hands.PlaceOn
 	if now {
@@ -285,6 +298,7 @@ func (bd *HandsBuilder) place(pos, against world.BlockPos, now bool) bool {
 		log.Printf("construir en %v: %v (en la mano: %s)", pos, u.Err, short(bd.heldName()))
 		if strings.Contains(u.Err.Error(), "did not change") && bd.refused.Add(1) >= 4 {
 			bd.refused.Store(0)
+			bd.byServer.Store(false)
 			bd.pauseUntil.Store(time.Now().Add(time.Minute).UnixNano())
 			log.Print("construir: el servidor no me deja poner bloques aquí (¿zona protegida?): sin construir 1 minuto")
 		}
@@ -332,6 +346,16 @@ func (bd *HandsBuilder) Equip() bool {
 	return rank(inHand) >= 0 && !bd.kept(inHand)
 }
 
+// Why dice por qué Equip no logra tener un bloque en la mano (para el log).
+func (bd *HandsBuilder) Why() string {
+	slot, n := bd.best()
+	_, _, eating := bd.Hands.Using()
+	bd.Screens.Lock()
+	held := bd.Screens.HeldSlot
+	bd.Screens.Unlock()
+	return fmt.Sprintf("ocupado=%v (poniendo %v, moviendo %v), comiendo=%v, mejor slot %d de %d bloques, barra %d, en la mano %s", bd.Busy(), bd.placing.Load(), bd.moving.Load(), eating, slot, n, held, short(bd.heldName()))
+}
+
 // heldName es lo que tiene en la mano ("" nada).
 func (bd *HandsBuilder) heldName() string {
 	bd.Screens.Lock()
@@ -364,12 +388,26 @@ func (bd *HandsBuilder) Placed() []world.BlockPos {
 // Paused: el servidor no deja construir aquí (zona protegida) de momento.
 func (bd *HandsBuilder) Paused() bool { return time.Now().UnixNano() < bd.pauseUntil.Load() }
 
+// ResumeRefused quita la pausa si fue solo porque el servidor rechazó varios
+// bloques seguidos (un hueco ocupado, una entidad encima), no por un aviso de
+// zona protegida: el que talla un árbol necesita seguir poniendo torres en
+// otro sitio. Devuelve si la quitó.
+func (bd *HandsBuilder) ResumeRefused() bool {
+	if bd.Paused() && !bd.byServer.Load() {
+		bd.pauseUntil.Store(0)
+		bd.refused.Store(0)
+		return true
+	}
+	return false
+}
+
 // Break rompe el bloque de pos (hojas que tapan el paso) con lo que tenga en
 // la mano; false si está ocupado.
 func (bd *HandsBuilder) Break(pos world.BlockPos) bool {
 	if bd.Busy() || bd.unbreakable(pos) {
 		return false
 	}
+	bd.placedAt.Store(time.Now().UnixNano())
 	bd.placing.Store(true)
 	bd.Hands.Dig(pos, func(d act.Dig) {
 		bd.placing.Store(false)
@@ -387,6 +425,7 @@ func (bd *HandsBuilder) Protected() {
 	// (el servidor avisa una vez por cada bloque que no deja poner, varios
 	// por segundo: se dice solo al empezar la pausa, no en cada aviso)
 	paused := time.Now().UnixNano() < bd.pauseUntil.Load()
+	bd.byServer.Store(true)
 	bd.pauseUntil.Store(time.Now().Add(time.Minute).UnixNano())
 	if !paused {
 		log.Print("construir: el servidor dice que aquí no se construye: sin construir 1 minuto")

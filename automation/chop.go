@@ -37,6 +37,10 @@ const chopCollectUp = 7
 // de un árbol; pasado eso se deja (y se dice) en vez de quedarse allí.
 const chopTreeBudget = 150 * time.Second
 
+// chopCollectBudget: lo máximo que se dedica a recoger lo que soltó un árbol
+// (los troncos que caen entre raíces o sobre las hojas no valen más tiempo).
+const chopCollectBudget = 60 * time.Second
+
 // ChopRadius: a cuántos bloques (en horizontal) del punto se talan árboles.
 const ChopRadius = 24
 
@@ -537,8 +541,9 @@ func (c *chopper) process(t *chopTree) {
 	top := t.logs[len(t.logs)-1].Y
 	j.Logf("árbol de %s en %v: %d troncos, de %d de alto", t.kind, t.foot, len(t.logs), top-t.foot.Y+1)
 	c.until = time.Now().Add(chopTreeBudget)
-	ground := t.foot.Y
-	if err := c.fell(t); err != nil {
+	c.unpause()
+	ground := c.groundOf(t.foot)
+	if err := c.fell(t, ground); err != nil {
 		if j.Fatal() != nil {
 			return
 		}
@@ -561,6 +566,7 @@ func (c *chopper) process(t *chopTree) {
 	}
 	c.trees[t.kind]++
 	j.Status("recogiendo lo que cayó")
+	c.descend(ground) // (antes de quitar la torre: desde arriba solo se baja por ella)
 	c.removeScaffold(t.logs)
 	c.descend(ground)
 	if err := c.collect(t); err != nil && j.Fatal() != nil {
@@ -571,12 +577,18 @@ func (c *chopper) process(t *chopTree) {
 // fell: desde el suelo los troncos que alcanza; para el resto se mete en el
 // hueco del pie y sube con una torre por dentro, talando lo que alcanza en
 // cada piso; al final baja deshaciendo la torre.
-func (c *chopper) fell(t *chopTree) error {
+func (c *chopper) fell(t *chopTree, ground int) error {
 	j := c.j
 	base := t.foot
 	top := t.logs[len(t.logs)-1].Y
-	if top-base.Y > 3 { // habrá que subir: bloques para la torre
-		c.gatherScaffold(top - base.Y - 2)
+	if top-ground > 3 { // habrá que subir: bloques para la torre
+		c.gatherScaffold(top - ground - 2)
+	}
+	if base.Y-ground > 2 { // el pie en alto (lo que quedó de un árbol a medias, un tronco sobre raíces): por debajo
+		if c.towerTo(t, base) {
+			return nil
+		}
+		return fmt.Errorf("el pie del tronco está a %d bloques del suelo", base.Y-ground)
 	}
 	digReachable := func() {
 		for _, l := range t.logs {
@@ -618,13 +630,42 @@ func (c *chopper) fell(t *chopTree) error {
 	return nil
 }
 
+// wet: lo que hay en una celda de agua (se atraviesa nadando).
+func wet(n string) bool {
+	return n == "water" || n == "bubble_column" || n == "kelp" || n == "kelp_plant" || n == "seagrass" || n == "tall_seagrass"
+}
+
+// groundOf: la altura del suelo bajo p (el primer bloque firme que no sea
+// hoja ni tronco ni enredadera, hacia abajo), la de los pies de quien lo pisa.
+func (c *chopper) groundOf(p world.BlockPos) int {
+	j := c.j
+	for y := p.Y - 1; y > p.Y-64; y-- {
+		q := world.BlockPos{X: p.X, Y: y, Z: p.Z}
+		n := j.Block(q)
+		if j.solid(q) && !j.naturalLeaves(q) && !isLogBlock(n) && !strings.Contains(n, "vine") {
+			return y + 1
+		}
+	}
+	return p.Y
+}
+
 // climbCut sube en el sitio (una torre de bloques, rompiendo lo de encima) y
 // tala lo que alcanza en cada piso, hasta que no queda nada más arriba.
 func (c *chopper) climbCut(t *chopTree) {
 	j := c.j
 	cutAll := func() {
+		t0, n := time.Now(), 0
 		for _, l := range t.logs {
-			c.cut(l)
+			if c.cut(l) {
+				n++
+			}
+		}
+		if d := time.Since(t0); d > 4*time.Second {
+			scr := j.r.d.Screens
+			scr.Lock()
+			held := itemName(int32(scr.Inventory.Slots[36+scr.HeldSlot].Item))
+			scr.Unlock()
+			j.Logf("cortar %d troncos desde %v tardó %.1f s (en la mano: %s, en el suelo: %v)", n, j.Feet(), d.Seconds(), held, j.r.d.Ctl.State().OnGround)
 		}
 	}
 	for floors := 0; floors < 48 && len(c.standing(t.logs)) > 0; floors++ {
@@ -642,24 +683,49 @@ func (c *chopper) climbCut(t *chopTree) {
 }
 
 // towerTo: a un tronco que no se alcanza andando se llega por debajo: al suelo
-// de su columna y arriba con una torre, rompiendo las hojas de encima.
+// de su columna y arriba con una torre, rompiendo las hojas de encima. Si esa
+// columna no se pisa (las raíces del manglar, el agua, un hueco entre troncos),
+// con una torre en la de al lado: desde ahí el tronco queda a mano igual.
 func (c *chopper) towerTo(t *chopTree, l world.BlockPos) bool {
 	j := c.j
-	g, ok := j.r.d.Walker.Ground(l.X, l.Z, t.foot.Y)
-	if !ok || g.Y >= l.Y-1 {
-		return false
-	}
-	c.ensureScaffold(l.Y - g.Y)
-	j.Logf("al tronco de %v por debajo: torre desde %v", l, g)
-	if err := c.goTo(g); err != nil {
-		if j.Fatal() != nil {
-			return false
+	ref := c.groundOf(l)
+	type col struct{ x, z int }
+	cols := []col{{l.X, l.Z}}
+	for r := 1; r <= 3; r++ {
+		for dx := -r; dx <= r; dx++ {
+			for dz := -r; dz <= r; dz++ {
+				if max(abs(dx), abs(dz)) == r {
+					cols = append(cols, col{l.X + dx, l.Z + dz})
+				}
+			}
 		}
-		return false
 	}
-	c.climbCut(t)
-	c.climbDown(g.Y)
-	return !c.ws.has(j.Block(l))
+	tried := 0
+	for _, cl := range cols {
+		if tried >= 4 || j.Fatal() != nil || time.Now().After(c.until) {
+			break
+		}
+		g, ok := j.r.d.Walker.Ground(cl.x, cl.z, ref-1)
+		if !ok || g.Y >= l.Y-1 || g.Y > ref+1 || j.solid(world.BlockPos{X: g.X, Y: g.Y + 1, Z: g.Z}) {
+			continue
+		}
+		tried++
+		c.ensureScaffold(l.Y - g.Y)
+		if cl.x == l.X && cl.z == l.Z {
+			j.Logf("al tronco de %v por debajo: torre desde %v", l, g)
+		} else {
+			j.Logf("al tronco de %v: torre en la columna de al lado, desde %v", l, g)
+		}
+		if err := c.goTo(g); err != nil {
+			continue
+		}
+		c.climbCut(t)
+		c.climbDown(g.Y)
+		if !c.ws.has(j.Block(l)) {
+			return true
+		}
+	}
+	return false
 }
 
 // higherLeft: quedan troncos por encima de lo que alcanza (hay que subir).
@@ -692,6 +758,7 @@ func (c *chopper) finish(t *chopTree, ground int) {
 			j.Logf("llevo %v con este árbol: dejo los %d troncos que quedan", chopTreeBudget, len(left))
 			return
 		}
+		c.unpause()
 		j.Status("terminando el árbol (quedan %d troncos)", len(left))
 		j.Logf("al árbol le quedan %d troncos: voy a por ellos", len(left))
 		c.ensureScaffold(left[len(left)-1].Y - ground)
@@ -705,6 +772,7 @@ func (c *chopper) finish(t *chopTree, ground int) {
 				break
 			}
 			if !j.Reaches(l) {
+				c.climbDown(ground) // desde lo alto de una torre el pathfinding no baja (cinco bloques son daño): se deshace
 				if err := c.goNear(l); err != nil {
 					if j.Fatal() != nil {
 						return
@@ -859,7 +927,7 @@ func (c *chopper) descend(ground int) {
 	}
 	if g, ok := j.r.d.Walker.Ground(f.X, f.Z, ground); ok && g.Y < f.Y-1 {
 		j.Logf("sigo a %d de alto: bajo al suelo (%v)", f.Y-g.Y, g)
-		if err := j.GoTo(g); err != nil && j.Fatal() == nil {
+		if err := c.goTo(g); err != nil && j.Fatal() == nil {
 			j.Logf("bajar: %v", err)
 		}
 	}
@@ -874,8 +942,25 @@ func (c *chopper) collect(t *chopTree) error {
 	// lo que quedó en la copa (muy arriba, sobre las hojas) no se va a buscar: era
 	// subir torres de 20 bloques y caerse de ellas; en el resumen sale como "sueltos"
 	c.j.collectOnly = func(p world.BlockPos) bool { return p.Y <= base.Y+chopCollectUp }
-	defer func() { c.j.collectOnly = nil }()
+	// un tronco caído en un hueco entre las hojas (los arbustos de la selva): se abre paso
+	c.j.collectOpen = func(p world.BlockPos) bool {
+		near := func() bool {
+			pos := c.j.Pos()
+			return math.Hypot(pos.X-float64(p.X)-0.5, pos.Z-float64(p.Z)-0.5) < 1.2 && math.Abs(pos.Y-float64(p.Y)) < 2
+		}
+		return c.clearWayTo(p, near) == nil
+	}
+	c.j.collectUntil = time.Now().Add(chopCollectBudget)
+	defer func() { c.j.collectOnly, c.j.collectOpen, c.j.collectUntil = nil, nil, time.Time{} }()
 	return c.j.CollectAround(float64(base.X)+0.5, float64(base.Y), float64(base.Z)+0.5, float64(max(10, top-base.Y+6)))
+}
+
+// unpause: una pausa por bloques rechazados (no por zona protegida) no vale
+// para el árbol siguiente ni para la vuelta siguiente.
+func (c *chopper) unpause() {
+	if b := c.j.r.d.Builder; b != nil && b.ResumeRefused() {
+		c.j.Logf("vuelvo a construir (los bloques rechazados no eran una zona protegida)")
+	}
 }
 
 // ensureScaffold: n bloques para subir (tierra de alrededor).
@@ -893,7 +978,26 @@ func (c *chopper) ensureScaffold(n int) {
 // pillarUp sube un bloque en el sitio: rompe lo blando que tenga encima de la
 // cabeza (hojas, troncos), salta y, con los pies por encima, pone un bloque debajo.
 func (c *chopper) pillarUp() error {
+	var err error
+	for try := 0; try < 3; try++ { // el servidor a veces rechaza el bloque (se estaba bajando ya): otra vez desde donde queda
+		if err = c.pillarOnce(); err == nil || !strings.Contains(err.Error(), "no quedó") || c.j.Fatal() != nil {
+			return err
+		}
+		c.unpause()
+	}
+	return err
+}
+
+func (c *chopper) pillarOnce() error {
 	j := c.j
+	t0 := time.Now()
+	var marks []string
+	mark := func(n string) { marks = append(marks, fmt.Sprintf("%s %.1f", n, time.Since(t0).Seconds())) }
+	defer func() {
+		if time.Since(t0) > 4*time.Second {
+			j.Logf("subir tardó %.1f s: %s", time.Since(t0).Seconds(), strings.Join(marks, ", "))
+		}
+	}()
 	b := j.r.d.Builder
 	if b == nil || b.Blocks() == 0 {
 		return fmt.Errorf("sin bloques para subir")
@@ -902,32 +1006,42 @@ func (c *chopper) pillarUp() error {
 	if j.solid(f) { // sobre barro, arena de almas…: el suelo está en esta celda, los pies en la de encima
 		f.Y++
 	}
-	for _, dy := range []int{2, 3} { // la cabeza al saltar llega a +3
-		over := world.BlockPos{X: f.X, Y: f.Y + dy, Z: f.Z}
-		name := j.Block(over)
-		switch {
-		case name == "air" || name == "" || name == "cave_air":
-		case pathing.Soft(name) || strings.Contains(name, "vine") || c.ws.has(name) || c.treeBlock(name):
-			if err := j.Dig(over); err != nil {
-				return fmt.Errorf("lo de encima (%s): %w", name, err)
+	c.centerOn(f) // centrado en la celda: el cuerpo no roza las de al lado (ni su techo) y el bloque no choca con él
+	mark("centrar")
+	// lo de encima, en todas las columnas que pisa el cuerpo (0,6 de ancho)
+	p := j.Pos()
+	for _, dx := range []float64{-0.3, 0.3} {
+		for _, dz := range []float64{-0.3, 0.3} {
+			col := world.BlockPos{X: int(math.Floor(p.X + dx)), Z: int(math.Floor(p.Z + dz))}
+			for _, dy := range []int{2, 3} { // la cabeza al saltar llega a +3
+				over := world.BlockPos{X: col.X, Y: f.Y + dy, Z: col.Z}
+				name := j.Block(over)
+				switch {
+				case name == "air" || name == "" || name == "cave_air" || wet(name):
+				case pathing.Soft(name) || strings.Contains(name, "vine") || c.ws.has(name) || c.treeBlock(name):
+					if err := j.Dig(over); err != nil {
+						return fmt.Errorf("lo de encima (%s): %w", name, err)
+					}
+				case dy == 2 && col.X == f.X && col.Z == f.Z:
+					return fmt.Errorf("no cabe: %s encima", name)
+				}
 			}
-		case dy == 2:
-			return fmt.Errorf("no cabe: %s encima", name)
 		}
 	}
+	mark("encima")
 	feet := f
 	below := world.BlockPos{X: f.X, Y: f.Y - 1, Z: f.Z}
 	j.r.d.Walker.Stop()
-	p := j.Pos() // centrado en la celda, para que el bloque no choque con el cuerpo
-	if math.Hypot(p.X-(float64(f.X)+0.5), p.Z-(float64(f.Z)+0.5)) > 0.15 {
-		_ = j.GoTo(f)
-	}
 	// el bloque en la mano antes de saltar (un salto dura pocos ticks)
 	for t := 0; t < 40 && !b.Equip(); t++ {
 		if err := j.Wait(1); err != nil {
 			return err
 		}
+		if t == 39 {
+			j.Logf("no consigo un bloque en la mano: %s", b.Why())
+		}
 	}
+	mark("mano")
 	// mirando abajo (como el pathfinding en sus torres): girar al poner lleva ticks
 	for t := 0; t < 12 && j.Pos().Pitch < 89; t++ {
 		j.r.d.Player.UpdatePosition(func(p basic.Position) basic.Position {
@@ -938,27 +1052,85 @@ func (c *chopper) pillarUp() error {
 			return err
 		}
 	}
+	mark("mirar")
+	// (el cuerpo tiene que estar sobre la celda cuando el servidor reciba el bloque: se pone en cuanto la pasa, que el salto desde barro, 0,125 más bajo, apenas la supera 3 ticks)
+	startY, startGround := j.Pos().Y, j.r.d.Ctl.State().OnGround
 	j.r.d.Ctl.SetInput(control.Input{Jump: true})
-	for t := 0; t < 12 && j.Pos().Y < float64(feet.Y)+1.05; t++ {
+	peak := 0.0
+	swim := wet(j.Block(feet)) // en el agua no se salta: se nada hacia arriba, más despacio
+	rise := 12
+	if swim {
+		rise = 40
+	}
+	for t := 0; t < rise && j.Pos().Y < float64(feet.Y)+1.01; t++ {
 		if err := j.r.d.Ctl.WaitTicks(j.ctx, 1); err != nil {
 			j.r.d.Ctl.SetInput(control.Input{})
 			return err
 		}
+		peak = max(peak, j.Pos().Y-float64(feet.Y))
 	}
 	j.r.d.Ctl.SetInput(control.Input{})
+	mark("salto")
 	for t := 0; t < 7 && !b.Place(feet, below); t++ { // (el bloque aún iba a la barra)
 		_ = j.r.d.Ctl.WaitTicks(j.ctx, 1)
 	}
 	for t := 0; t < 40 && b.Busy(); t++ {
 		_ = j.r.d.Ctl.WaitTicks(j.ctx, 1)
 	}
+	mark("puesto")
 	for t := 0; t < 20 && !j.r.d.Ctl.State().OnGround; t++ {
 		_ = j.r.d.Ctl.WaitTicks(j.ctx, 1)
 	}
 	if j.Pos().Y < float64(feet.Y)+0.9 {
-		return fmt.Errorf("el bloque bajo los pies en %v no quedó (y %.2f, bloque ahí: %s)", feet, j.Pos().Y, j.Block(feet))
+		return fmt.Errorf("el bloque bajo los pies en %v no quedó (y %.2f, bloque ahí: %s; encima: %s %s %s; apogeo %.2f desde y=%.2f suelo=%v; cabeza %s, bajo %s)", feet, j.Pos().Y, j.Block(feet),
+			j.Block(world.BlockPos{X: f.X, Y: f.Y + 2, Z: f.Z}), j.Block(world.BlockPos{X: f.X, Y: f.Y + 3, Z: f.Z}), j.Block(world.BlockPos{X: f.X, Y: f.Y + 4, Z: f.Z}), peak, startY, startGround,
+			j.Block(world.BlockPos{X: f.X, Y: f.Y + 1, Z: f.Z}), j.Block(below))
 	}
 	return nil
+}
+
+// downable: el bloque bajo los pies se puede romper para bajar: uno que puso
+// (la torre) o, si cae poco al romperlo, las hojas, el tronco o la verruga del
+// árbol (una copa, un trozo de tronco: por ahí se bajaba andando y la caída era
+// de 10 o 20 bloques).
+func (c *chopper) downable(under world.BlockPos) bool {
+	j := c.j
+	if j.r.d.Builder.WasPlaced(under) {
+		return true
+	}
+	n := j.Block(under)
+	if !(j.naturalLeaves(under) || c.ws.has(n) || c.treeBlock(n)) {
+		return false
+	}
+	for d := 1; d <= 4; d++ { // al romperlo, cae hasta el primer suelo: 3 o menos no hace daño
+		if j.solid(world.BlockPos{X: under.X, Y: under.Y - d, Z: under.Z}) {
+			return true
+		}
+	}
+	return false
+}
+
+// centerOn pone al bot en el centro de la celda andando recto (sin pathfinding:
+// despacio y agachado, para no pasarse): un bloque que se pone bajo los pies y
+// los techos de encima cuentan con el cuerpo dentro de una sola columna.
+func (c *chopper) centerOn(cell world.BlockPos) {
+	j := c.j
+	j.r.d.Walker.Stop()
+	for t := 0; t < 40; t++ {
+		p := j.Pos()
+		dx, dz := float64(cell.X)+0.5-p.X, float64(cell.Z)+0.5-p.Z
+		if math.Hypot(dx, dz) < 0.1 || math.Abs(j.Pos().Y-float64(cell.Y)) > 1.5 {
+			break
+		}
+		yaw := float32(math.Atan2(-dx, dz) * 180 / math.Pi)
+		j.r.d.Player.UpdatePosition(func(q basic.Position) basic.Position { q.Yaw = yaw; return q })
+		j.r.d.Ctl.SetInput(control.Input{Forward: true, Shift: true})
+		if err := j.r.d.Ctl.WaitTicks(j.ctx, 1); err != nil {
+			break
+		}
+	}
+	j.r.d.Ctl.SetInput(control.Input{})
+	_ = j.r.d.Ctl.WaitTicks(j.ctx, 2) // (que se pare: sin la inercia)
 }
 
 // climbDown baja de la torre que se hizo: rompe los bloques puestos bajo los pies, uno a uno.
@@ -967,7 +1139,7 @@ func (c *chopper) climbDown(ground int) {
 	for i := 0; i < 48; i++ {
 		f := j.Feet()
 		under := world.BlockPos{X: f.X, Y: f.Y - 1, Z: f.Z}
-		if f.Y <= ground || j.r.d.Builder == nil || !j.r.d.Builder.WasPlaced(under) {
+		if f.Y <= ground || j.r.d.Builder == nil || !c.downable(under) {
 			return
 		}
 		j.Status("bajando de la torre")

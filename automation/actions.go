@@ -394,6 +394,7 @@ func (j *Job) CollectAround(x, y, z, radius float64) error {
 	}
 	tried := map[int32]int{}
 	leaves := map[int32]int{} // hojas rotas bajo cada objeto
+	opened := map[int32]bool{}
 	usable := func(e entities.Entity) (string, bool) {
 		if e.Type != "minecraft:item" || e.Y < y-3 {
 			return "", false
@@ -419,6 +420,10 @@ func (j *Job) CollectAround(x, y, z, radius float64) error {
 	}
 	falling := 0 // ticks esperando a objetos que siguen en el aire
 	for quiet := 0; quiet < 10; {
+		if !j.collectUntil.IsZero() && time.Now().After(j.collectUntil) {
+			j.Logf("recoger: se acabó el tiempo (lo que queda se deja)")
+			break
+		}
 		var target, onLeaves *entities.Entity
 		inAir := false
 		bestD := math.Inf(1)
@@ -481,8 +486,15 @@ func (j *Job) CollectAround(x, y, z, radius float64) error {
 		}
 		quiet = 0
 		tried[target.ID]++
-		if _, err := j.walkToItem(*target); err != nil {
+		got, err := j.walkToItem(*target)
+		if err != nil {
 			return err
+		}
+		if !got && tried[target.ID] >= 2 && !opened[target.ID] && j.collectOpen != nil {
+			opened[target.ID] = true // (una sola apertura por objeto)
+			if j.collectOpen(itemCell(*target)) {
+				tried[target.ID] = 1
+			}
 		}
 	}
 	var left []string

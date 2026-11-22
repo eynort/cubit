@@ -382,7 +382,11 @@ type Job struct {
 	// sin dónde guardar: storageAsked ya se preguntó por el chat; noStore se
 	// sigue sin guardar ni recoger (noStoreSig: dónde se podía guardar entonces)
 	// collectOnly: si no es nil, Collect solo coge lo que está donde dice (la caja de /excavate)
-	collectOnly  func(world.BlockPos) bool
+	collectOnly func(world.BlockPos) bool
+	// collectOpen: si no es nil, es lo que se prueba para llegar a un objeto que no se alcanza (abrirse paso entre las hojas)
+	collectOpen func(world.BlockPos) bool
+	// collectUntil: si no es cero, CollectAround deja de ir a por objetos pasada esa hora
+	collectUntil time.Time
 	storageAsked bool
 	pickAsked    bool            // ya se pidió un pico por el chat en esta tarea
 	farTold      map[string]bool // los cofres lejanos que ya se dijo que no se usan (tooFar)
