@@ -47,6 +47,23 @@ On Linux and macOS, run `chmod +x cubit` first. Next time, plain `./cubit` rejoi
 
 On **Android**, install Termux and pick the `android-arm64` file. Add `--view 4 --memlimit 120` to keep it light.
 
+### A test server without Docker
+
+With the panel running as a hub (`./cubit --hub :8080`) and no Docker, open **Servers → Test server**: it offers to set one up. You tick *I accept the Minecraft EULA* (<https://aka.ms/MinecraftEULA>, never accepted for you) and press **Install**. Cubit then downloads, checking each checksum:
+
+- **Java**: Eclipse Temurin (JRE) from the official Adoptium API, for your system and the version Minecraft 26.2 asks for (about 50 MB);
+- **the server**: the official `server.jar` from Mojang (about 60 MB).
+
+Everything lives in `server/` inside the hub's data folder (about 250 MB). Progress shows in the panel, and if the connection drops, pressing the button again resumes. After that the server is started by the hub itself (offline mode, port 25565, view distance 8, RCON only for the panel with a random password), and *Start / Stop / Restart / New world* work exactly as with Docker. Closing the hub stops it cleanly. Its latest output is at `GET /server/logs` and in `server/logs/latest.log`.
+
+| | |
+|---|---|
+| `MCBOT_SERVER_XMX=2G` | memory for the server (default `1G`) |
+| `MCBOT_TEST_PORT` / `MCBOT_SERVER_RCON_PORT` | game port (25565) / RCON port (25575) |
+| `MCBOT_NO_NATIVE=1` | never offer the native server |
+
+It is picked automatically: if `MCBOT_SERVER_DIR` or `MCBOT_RCON` is set (what `compose.yaml` does), Docker is used and nothing changes. The RCON port listens on all interfaces, protected by that password: close it in your firewall if the machine is not yours alone.
+
 ## 2. The panel
 
 - **Bot**: your bots, each shown with its skin head. Open one to start or stop it, change its settings, or move it to another server.

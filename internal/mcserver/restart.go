@@ -24,8 +24,10 @@ import (
 	"cubit/internal/rcon"
 )
 
+// warnDelay: del aviso en el chat al "stop" (variable para las pruebas).
+var warnDelay = 5 * time.Second
+
 const (
-	warnDelay        = 5 * time.Second  // del aviso en el chat al "stop"
 	defaultRestart   = 40 * time.Second // la primera vez (sin medida): aviso + parar + arrancar
 	restartGiveUp    = 5 * time.Minute  // más que esto, se deja de seguir
 	restartTimesFile = "reinicio_servidor.txt"

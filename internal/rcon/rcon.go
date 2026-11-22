@@ -27,8 +27,29 @@ import (
 
 var mu sync.Mutex // (una orden a la vez)
 
+// override: la consola del servidor nativo (sin Docker), que el hub arranca él
+// mismo (internal/mcserver/native.go). MCBOT_RCON, si está, manda.
+var override struct {
+	sync.Mutex
+	addr, password string
+}
+
+// SetOverride pone (o quita, con "") la consola de un servidor que lleva el propio programa.
+func SetOverride(addr, password string) {
+	override.Lock()
+	override.addr, override.password = addr, password
+	override.Unlock()
+}
+
 // Addr: la dirección de la consola (MCBOT_RCON; "" = sin RCON).
-func Addr() string { return os.Getenv("MCBOT_RCON") }
+func Addr() string {
+	if a := os.Getenv("MCBOT_RCON"); a != "" {
+		return a
+	}
+	override.Lock()
+	defer override.Unlock()
+	return override.addr
+}
 
 // Cmd manda un comando a la consola del servidor y devuelve lo que dice.
 func Cmd(cmd string) (string, error) {
@@ -85,7 +106,12 @@ func password() string {
 			return p["rcon.password"]
 		}
 	}
-	return os.Getenv("MCBOT_RCON_PASSWORD")
+	if p := os.Getenv("MCBOT_RCON_PASSWORD"); p != "" {
+		return p
+	}
+	override.Lock()
+	defer override.Unlock()
+	return override.password
 }
 
 func write(w io.Writer, id, typ int32, body string) error {
@@ -128,9 +154,25 @@ func stripColors(s string) string {
 	return sb.String()
 }
 
+var (
+	knownMu sync.Mutex
+	known   []string
+)
+
+// Known: los últimos dueños que se pidió hacer op (el servidor nativo, al
+// arrancar por primera vez, se los hace).
+func Known() []string {
+	knownMu.Lock()
+	defer knownMu.Unlock()
+	return append([]string(nil), known...)
+}
+
 // OpOwners: con RCON, los dueños son op en el servidor (para /gamemode…).
 // Reintenta un rato: al arrancar todo junto, el servidor tarda en abrirlo.
 func OpOwners(owners []string) {
+	knownMu.Lock()
+	known = append([]string(nil), owners...)
+	knownMu.Unlock()
 	if Addr() == "" {
 		return
 	}

@@ -147,6 +147,9 @@ func Run(addr string, opts Options) {
 		return false
 	}
 	mcserver.OnUp = h.serverUp
+	if mcserver.EnableNative(".") { // sin Docker: el servidor de pruebas lo lleva el hub (se instala desde el panel)
+		defer mcserver.Shutdown()
+	}
 
 	ln, err := net.Listen("tcp", addr) // (antes que los bots: si no se puede, no se arranca nada)
 	if err != nil {

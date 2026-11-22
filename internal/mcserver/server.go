@@ -5,6 +5,9 @@
 //	MCBOT_RCON=minecraft:25575     la consola (internal/rcon): lo que cambia al momento
 //	MCBOT_SERVER_DIR=/server       su carpeta: server.properties, ops, lista blanca
 //
+// Sin esas dos variables y en el hub, el servidor lo lleva el propio hub sin
+// Docker (backend.go, native.go, install.go).
+//
 // server.properties solo se lee al arrancar el servidor: lo que no tiene
 // comando (motd, máximo de jugadores…) pide reiniciarlo (/server/restart:
 // "stop", y Docker lo vuelve a arrancar).
@@ -32,7 +35,14 @@ import (
 	"cubit/internal/rcon"
 )
 
-func serverDir() string { return os.Getenv("MCBOT_SERVER_DIR") }
+// serverDir: la carpeta del servidor de pruebas propio (Docker o nativo; ""
+// = no hay, o el nativo aún no está instalado).
+func serverDir() string {
+	if b := activeBackend(); b != nil {
+		return b.Dir()
+	}
+	return ""
+}
 
 // serverProp: una propiedad que se puede cambiar desde el panel.
 type serverProp struct {
@@ -130,12 +140,13 @@ type serverState struct {
 	Props      map[string]string `json:"props"`
 	PropDefs   []serverProp      `json:"prop_defs"`
 	RuleDefs   any               `json:"rule_defs"`
-	Pending    bool              `json:"pending"`       // hay cambios que piden reiniciar
-	Restart    restartStatus     `json:"restart"`       // el reinicio en curso (restart.go)
-	Power      string            `json:"power"`         // on, off, stopping, starting (power.go)
-	Target     target            `json:"target"`        // a dónde está conectado el bot
-	PowerSince float64           `json:"power_since"`   // segundos desde el último apagar/encender
-	BootEst    float64           `json:"boot_estimate"` // lo que se calcula que tarda en arrancar (s)
+	Pending    bool              `json:"pending"`          // hay cambios que piden reiniciar
+	Restart    restartStatus     `json:"restart"`          // el reinicio en curso (restart.go)
+	Power      string            `json:"power"`            // on, off, stopping, starting (power.go)
+	Target     target            `json:"target"`           // a dónde está conectado el bot
+	PowerSince float64           `json:"power_since"`      // segundos desde el último apagar/encender
+	BootEst    float64           `json:"boot_estimate"`    // lo que se calcula que tarda en arrancar (s)
+	Native     *nativeStatus     `json:"native,omitempty"` // sin Docker: instalado o no, y la instalación en curso
 }
 
 var (
@@ -353,7 +364,32 @@ func Routes(mux *http.ServeMux, ok func(http.ResponseWriter, *http.Request) bool
 	}
 	mux.HandleFunc("/server", func(w http.ResponseWriter, r *http.Request) {
 		if ok(w, r) {
-			jsonOut(w, serverStatus())
+			st := serverStatus()
+			st.Native = nativeStatusFor(func(err error) string { return i18n.ErrText(r, err) })
+			jsonOut(w, st)
+		}
+	})
+	mux.HandleFunc("/server/setup", func(w http.ResponseWriter, r *http.Request) {
+		if !post(w, r) {
+			return
+		}
+		var in struct {
+			AcceptEULA bool `json:"accept_eula"`
+			Seed       string
+		}
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&in); err != nil {
+			i18n.HTTPMsg(w, r, http.StatusBadRequest, "unreadable request", "petición ilegible")
+			return
+		}
+		if err := Setup(in.AcceptEULA, in.Seed); err != nil {
+			i18n.HTTPError(w, r, http.StatusConflict, err)
+			return
+		}
+		jsonOut(w, map[string]bool{"installing": true})
+	})
+	mux.HandleFunc("/server/logs", func(w http.ResponseWriter, r *http.Request) {
+		if ok(w, r) {
+			jsonOut(w, map[string]any{"lines": serverLogs(200), "native": nativeActive()})
 		}
 	})
 	mux.HandleFunc("/server/props", func(w http.ResponseWriter, r *http.Request) {
@@ -399,8 +435,12 @@ func Routes(mux *http.ServeMux, ok func(http.ResponseWriter, *http.Request) bool
 		if !post(w, r) {
 			return
 		}
+		if err := needsSetup(); err != nil {
+			i18n.HTTPError(w, r, http.StatusConflict, err)
+			return
+		}
 		if serverDir() == "" {
-			i18n.HTTPMsg(w, r, http.StatusBadRequest, "only with the local Docker server (MCBOT_SERVER_DIR): outside Docker, stop would just shut it down", "solo con el servidor local de Docker (MCBOT_SERVER_DIR): fuera de Docker, stop lo apagaría sin más")
+			i18n.HTTPMsg(w, r, http.StatusBadRequest, "only with the local test server (Docker or installed from the panel): on another server, stop would just shut it down", "solo con el servidor de pruebas local (Docker o instalado desde el panel): en otro servidor, stop lo apagaría sin más")
 			return
 		}
 		if Off() {

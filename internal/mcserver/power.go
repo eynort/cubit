@@ -12,6 +12,7 @@ package mcserver
 
 import (
 	"log"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -44,6 +45,9 @@ func powerMarkerPath() string { return filepath.Join(serverDir(), powerMarker) }
 
 // Off: la marca de apagado está puesta.
 func Off() bool {
+	if nativeActive() && !nativeReady() {
+		return true // (sin instalar: apagado)
+	}
 	if serverDir() == "" {
 		return false
 	}
@@ -82,6 +86,9 @@ func pendingPower(what string) bool {
 
 // stopServer apaga el servidor de pruebas (hasta que se encienda).
 func stopServer() error {
+	if err := needsSetup(); err != nil {
+		return err
+	}
 	if serverDir() == "" {
 		return i18n.Errorf("only the test server (the local Docker one) can be stopped from here", "solo el servidor de pruebas (el local de Docker) se puede apagar desde aquí")
 	}
@@ -112,6 +119,9 @@ func stopServer() error {
 // Start enciende el servidor de pruebas (quita la marca) y avisa al
 // bot de que vuelva a probar a entrar ya, sin esperar a su siguiente intento.
 func Start() error {
+	if err := needsSetup(); err != nil {
+		return err
+	}
 	if serverDir() == "" {
 		return i18n.Errorf("only the test server (the local Docker one) can be started from here", "solo el servidor de pruebas (el local de Docker) se puede encender desde aquí")
 	}
@@ -149,8 +159,14 @@ func TestServerAddr() string {
 	if a := os.Getenv("MCBOT_TEST_SERVER"); a != "" {
 		return a
 	}
-	if r := rcon.Addr(); r != "" && serverDir() != "" {
+	if r := rcon.Addr(); r != "" && serverDir() != "" && !nativeActive() {
 		return mc.HostOf(r)
+	}
+	if nativeActive() { // sin Docker: en este mismo equipo
+		if p := TestJoinPort(); p != 25565 {
+			return net.JoinHostPort("127.0.0.1", strconv.Itoa(p))
+		}
+		return "127.0.0.1"
 	}
 	return ""
 }
