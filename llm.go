@@ -175,6 +175,14 @@ func llmRun(ctx context.Context, model llmModel, host llmHost, from, said, langu
 			msgs = append(msgs, llmMsg{Role: "assistant", Text: raw}, llmMsg{Role: "user", Text: "That was not valid JSON. Reply only with the JSON object."})
 			continue
 		}
+		// acciones sin orden ({"command":""}, a veces de gemma4): ni se ejecutan ni se cuentan
+		kept := r.Actions[:0]
+		for _, a := range r.Actions {
+			if strings.TrimSpace(a.Command) != "" {
+				kept = append(kept, a)
+			}
+		}
+		r.Actions = kept
 		// al chat, solo lo primero (qué va a hacer) y lo último (cómo ha ido):
 		// los modelos pequeños narran cada paso ("voy a mirar el inventario…")
 		terminal := len(r.Actions) == 0 || r.Done

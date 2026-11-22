@@ -5,25 +5,37 @@
 //	MCBOT_ADDR=<dirección> go run .   # el bot entra ahí
 //	go run . <dirección>              # (o así)
 //
-// Con -kick-after echa al bot a los tantos segundos (para probar que vuelve a entrar). Con -demo
-// hace de jugador "Tester" que le manda órdenes por chat (el modo --demo).
+// Con -kick-after echa al bot a los tantos segundos (para probar que vuelve a entrar).
+// Con -console lee órdenes de la entrada estándar y apunta en el log lo que el bot
+// escribe en el chat y los comandos que manda:
+//
+//	chat <jugador> <texto>   un jugador dice algo en el chat público (p. ej. el dueño)
+//	sys <texto>              un mensaje del servidor (p. ej. «Please login with /login <password>»)
+//	kick                     echar al bot
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
 	"github.com/mj41/go-mc26-kit/bot/fakeserver"
+	"github.com/mj41/go-mc26/chat"
+	"github.com/mj41/go-mc26/data/packetid"
+	"github.com/mj41/go-mc26/protocol/play"
+	"github.com/mj41/go-mc26/protocol/types"
 )
 
 var (
 	kickFlag = flag.Duration("kick-after", 0, "echar al bot pasado este tiempo (0 = nunca)")
 	quiet    = flag.Bool("q", false, "sin log")
+	console  = flag.Bool("console", false, "órdenes por la entrada estándar (chat, sys, kick) y el chat del bot en el log")
 )
 
 func main() {
@@ -39,6 +51,10 @@ func main() {
 	fmt.Println(s.Addr)
 	if *quiet {
 		log.SetOutput(new(bytes.Buffer))
+	}
+	if *console {
+		s.Hook = logOutgoing
+		go readConsole(s)
 	}
 	go watch(s)
 	c := make(chan os.Signal, 1)
@@ -63,6 +79,50 @@ func watch(s *fakeserver.Server) {
 				log.Printf("echo a %s", p.Name)
 				_ = p.Kick("Servidor reiniciándose")
 			})
+		}
+	}
+}
+
+// logOutgoing apunta lo que el bot escribe en el chat y los comandos que manda.
+func logOutgoing(p fakeserver.Packet) {
+	switch p.ID {
+	case packetid.ServerboundPlayChat:
+		var c play.Chat
+		if p.Scan(&c) == nil {
+			log.Printf("chat del bot: %s", c.Message)
+		}
+	case packetid.ServerboundPlayChatCommand, packetid.ServerboundPlayChatCommandSigned:
+		var c play.ChatCommand
+		if p.Scan(&c) == nil {
+			log.Printf("comando del bot: /%s", c.Command)
+		}
+	}
+}
+
+// readConsole: las órdenes de -console.
+func readConsole(s *fakeserver.Server) {
+	sc := bufio.NewScanner(os.Stdin)
+	for sc.Scan() {
+		verb, rest, _ := strings.Cut(strings.TrimSpace(sc.Text()), " ")
+		ps := s.Players()
+		if len(ps) == 0 {
+			log.Print("no hay nadie dentro")
+			continue
+		}
+		var err error
+		switch verb {
+		case "chat":
+			from, text, _ := strings.Cut(rest, " ")
+			err = ps[0].Chat(from, text)
+		case "sys":
+			err = ps[0].Send(play.SystemChat{Content: types.Text(chat.Text(rest))})
+		case "kick":
+			err = ps[0].Kick("Servidor reiniciándose")
+		default:
+			log.Printf("¿%s? (chat <jugador> <texto> | sys <texto> | kick)", verb)
+		}
+		if err != nil {
+			log.Print(err)
 		}
 	}
 }
