@@ -25,6 +25,7 @@ var (
 	kickFlag = flag.Duration("kick-after", 0, "echar al bot pasado este tiempo (0 = nunca)")
 	quiet    = flag.Bool("q", false, "sin log")
 	radius   = flag.Int("radius", 2, "chunks alrededor del spawn que se mandan (2: 5×5; 6: 13×13, como un servidor con view-distance 6)")
+	compress = flag.Int("compress", -1, "comprimir los paquetes de más de tantos bytes, como un servidor de verdad (256); -1 = sin comprimir")
 	maxPl    = flag.Int("max", 1, "jugadores a la vez (para medir varios bots: docs/PERFORMANCE.md)")
 )
 
@@ -38,7 +39,8 @@ func main() {
 	defer s.Close()
 	s.World.Radius = *radius
 	s.MaxPlayers = *maxPl
-	s.KeepAlive = 10 * time.Second // (sin keep-alive el bot da la conexión por perdida a los 20 s)
+	s.SetCompression(*compress)
+	s.KeepAlive = 10 * time.Second                       // (sin keep-alive el bot da la conexión por perdida a los 20 s)
 	s.World.Fill(3, 64, -2, 6, 64, 2, "minecraft:stone") // un escalón para probar
 	fmt.Println(s.Addr)
 	if *quiet {
