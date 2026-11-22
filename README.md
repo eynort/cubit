@@ -55,7 +55,7 @@ When it finishes, it prints your panel link:
 2. **Create your bot**: the panel walks you through it (name, server, owner, language).
 3. **Play with it**: in **Minecraft Java 26.2**, go to *Multiplayer → Direct Connection* and enter `localhost:25565`.
 
-You can also skip Docker and run the binary on its own: download it from [Releases](../../releases). The **[Guide](docs/GUIDE.md)** covers everything else: controlling the bot, the panel, servers and phones.
+You can also skip Docker and run the binary on its own: download it from [Releases](../../releases). The **[Guide](docs/GUIDE.md)** covers everything else: controlling the bot, the panel, servers and phones. To control bots from your own scripts, there is an **[HTTP API](docs/API.md)**.
 
 The bot speaks Minecraft Java 26.2; servers on **other versions** are joined transparently through [ViaProxy](docs/GUIDE.md#5-other-minecraft-versions).
 
@@ -140,7 +140,17 @@ Type commands in the bot's **console in the panel**. In game, whisper them as an
 /drop diamond 5 Steve         → 5 diamonds, thrown to Steve
 ```
 
-**`/stop`**: stops whatever it is doing: fighting, walking or digging.
+**`/queue <command>` · `<a> ; <b>`**: a to-do list. `/queue` adds a command (`chop`, `mine`, `excavate` or `goto x y z`) to run when the current task ends. In any line, ` ; ` chains commands: the first starts now and the rest wait their turn. When a task fails or gives up, the bot says so in the chat and pauses the list; `/queue resume` carries on. The list survives reconnects.
+```
+/queue /chop oak ~ ~ ~
+/queue list                   → what is waiting, numbered
+/queue remove 2               → forget the second one
+/queue clear                  → forget them all
+/queue resume                 → carry on after a failure or /stop
+/mine iron ~ ~ ~ ; /chop oak 10 64 10   → mine now, chop afterwards
+```
+
+**`/stop`**: stops whatever it is doing: fighting, walking or digging. It also pauses the queue (it keeps what is waiting; `/queue resume` continues).
 ```
 /stop
 ```

@@ -55,7 +55,7 @@ Al terminar, te escribe el enlace de tu panel:
 2. **Crea tu bot**: el panel te guía paso a paso (nombre, servidor, dueño, idioma).
 3. **Juega con él**: en **Minecraft Java 26.2**, ve a *Multijugador → Conexión directa* y pon `localhost:25565`.
 
-También puedes usar el programa suelto, sin Docker: descárgalo en [Releases](../../releases). Todo lo demás está en la **[Guía](docs/GUIA.md)**: cómo controlar el bot, el panel, los servidores y los móviles.
+También puedes usar el programa suelto, sin Docker: descárgalo en [Releases](../../releases). Todo lo demás está en la **[Guía](docs/GUIA.md)**: cómo controlar el bot, el panel, los servidores y los móviles. Para manejar los bots desde tus propios scripts hay una **[API HTTP](docs/API.es.md)**.
 
 El bot habla Minecraft Java 26.2; en servidores de **otras versiones** entra solo a través de [ViaProxy](docs/GUIA.md#5-otras-versiones-de-minecraft).
 
@@ -140,7 +140,17 @@ Escribe las órdenes en la **consola del bot en el panel**. En el juego, mándas
 /drop diamond 5 Steve         → 5 diamantes, tirados a Steve
 ```
 
-**`/stop`**: deja lo que esté haciendo: pelear, andar o excavar.
+**`/queue <orden>` · `<a> ; <b>`**: una lista de tareas. `/queue` apunta una orden (`chop`, `mine`, `excavate` o `goto x y z`) para cuando acabe la tarea actual. En cualquier línea, ` ; ` encadena órdenes: la primera empieza ya y las demás esperan su turno. Si una tarea falla o se rinde, el bot lo dice en el chat y pausa la lista; `/queue resume` sigue. La lista sobrevive a las reconexiones.
+```
+/queue /chop oak ~ ~ ~
+/queue list                   → lo que espera, numerado
+/queue remove 2               → olvidar la segunda
+/queue clear                  → olvidarlas todas
+/queue resume                 → seguir tras un fallo o un /stop
+/mine iron ~ ~ ~ ; /chop oak 10 64 10   → minar ya, talar después
+```
+
+**`/stop`**: deja lo que esté haciendo: pelear, andar o excavar. También pausa la cola (guarda lo que espera; `/queue resume` sigue).
 ```
 /stop
 ```

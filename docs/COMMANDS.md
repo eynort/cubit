@@ -243,6 +243,30 @@ Mine ores like a real player (strip mining, no xray): from where it stands, it g
 /mine ancient_debris 104 103 -224       # in the Nether: ancient debris at y=15
 ```
 
+## /queue
+
+`/queue <command> | list | clear | remove <n> | resume | pause`
+
+Task queue: queue a command to run when the current task ends (/queue /chop oak ~ ~ ~), or chain commands with ' ; ' in any line (the first runs now, the rest wait). A failed task pauses the queue; /stop pauses it too.
+
+- `<command>`: the command to queue (chop, mine, excavate or goto x y z)
+- `list`: show what is waiting
+- `clear`: forget everything waiting
+- `remove <n>`: forget one by its number (see list)
+- `resume`: carry on after a pause
+- `pause`: hold the queue (the current task goes on)
+
+**Examples**
+
+```
+/queue /chop oak ~ ~ ~                  # chop after the current task ends
+/queue list                             # what is waiting, numbered
+/queue remove 2                         # forget the second one
+/queue clear                            # forget them all
+/queue resume                           # carry on after a failure or /stop
+/mine iron ~ ~ ~ ; /chop oak 10 64 10   # the same with a chain: the first runs now, the rest wait
+```
+
 ## /quit
 
 `/quit`

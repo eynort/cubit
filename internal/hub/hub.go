@@ -87,6 +87,7 @@ type hub struct {
 	opts Options
 
 	discord *discordMgr
+	events  broker // los eventos de los bots (api.go)
 }
 
 // Options: lo que el hub toma del programa que lo arranca.
@@ -150,6 +151,9 @@ func Run(addr string, opts Options) {
 	defer stop()
 	h.ctx = ctx
 	h.startDiscord()
+	current.Store(h)
+	defer current.CompareAndSwap(h, nil)
+	go h.pollEvents(ctx)
 	for _, id := range h.cfg.Run {
 		if b := h.bots[id]; b != nil {
 			_ = h.start(b)
@@ -342,12 +346,14 @@ func (h *hub) spawn(b *hubBot) error {
 		}
 	}()
 	go h.watch(b, cmd)
+	h.events.publish(Event{Bot: b.id, Name: name, Type: "bot", Status: "started"})
 	return nil
 }
 
 // watch espera a que el proceso acabe; si tenía que seguir, lo vuelve a arrancar.
 func (h *hub) watch(b *hubBot, cmd *exec.Cmd) {
 	err := cmd.Wait()
+	h.events.publish(Event{Bot: b.id, Name: h.info(b.id).Name, Type: "bot", Status: "stopped"})
 	b.mu.Lock()
 	if b.cmd == cmd {
 		b.cmd, b.proxy = nil, nil
@@ -457,19 +463,21 @@ func (h *hub) serverUp() {
 
 // BotState: un bot tal como lo ve el panel.
 type BotState struct {
-	ID        string   `json:"id"`
-	Name      string   `json:"name"`
-	Server    string   `json:"server"`          // la dirección
-	ServerID  string   `json:"server_id"`       // su servidor en la lista ("test" = el de pruebas)
-	Login     *msLogin `json:"login,omitempty"` // servidor premium: el código para vincular la cuenta
-	OnTest    bool     `json:"on_test"`         // va al servidor de pruebas
-	Owners    []string `json:"owners"`
-	Running   bool     `json:"running"`   // el proceso está en marcha
-	Connected bool     `json:"connected"` // dentro del servidor
-	Health    float32  `json:"health"`
-	Task      string   `json:"task"`
-	Error     string   `json:"error,omitempty"` // por qué no arranca (sus últimas líneas)
-	Avatar    string   `json:"avatar"`
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Server      string   `json:"server"`          // la dirección
+	ServerID    string   `json:"server_id"`       // su servidor en la lista ("test" = el de pruebas)
+	Login       *msLogin `json:"login,omitempty"` // servidor premium: el código para vincular la cuenta
+	OnTest      bool     `json:"on_test"`         // va al servidor de pruebas
+	Owners      []string `json:"owners"`
+	Running     bool     `json:"running"`   // el proceso está en marcha
+	Connected   bool     `json:"connected"` // dentro del servidor
+	Health      float32  `json:"health"`
+	Task        string   `json:"task"`
+	Queue       []string `json:"queue"`           // las órdenes esperando a que acabe la tarea (/queue)
+	QueuePaused bool     `json:"queue_paused"`    // la cola está en pausa (fallo o /stop)
+	Error       string   `json:"error,omitempty"` // por qué no arranca (sus últimas líneas)
+	Avatar      string   `json:"avatar"`
 }
 
 // State: /api/state, lo que ve el panel (del hub o de un bot solo).
@@ -498,7 +506,7 @@ func (h *hub) state() State {
 	for _, id := range h.ids() {
 		c := h.info(id)
 		b := h.bot(id)
-		bs := BotState{ID: id, Name: c.Name, Server: c.Server, ServerID: h.serverOf(c.Server), OnTest: mcserver.OnTestServer(c.Server), Owners: c.Owners, Avatar: avatar.URL(c.Name, h.premiumFor(c.Server))}
+		bs := BotState{Queue: []string{}, ID: id, Name: c.Name, Server: c.Server, ServerID: h.serverOf(c.Server), OnTest: mcserver.OnTestServer(c.Server), Owners: c.Owners, Avatar: avatar.URL(c.Name, h.premiumFor(c.Server))}
 		if b != nil {
 			b.mu.Lock()
 			bs.Running = b.cmd != nil
@@ -543,12 +551,15 @@ func (h *hub) peek(port int, bs *BotState) {
 	}
 	defer resp.Body.Close()
 	var p struct {
-		Connected bool    `json:"connected"`
-		Health    float32 `json:"health"`
-		Task      string  `json:"task"`
+		Connected bool     `json:"connected"`
+		Health    float32  `json:"health"`
+		Task      string   `json:"task"`
+		Queue     []string `json:"queue"`
+		Paused    bool     `json:"queue_paused"`
 	}
 	if json.NewDecoder(resp.Body).Decode(&p) == nil {
 		bs.Connected, bs.Health, bs.Task = p.Connected, p.Health, p.Task
+		bs.Queue, bs.QueuePaused = p.Queue, p.Paused
 	}
 }
 
@@ -691,8 +702,14 @@ func (h *hub) routes() http.Handler {
 		}
 	})
 	mux.HandleFunc("/api/bots", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet { // la lista (API pública)
+			if ok(w, r) {
+				jsonOut(w, h.state().Bots)
+			}
+			return
+		}
 		if r.Method != http.MethodPost {
-			http.Error(w, "POST", http.StatusMethodNotAllowed)
+			http.Error(w, "GET, POST", http.StatusMethodNotAllowed)
 			return
 		}
 		if !ok(w, r) {
@@ -715,8 +732,18 @@ func (h *hub) routes() http.Handler {
 		jsonOut(w, res)
 	})
 	mux.HandleFunc("/api/bots/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet { // estado de uno y su log (API pública)
+			if !ok(w, r) {
+				return
+			}
+			id, action, _ := strings.Cut(strings.TrimPrefix(r.URL.Path, "/api/bots/"), "/")
+			if !h.apiGet(w, r, id, action, jsonOut) {
+				http.NotFound(w, r)
+			}
+			return
+		}
 		if r.Method != http.MethodPost {
-			http.Error(w, "POST", http.StatusMethodNotAllowed)
+			http.Error(w, "GET, POST", http.StatusMethodNotAllowed)
 			return
 		}
 		if !ok(w, r) {
@@ -741,6 +768,9 @@ func (h *hub) routes() http.Handler {
 			h.mu.Unlock()
 		case "delete":
 			err = h.remove(id)
+		case "command":
+			h.apiCommand(w, r, id)
+			return
 		case "move":
 			var req struct {
 				ServerID string `json:"server_id"`
@@ -793,5 +823,6 @@ func (h *hub) routes() http.Handler {
 	mcserver.Routes(mux, ok)
 	h.serverRoutesAPI(mux, ok)
 	h.discordRoutes(mux, ok)
+	h.apiRoutes(mux, ok)
 	return mux
 }

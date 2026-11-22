@@ -126,6 +126,7 @@ func (b *Bot) onSystemChat(m chat.Message, overlay bool) error {
 	text := m.ClearString()
 	b.checkLoginPrompt(text)
 	log.Print("[sistema] ", text)
+	emitEvent(apiEvent{Type: "system", Text: text})
 	return nil
 }
 
@@ -135,6 +136,11 @@ func (b *Bot) onPlayerChat(m msg.PlayerChat) error {
 		return nil // ignora sus propios mensajes
 	}
 	log.Printf("<%s> %s", m.Name, m.Content)
+	kind := "chat"
+	if m.Type == "minecraft:msg_command_incoming" {
+		kind = "whisper"
+	}
+	emitEvent(apiEvent{Type: kind, From: m.Name, Text: m.Content})
 	if b.Tasks != nil && (m.Type == "minecraft:msg_command_incoming" || toBot(m.Content)) {
 		b.Tasks.NoteChat() // una respuesta a lo que preguntó el bot (storageStuck)
 	}

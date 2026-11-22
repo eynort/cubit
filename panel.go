@@ -98,14 +98,17 @@ func panelToken() string {
 
 type panelState struct {
 	stats
-	Server    string         `json:"server"`
-	Connected bool           `json:"connected"`
-	Inventory map[string]int `json:"inventory"`
-	Online    []string       `json:"online"`
+	Server      string         `json:"server"`
+	Connected   bool           `json:"connected"`
+	Inventory   map[string]int `json:"inventory"`
+	Online      []string       `json:"online"`
+	Queue       []string       `json:"queue"`        // las órdenes esperando (/queue)
+	QueuePaused bool           `json:"queue_paused"` // la cola está en pausa
 }
 
 func panelSnapshot() panelState {
 	st := panelState{Server: serverAddr}
+	st.Queue, st.QueuePaused = workQueue.snapshot()
 	b := current.Load()
 	if b == nil {
 		st.stats.Name = botName
@@ -149,6 +152,11 @@ func startMonitor(ctx context.Context) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(panelSnapshot())
+	})
+	mux.HandleFunc("/events", func(w http.ResponseWriter, r *http.Request) {
+		if ok(w, r) {
+			eventsHandler(w, r)
+		}
 	})
 	mux.HandleFunc("/log", func(w http.ResponseWriter, r *http.Request) {
 		if !ok(w, r) {
@@ -264,7 +272,7 @@ func singleState() hub.State {
 	owners := append([]string{}, cfg.Owners...)
 	cfgMu.Unlock()
 	st.Bots = []hub.BotState{{ID: "self", Name: botName, Server: serverAddr, OnTest: botOnTestServer(), Owners: owners,
-		Running: true, Connected: p.Connected, Health: p.Health, Task: p.Task, Avatar: avatar.URL(botName, *microsoftFlag)}}
+		Running: true, Connected: p.Connected, Health: p.Health, Task: p.Task, Queue: p.Queue, QueuePaused: p.QueuePaused, Avatar: avatar.URL(botName, *microsoftFlag)}}
 	st.Servers = []hub.ServerView{}
 	if t := mcserver.TestServerAddr(); t != "" {
 		st.TestServer.Available, st.TestServer.Addr = true, t

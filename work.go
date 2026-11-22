@@ -117,7 +117,7 @@ func errText(err error) string {
 // onTaskStall: el vigilante vio la tarea atascada (la reempieza, o la para).
 func (b *Bot) onTaskStall(name, status string, attempt int, gaveUp bool) {
 	if gaveUp {
-		b.reportWork(tr("still stuck with %s, I'm leaving it", "nada, sigo trabado con %s, lo dejo"), taskName(name))
+		b.queueFail(tr("still stuck with %s, I'm leaving it", "nada, sigo trabado con %s, lo dejo"), taskName(name))
 		return
 	}
 	b.reportWork(tr("I got stuck with %s, trying again (%d/3)", "me trabé con %s, lo intento otra vez (%d/3)"), taskName(name), attempt)
@@ -136,6 +136,7 @@ func (b *Bot) startWork(name string, task func(*automation.Job) error) {
 		b.work.pos, b.work.hasPos = here, true
 	}
 	b.work.mu.Unlock()
+	emitEvent(apiEvent{Type: "task", Task: name, Status: "started"})
 	b.Tasks.Start(b.ctx, name, task)
 }
 
@@ -143,14 +144,45 @@ func (b *Bot) startWork(name string, task func(*automation.Job) error) {
 // muerte), se olvida.
 func (b *Bot) onTaskEnd(name string, err error) {
 	// por qué paró, en el chat: si no, quien lo mandó no se entera
-	if err != nil && !errors.Is(err, context.Canceled) {
+	failed := err != nil && !errors.Is(err, context.Canceled)
+	if failed {
 		b.reportWork(tr("I stopped %s: %s", "dejo %s: %s"), taskName(name), errText(err))
 	}
 	b.work.mu.Lock()
+	interrupted := b.work.resuming // una muerte o un corte de conexión: se retoma, no ha acabado
 	if b.work.name == name && !b.work.resuming {
 		b.work.name, b.work.task, b.work.hasPos = "", nil, false
 	}
 	b.work.mu.Unlock()
+	status := "finished"
+	switch {
+	case failed:
+		status = "failed"
+	case err != nil:
+		status = "stopped"
+	}
+	if !interrupted && name != "recoger" {
+		emitEvent(apiEvent{Type: "task", Task: name, Status: status, Text: errTextOrEmpty(err)})
+	}
+	switch {
+	case interrupted, name == "recoger": // (recoger es un recado, no el trabajo: no cuenta para la cola)
+	case failed:
+		b.pauseWithNotice()
+	case err != nil: // cancelada: /stop ya pausó la cola; si otra orden la pisó, sigue esa
+		time.Sleep(300 * time.Millisecond)
+		if b.Tasks.Status() == "" && !b.workResuming() && currentMove() == "" {
+			b.queuePause()
+		}
+	default:
+		b.queueDone()
+	}
+}
+
+func errTextOrEmpty(err error) string {
+	if err == nil || errors.Is(err, context.Canceled) {
+		return ""
+	}
+	return errText(err)
 }
 
 // workAtDeath: al morir, si había un trabajo en marcha, se marca para
@@ -184,6 +216,7 @@ func (b *Bot) resumeWork(death *deathSpot) {
 		return
 	}
 	if tooMany {
+		workQueue.setPaused(true) // (no sigue con lo siguiente tras algo que no ha acabado)
 		log.Printf("trabajo: he muerto %d veces en %s: dejo /%s (algo me mata una y otra vez)", maxWorkDeaths+1, workDeathWindow, name)
 		b.work.mu.Lock()
 		b.work.resuming = false
@@ -249,6 +282,7 @@ func (b *Bot) runAndWait(name string, task func(*automation.Job) error) {
 // abandonWork: el operador mandó otra cosa mientras se volvía al trabajo: se
 // da por terminado.
 func (b *Bot) abandonWork(name string) {
+	workQueue.setPaused(true)
 	b.work.mu.Lock()
 	b.work.resuming = false
 	b.work.mu.Unlock()

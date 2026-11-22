@@ -85,9 +85,12 @@ Las órdenes que más vas a usar:
 | `/excavate <x1> <y1> <z1> <x2> <y2> <z2>` | vaciar esa caja |
 | `/excavate chests <x> <y> <z>` | dónde guarda lo que saca y de dónde coge picos |
 | `/inventory` · `/drop` | ver lo que lleva; dártelo |
-| `/stop` | dejar lo que esté haciendo |
+| `/queue <orden>` · `a ; b` | una lista de tareas: van una detrás de otra |
+| `/stop` | dejar lo que esté haciendo (y pausar la cola) |
 
 La lista completa está en [ORDENES.md](ORDENES.md). También la ves con `/help` en la consola.
+
+Para manejar los bots desde scripts u otros programas (listarlos, mandarles órdenes, seguir el chat y las tareas en directo), mira la [API HTTP](API.es.md).
 
 ## 4. Bueno saberlo
 

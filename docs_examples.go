@@ -57,6 +57,14 @@ var commandExamples = map[string][]example{
 		{"/drop Steve", text{"everything, thrown to Steve", "todo, tirado a Steve"}},
 		{"/drop diamond 5 Steve", text{"5 diamonds, thrown to Steve", "5 diamantes, tirados a Steve"}},
 	},
+	"queue": {
+		{"/queue /chop oak ~ ~ ~", text{"chop after the current task ends", "talar cuando acabe la tarea actual"}},
+		{"/queue list", text{"what is waiting, numbered", "lo que espera, numerado"}},
+		{"/queue remove 2", text{"forget the second one", "olvidar la segunda"}},
+		{"/queue clear", text{"forget them all", "olvidarlas todas"}},
+		{"/queue resume", text{"carry on after a failure or /stop", "seguir tras un fallo o un /stop"}},
+		{"/mine iron ~ ~ ~ ; /chop oak 10 64 10", text{"the same with a chain: the first runs now, the rest wait", "lo mismo en cadena: la primera va ya, el resto espera"}},
+	},
 	"stop":   {{"/stop", text{}}},
 	"status": {{"/status", text{}}},
 	"say": {

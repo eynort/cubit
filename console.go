@@ -141,6 +141,16 @@ func init() {
 			args: []arg{{name: "command", rest: true, desc: text{"the server command, without /", "el comando del servidor, sin /"}}}, run: cmdServer},
 		"say": {desc: text{"write in the chat (or type without /)", "escribir en el chat (o escribe sin /)"},
 			args: []arg{{name: "text", rest: true, desc: text{"what to write", "lo que escribir"}}}, run: cmdSay},
+		"queue": {desc: text{"task queue: queue a command to run when the current task ends (/queue /chop oak ~ ~ ~), or chain commands with ' ; ' in any line (the first runs now, the rest wait). A failed task pauses the queue; /stop pauses it too",
+			"cola de tareas: apunta una orden para cuando acabe la tarea actual (/queue /chop oak ~ ~ ~), o encadena órdenes con ' ; ' en cualquier línea (la primera va ya, el resto espera). Si una tarea falla, la cola se pausa; /stop también la pausa"},
+			args: []arg{{name: "command", kind: argCommand, rest: true, desc: text{"the command to queue (chop, mine, excavate or goto x y z)", "la orden a encolar (chop, mine, excavate o goto x y z)"}}},
+			subs: []sub{
+				{name: "list", desc: text{"show what is waiting", "ver lo que espera"}},
+				{name: "clear", desc: text{"forget everything waiting", "olvidar todo lo que espera"}},
+				{name: "remove", desc: text{"forget one by its number (see list)", "olvidar uno por su número (mira list)"}, args: []arg{{name: "n", kind: argNumber}}},
+				{name: "resume", desc: text{"carry on after a pause", "seguir tras una pausa"}},
+				{name: "pause", desc: text{"hold the queue (the current task goes on)", "retener la cola (la tarea actual sigue)"}},
+			}, run: cmdQueue},
 		"status": {desc: text{"health, food, position and combat", "vida, comida, posición y combate"}, run: cmdStatus},
 		"sprint": {desc: text{"allow or forbid sprinting", "permitir o prohibir correr"},
 			args: []arg{{name: "mode", kind: argChoice, choices: []string{"on", "off"},
@@ -200,6 +210,9 @@ func (b *Bot) run(line string) error {
 	line = strings.TrimSpace(line)
 	if line == "" {
 		return nil
+	}
+	if segs := splitChain(line); len(segs) > 1 {
+		return b.runChain(segs) // "a ; b ; c": la primera ya, el resto a la cola
 	}
 	if !strings.HasPrefix(line, "/") {
 		if err := b.Chat.SendMessage(line); err != nil {
@@ -359,6 +372,7 @@ func (b *Bot) distanceTo(e entities.Entity) float64 {
 }
 
 func cmdStop(b *Bot, _ []string) error {
+	b.queuePause() // (antes de parar: que el fin de la tarea no empiece la siguiente)
 	b.cancelMove()
 	b.Tasks.Stop()
 	b.Combat.Reset()
@@ -379,6 +393,9 @@ func cmdStatus(b *Bot, _ []string) error {
 	log.Printf("vida %.1f, comida %d, bloques de construir %d, en %.1f %.1f %.1f, %s", st.Health, st.Food, b.Walker.BuildBlocks(), p.X, p.Y, p.Z, b.Combat.Status())
 	if t := b.Tasks.Status(); t != "" {
 		log.Printf("tarea: %s", t)
+	}
+	if q := queueSummary(); q != "" {
+		log.Printf("cola: %s", q)
 	}
 	return nil
 }
@@ -739,8 +756,12 @@ func cmdGotoCoords(b *Bot, args []string) error {
 	go func() {
 		defer cancel()
 		defer clearMove(gen)
-		if b.gotoCell(ctx, x, y, z, nil) {
+		ok := b.gotoCell(ctx, x, y, z, nil)
+		if ok {
 			log.Printf("goto: llegué a %.0f %.0f %.0f", x, y, z)
+		}
+		if ctx.Err() == nil {
+			b.moveEnded(ok)
 		}
 	}()
 	return nil
