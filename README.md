@@ -69,7 +69,7 @@ scoop bucket add cubit https://github.com/eynort/cubit
 scoop install cubit/cubit
 ```
 
-This adds a *Cubit* Start-menu shortcut that opens the panel in your browser. Or by hand: download `cubit-<version>-windows-amd64.zip` from [Releases](../../releases), unzip it anywhere and run `cubit.exe --hub :8080 --open` (create a `data` folder next to it to keep your data there). There is no installer: `cubit.exe` is not code-signed, so SmartScreen may warn you the first time: click **More info → Run anyway**, or check it against `SHA256SUMS`. A `winget install` package will come later, once the project is published there.
+This adds a *Cubit* shortcut to the Start menu that opens the panel. Prefer doing it by hand? Download `cubit-<version>-windows-amd64.zip` from [Releases](../../releases), unzip it and run `cubit.exe --hub :8080 --open`. There is no installer on purpose. `winget` will come later.
 
 **Linux**: one command, no root:
 
@@ -89,6 +89,10 @@ Then:
 
 To talk to it in plain words, install [Ollama](https://ollama.com) once: the bot downloads its model by itself (see the [Guide](docs/GUIDE.md#7-talk-to-it-local-ai)).
 
+### Updating
+
+The panel tells you when there is a new version and, depending on how you installed Cubit, updates it in one click or shows the command to run (`./up.sh update` with Docker). See [Updating](docs/GUIDE.md#8-updating).
+
 ### Advanced: Docker
 
 If you prefer containers (this also runs the test server and Ollama for you), you need [Docker](https://docs.docker.com/get-docker/):
@@ -100,8 +104,6 @@ cd cubit
 ```
 
 When it finishes, it prints your panel link (`http://localhost:8080/?t=…`) and the Minecraft address (`localhost:25565`).
-
-**Updating:** the panel tells you when there is a new version and, depending on how you installed Cubit, updates it in one click or shows the command to run (`./up.sh update` with Docker). See [Updating](docs/GUIDE.md#8-updating).
 
 ## How to use the bot
 
