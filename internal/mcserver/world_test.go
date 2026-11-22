@@ -170,6 +170,8 @@ func TestNewWorldOnline(t *testing.T) {
 	dir := worldDir(t)
 	defer func(d time.Duration) { worldSettle = d }(worldSettle)
 	worldSettle = 0
+	defer func(f func(string) string) { DataFile = f }(DataFile)
+	DataFile = func(name string) string { return filepath.Join(dir, name) } // (lo que tardó: no en la carpeta del paquete)
 	f := &fakeServer{t: t, addr: "127.0.0.1:0", marker: filepath.Join(dir, powerMarker)}
 	f.listen()
 	t.Setenv("MCBOT_RCON", f.addr)
