@@ -3,7 +3,8 @@ package main
 // Ollama: el modelo local (HTTP, solo la librería estándar). La dirección sale
 // del panel, de --ollama, de OLLAMA_URL (en Docker: http://ollama:11434) o, sin
 // nada, http://localhost:11434. El modelo, del panel, de OLLAMA_MODEL o gemma4:e2b-it-q4_K_M.
-// Si el modelo no está bajado, el bot lo baja solo (POST /api/pull) y el panel
+// Si el modelo no está bajado, el bot lo baja (POST /api/pull) la primera vez
+// que un dueño le habla (abrir el panel no baja nada) y el panel
 // enseña el progreso.
 
 import (
@@ -151,10 +152,8 @@ func llmStatus() (string, int) {
 	llmDL.Lock()
 	llmDL.state, llmDL.probed = state, time.Now()
 	llmDL.Unlock()
-	if state == "missing" {
-		llmPull()
-		return "downloading", 0
-	}
+	// (solo mirar no baja nada: el modelo pesa varios GB y se baja cuando un
+	// dueño le habla de verdad, o con ollama pull / el servicio de Docker)
 	return state, 0
 }
 
