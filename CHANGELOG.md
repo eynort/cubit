@@ -2,6 +2,21 @@
 
 All notable changes to Cubit. Versions are the `v*` tags of the repository.
 
+## Unreleased
+
+### Security
+- **If you have v0.0.2: update by hand once** (re-run `install.sh` or download the new release). The update signing key changed, so the one-click update in v0.0.2 refuses newer versions. From then on it works again.
+- A player could post a fake "link your Microsoft account" message in chat and the panel showed it as the bot's own request, with the attacker's code. The panel now only shows the code the bot itself asked for, and only `https` Microsoft links.
+- `--hub :8080` now listens only on this device. Use `--hub 0.0.0.0:8080` to open the panel to your network (it is plain HTTP: trusted networks only). Docker publishes the panel and the test server on `127.0.0.1` by default (`PANEL_BIND`, `MC_BIND` in `.env`).
+- Owner names are matched with exact capitals: on servers without premium accounts `oWNER` is a different account from `Owner`.
+- The AI can no longer chain extra orders with ` ; `.
+- The auto-login password is only sent to the server it was set for, and only right after joining.
+- Whispers with no real player behind them (command blocks, NPCs) are never orders; whispers are no longer copied to Discord.
+- Wrong keys no longer lock the right key out of the panel; changes requested from other websites are refused.
+- The built-in test server (no Docker) listens only on this device; Docker no longer defaults the RCON password to `cubit`.
+- Releases are signed in a protected environment that needs the maintainer's approval; GitHub Actions are pinned by commit.
+- Dependencies: `gorilla/websocket` 1.5.3 and `golang.org/x/crypto` (known vulnerabilities).
+
 ## v0.0.2
 
 ### Added

@@ -67,7 +67,7 @@ func main() {
 		fmt.Println("public  (paste into internal/update/pubkey.go, publicKeyB64):")
 		fmt.Println(pub)
 		fmt.Println()
-		fmt.Println("private (GitHub secret CUBIT_SIGNING_KEY; keep it secret, never commit it):")
+		fmt.Println("private (secret CUBIT_SIGNING_KEY of the GitHub environment release: gh secret set CUBIT_SIGNING_KEY --env release < file; never commit it):")
 		fmt.Println(priv)
 		return
 	}
