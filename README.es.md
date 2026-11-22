@@ -1,17 +1,28 @@
-<p align="center"><img src="brand/promo/hero-es.png" alt="Cubit — un bot de Minecraft que pelea, excava y se mueve" width="100%"></p>
+<p align="center"><img src="brand/promo/hero-es.png" alt="Cubit: bots de Minecraft que pelean, minan, talan y no se desconectan, desde un panel web" width="100%"></p>
 
-<h3 align="center">Un bot de Minecraft que pelea, excava y se mueve.<br>Ligerísimo: <b>~70 MB de RAM por bot</b>.</h3>
+<h3 align="center">Bots de Minecraft que trabajan por ti.</h3>
+
+<p align="center">Pelean, minan, talan y aguantan conectados las 24 horas, todo desde un panel web y con <b>~70 MB de RAM por bot</b>.<br>Sin programar, sin nube y sin claves de API.</p>
 
 <p align="center">
-  <img alt="Minecraft Java 26.2, other versions via ViaProxy" src="https://img.shields.io/badge/Minecraft%20Java-26.2%20%2B%20ViaProxy-6b8f71?style=flat-square">
+  <img alt="Minecraft Java 26.2, otras versiones con ViaProxy" src="https://img.shields.io/badge/Minecraft%20Java-26.2%20%2B%20ViaProxy-6b8f71?style=flat-square">
   <img alt="RAM por bot" src="https://img.shields.io/badge/RAM-~70%20MB%20por%20bot-4a5a6a?style=flat-square">
   <img alt="Programa" src="https://img.shields.io/badge/programa-17%20MB-5a6470?style=flat-square">
+  <img alt="IA local" src="https://img.shields.io/badge/IA-local%20y%20gratis-7a6a8a?style=flat-square">
   <img alt="Licencia MIT" src="https://img.shields.io/badge/licencia-MIT-8a7f6a?style=flat-square">
 </p>
 
-<p align="center"><a href="README.md">English</a> · <a href="docs/GUIA.md"><b>Guía</b></a> · <a href="docs/ORDENES.md">Órdenes</a></p>
+<p align="center"><a href="README.md">English</a> · <a href="docs/GUIA.md"><b>Guía</b></a> · <a href="docs/ORDENES.md">Órdenes</a> · <a href="docs/API.es.md">API</a></p>
 
 ---
+
+## Por qué Cubit
+
+- **Listo para usar, no una librería.** Lo instalas, abres el panel, creas un bot y le das un trabajo. No escribes ni una línea de código.
+- **Trabaja de verdad.** PvP de experto, excavación de zonas enteras, minería en ramas sin trampas, tala de árboles y AFK 24/7, todo de serie.
+- **Ligerísimo.** Un solo programa de 17 MB, sin Java, Node ni nada que instalar. Unos 70 MB de RAM por bot: caben diez en 0,7 GB.
+- **Háblale con normalidad.** Una IA opcional que corre **en tu propia máquina** (Ollama): gratis, sin cuentas ni claves de API, y nada sale de tu red.
+- **Tuyo y en tu equipo.** Tus cuentas y tus bots se quedan en tu PC, una Raspberry Pi, un VPS de 5 $ o un Android viejo. Sin suscripciones ni servidores de terceros.
 
 | | |
 |---|---|
@@ -19,21 +30,35 @@
 | **0,7 GB** | diez bots a la vez |
 | **17 MB** | un solo programa, sin Java, Node ni nada que instalar |
 
-Corre en cualquier sitio: Linux, macOS, Windows, una Raspberry Pi, un VPS de 5 $ o un Android viejo.
-
 ## Qué hace
 
-- **PvP.** Pelea como un experto: escudo, críticos y combos, la maza, cristales, perlas y tótems. Nunca huye.
-- **Excavar.** Vacía zonas enteras capa a capa, guarda lo que saca en tus cofres y nunca rompe un pico.
-- **Minar.** En ramas, como un jugador de verdad: baja por una escalera a la mejor capa para cada mineral, sin xray.
-- **Talar.** Árboles enteros de las maderas que digas, también los de 2×2 y los del Nether.
-- **Moverse.** Encuentra el camino solo con A*, y hace torres y puentes si le hacen falta.
-- **Discord (opcional).** Da órdenes con `/bot`, `/bots` y `/status`, y lee en un canal lo que dicen tus bots. Mira la [guía](docs/GUIA.md#3-discord-opcional).
-- **Háblale.** Los dueños pueden escribir frases normales ("mina 20 de hierro y tráemelo") y una IA local y gratuita (Ollama, sin cuentas ni claves) las convierte en órdenes. Opcional: se apaga por bot en el panel. Mira la [Guía](docs/GUIA.md#7-háblale-ia-local).
+**Trabajar**
+- **Excavar.** Vacía una caja entera capa a capa, guarda lo valioso en tus cofres y nunca rompe un pico.
+- **Minar.** En ramas, como un jugador de verdad: baja por una escalera a la mejor capa para cada mineral y abre túneles y ramas. Sin xray: solo pica lo que ve.
+- **Talar.** Árboles enteros de las maderas que digas, también los de 2×2 y los del Nether, sin tocar las construcciones.
+- **Cola de tareas.** Apunta trabajos (`/queue`, o encadénalos con ` ; `) y olvídate: los hace uno detrás de otro.
 
-Todos tus bots se manejan desde un **panel web**. Ahí cada bot tiene su propia consola de órdenes, y el panel incluye un servidor de pruebas en el que puedes jugar al momento.
+**Pelear**
+- **PvP de experto.** Escudo, críticos y combos, la maza, cristales, perlas y tótems. Nunca huye.
+- **Guardaespaldas y defensa de zona.** `/guard` a un jugador, o `/fight in` en una zona: quien entre, pelea.
 
-<p align="center"><img src="brand/promo/panel-bots-es.png" alt="El panel" width="100%"></p>
+**Seguir conectado**
+- **AFK 24/7.** Se queda en un sitio día y noche: hace pequeños gestos para que no lo echen por inactivo, come, duerme de noche, se defiende de los mobs y vuelve andando tras morir o reconectar.
+- **Vuelve solo.** Si el servidor se reinicia o se corta la conexión, entra otra vez y sigue con su trabajo y su cola. También responde al `/login` de AuthMe / nLogin.
+- **Encuentra el camino solo** con A*, y hace torres y puentes si le hacen falta.
+
+**Hablar y controlar**
+- **Panel web para todos tus bots**, cada uno con su consola y autocompletado, y un servidor de pruebas integrado para jugar al momento (sin Docker).
+- **Órdenes con palabras normales.** "mina 20 de hierro y tráemelo": la IA local lo convierte en órdenes. Opcional, por bot.
+- **Discord.** Da órdenes con `/bot`, `/bots` y `/status`, y lee en un canal lo que dicen tus bots.
+- **API HTTP con eventos en directo** para manejar tus bots desde tus propios scripts.
+
+**Funciona en todas partes**
+- Linux, macOS, Windows, Raspberry Pi y Android (Termux).
+- En servidores de **otras versiones de Minecraft** entra a través de [ViaProxy](docs/GUIA.md#6-otras-versiones-de-minecraft).
+- Servidores premium (online-mode) con tu cuenta de Microsoft, y todo en español o en inglés.
+
+<p align="center"><img src="brand/promo/panel-bots-es.png" alt="El panel: todos tus bots, cada uno con su consola en directo" width="100%"></p>
 
 ## Empieza en un minuto
 
@@ -44,7 +69,7 @@ scoop bucket add cubit https://github.com/eynort/cubit
 scoop install cubit/cubit
 ```
 
-Esto añade un acceso *Cubit* en el menú Inicio que abre el panel en tu navegador. O a mano: descarga `cubit-<versión>-windows-amd64.zip` en [Releases](../../releases), descomprímelo donde quieras y ejecuta `cubit.exe --hub :8080 --open` (crea una carpeta `data` junto a él para guardar ahí tus datos). No hay instalador: `cubit.exe` no está firmado, así que Windows SmartScreen puede avisarte la primera vez: pulsa **Más información → Ejecutar de todas formas**, o compruébalo con `SHA256SUMS`. Un paquete de `winget install` llegará más adelante, cuando el proyecto esté publicado ahí.
+Esto añade un acceso *Cubit* en el menú Inicio que abre el panel en tu navegador. O a mano: descarga `cubit-<versión>-windows-amd64.zip` en [Releases](../../releases), descomprímelo donde quieras y ejecuta `cubit.exe --hub :8080 --open` (crea una carpeta `data` junto a él para guardar ahí tus datos). No hay instalador: `cubit.exe` no está firmado, así que SmartScreen puede avisarte la primera vez: pulsa **Más información → Ejecutar de todas formas**, o compruébalo con `SHA256SUMS`. Un paquete de `winget install` llegará más adelante, cuando el proyecto esté publicado ahí.
 
 **Linux**: un solo comando, sin root:
 
@@ -62,9 +87,7 @@ Después:
 2. **Crea tu bot**: el panel te guía paso a paso (nombre, servidor, dueño, idioma).
 3. **Juega con él**: la primera vez, el panel te ofrece preparar un servidor de pruebas. En **Minecraft Java 26.2**, ve a *Multijugador → Conexión directa* y pon `localhost:25565`.
 
-¿Quieres compilarlo? Mira **[Compílalo tú mismo](docs/COMPILAR.md)**. Todo lo demás está en la **[Guía](docs/GUIA.md)**: cómo controlar el bot, el panel, los servidores y los móviles. Para manejar los bots desde tus propios scripts hay una **[API HTTP](docs/API.es.md)**.
-
-El bot habla Minecraft Java 26.2; en servidores de **otras versiones** entra solo a través de [ViaProxy](docs/GUIA.md#6-otras-versiones-de-minecraft).
+Para hablarle con palabras normales, instala [Ollama](https://ollama.com) una vez: el bot se baja su modelo solo (mira la [Guía](docs/GUIA.md#7-háblale-ia-local)).
 
 ### Avanzado: Docker
 
@@ -144,6 +167,12 @@ Escribe las órdenes en la **consola del bot en el panel**. En el juego, mándas
 /afk 120 64 -340              → ir allí y quedarse
 ```
 
+**`/ask <petición>`** (o mándale una frase por privado): palabras normales en vez de órdenes. La IA local planea las órdenes, las ejecuta y te contesta en el chat. Hace falta el asistente IA activado en los ajustes del bot y Ollama en marcha.
+```
+/ask mina 20 de hierro y tráemelo
+/ask ¿qué tal vas?            → solo te contesta en el chat
+```
+
 **`/inventory [grid]`**: enseña lo que lleva: armadura, barra e inventario.
 ```
 /inventory
@@ -204,6 +233,15 @@ hola a todos
 **`/help`**: la lista de órdenes. **`/quit`**: desconecta el bot y lo cierra.
 
 La referencia completa, con todas las opciones, está en [docs/ORDENES.md](docs/ORDENES.md).
+
+## Más información
+
+- **[Guía](docs/GUIA.md)**: el panel, los servidores, Discord, los móviles, otras versiones y la IA local.
+- **[Órdenes](docs/ORDENES.md)**: todas las órdenes y sus opciones.
+- **[API HTTP](docs/API.es.md)**: lista los bots, mándales órdenes y sigue el chat y las tareas en directo desde tus scripts.
+- **[Compílalo tú mismo](docs/COMPILAR.md)**: desde el código fuente.
+
+Juega limpio: úsalo en tu propio servidor, o en servidores que permitan bots.
 
 ---
 

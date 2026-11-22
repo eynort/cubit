@@ -1,17 +1,28 @@
-<p align="center"><img src="brand/promo/hero.png" alt="Cubit — a Minecraft bot that fights, digs and moves" width="100%"></p>
+<p align="center"><img src="brand/promo/hero.png" alt="Cubit: Minecraft bots that fight, mine, chop and stay online, run from a web panel" width="100%"></p>
 
-<h3 align="center">A Minecraft bot that fights, digs and moves.<br>Featherweight: <b>~70 MB of RAM per bot</b>.</h3>
+<h3 align="center">Minecraft bots that do the work for you.</h3>
+
+<p align="center">They fight, mine, chop and stay online 24/7, run from a web panel, at <b>~70 MB of RAM per bot</b>.<br>No coding, no cloud, no API keys.</p>
 
 <p align="center">
   <img alt="Minecraft Java 26.2, other versions via ViaProxy" src="https://img.shields.io/badge/Minecraft%20Java-26.2%20%2B%20ViaProxy-6b8f71?style=flat-square">
   <img alt="RAM per bot" src="https://img.shields.io/badge/RAM-~70%20MB%20per%20bot-4a5a6a?style=flat-square">
   <img alt="Binary" src="https://img.shields.io/badge/binary-17%20MB-5a6470?style=flat-square">
+  <img alt="Local AI" src="https://img.shields.io/badge/AI-local%20%26%20free-7a6a8a?style=flat-square">
   <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-8a7f6a?style=flat-square">
 </p>
 
-<p align="center"><a href="README.es.md">Español</a> · <a href="docs/GUIDE.md"><b>Guide</b></a> · <a href="docs/COMMANDS.md">Commands</a></p>
+<p align="center"><a href="README.es.md">Español</a> · <a href="docs/GUIDE.md"><b>Guide</b></a> · <a href="docs/COMMANDS.md">Commands</a> · <a href="docs/API.md">API</a></p>
 
 ---
+
+## Why Cubit
+
+- **Ready to use, not a library.** Install it, open the panel, create a bot, give it a job. You never write a line of code.
+- **It does real work.** Expert PvP, whole-area excavation, legit strip mining, tree chopping and 24/7 AFK, all built in.
+- **Featherweight.** One 17 MB program with no Java, Node or runtime. About 70 MB of RAM per bot: ten bots fit in 0.7 GB.
+- **Talk to it in plain words.** An optional AI runs **on your own machine** (Ollama): free, no accounts, no API keys, nothing leaves your network.
+- **Yours, on your hardware.** Your accounts and your bots stay on your PC, a Raspberry Pi, a $5 VPS or an old Android phone. No subscription, no third-party servers.
 
 | | |
 |---|---|
@@ -19,21 +30,35 @@
 | **0.7 GB** | ten bots at the same time |
 | **17 MB** | one binary, with no Java, Node or runtime to install |
 
-It runs anywhere: Linux, macOS, Windows, a Raspberry Pi, a $5 VPS, or an old Android phone.
-
 ## What it does
 
-- **PvP.** It fights like an expert: shield, crits and combos, the mace, crystals, pearls and totems. It never runs away.
-- **Excavate.** It empties whole areas layer by layer, stores the loot in your chests and never breaks a pickaxe.
-- **Mine.** Strip mining like a real player: down a staircase to the best layer for each ore, no x-ray.
-- **Chop.** Whole trees of the woods you name, 2×2 and Nether ones included.
-- **Move.** It finds its own way with A*, building towers and bridges when it needs them.
-- **Discord (optional).** Give orders with `/bot`, `/bots` and `/status`, and read what your bots say in a channel. See the [guide](docs/GUIDE.md#3-discord-optional).
-- **Talk to it.** Owners can write plain sentences ("mine 20 iron and bring it to me") and a free local AI (Ollama, no accounts, no keys) turns them into commands. Optional: switch it off per bot in the panel. See the [Guide](docs/GUIDE.md#7-talk-to-it-local-ai).
+**Work**
+- **Excavate.** Empties a whole box layer by layer, stores the valuables in your chests and never breaks a pickaxe.
+- **Mine.** Strip mining like a real player: a staircase down to the best layer for each ore, then tunnels and branches. No x-ray: it only mines ore it can see.
+- **Chop.** Whole trees of the woods you name, 2×2 and Nether ones included, and it leaves player builds alone.
+- **Queue.** Line up jobs (`/queue`, or chain them with ` ; `) and walk away: it runs them one after another.
 
-You run all your bots from a **web panel**. Each bot has its own command console there, and the panel includes a test server you can play on right away.
+**Fight**
+- **Expert PvP.** Shield, crits and combos, the mace, crystals, pearls and totems. It never runs away.
+- **Bodyguard and area defense.** `/guard` a player, or `/fight in` an area: anyone who comes in gets fought.
 
-<p align="center"><img src="brand/promo/panel-bots.png" alt="The panel" width="100%"></p>
+**Stay online**
+- **24/7 AFK.** It stays at a spot around the clock: small moves so it is not kicked for idling, eats, sleeps at night, fights off mobs, and walks back after dying or reconnecting.
+- **Comes back by itself.** If the server restarts or the connection drops, it rejoins and carries on with its job and queue. It answers AuthMe / nLogin `/login` prompts too.
+- **Finds its own way** with A* pathfinding, building towers and bridges when it needs them.
+
+**Talk & control**
+- **Web panel for all your bots**, each with its own console and autocomplete, plus a built-in test server you can play on right away (no Docker needed).
+- **Plain-language orders.** "mine 20 iron and bring it to me": the local AI turns it into commands. Optional, per bot.
+- **Discord.** Give orders with `/bot`, `/bots` and `/status`, and read what your bots say in a channel.
+- **HTTP API with live events** to drive your bots from your own scripts.
+
+**Run anywhere**
+- Linux, macOS, Windows, Raspberry Pi and Android (Termux).
+- Servers on **other Minecraft versions** are joined through [ViaProxy](docs/GUIDE.md#6-other-minecraft-versions).
+- Premium (online-mode) servers with your Microsoft account, and English or Spanish everywhere.
+
+<p align="center"><img src="brand/promo/panel-bots.png" alt="The panel: all your bots, each with a live console" width="100%"></p>
 
 ## Start in one minute
 
@@ -44,7 +69,7 @@ scoop bucket add cubit https://github.com/eynort/cubit
 scoop install cubit/cubit
 ```
 
-This adds a *Cubit* Start-menu shortcut that opens the panel in your browser. Or do it by hand: download `cubit-<version>-windows-amd64.zip` from [Releases](../../releases), unzip it anywhere and run `cubit.exe --hub :8080 --open` (create a `data` folder next to it to keep your data there). There is no installer: `cubit.exe` is not code-signed, so Windows SmartScreen may warn you the first time: click **More info → Run anyway**, or check it against `SHA256SUMS`. A `winget install` package will come later, once the project is published there.
+This adds a *Cubit* Start-menu shortcut that opens the panel in your browser. Or by hand: download `cubit-<version>-windows-amd64.zip` from [Releases](../../releases), unzip it anywhere and run `cubit.exe --hub :8080 --open` (create a `data` folder next to it to keep your data there). There is no installer: `cubit.exe` is not code-signed, so SmartScreen may warn you the first time: click **More info → Run anyway**, or check it against `SHA256SUMS`. A `winget install` package will come later, once the project is published there.
 
 **Linux**: one command, no root:
 
@@ -60,11 +85,9 @@ Then:
 
 1. **Open the panel**: *Cubit* in your app menu opens it in the browser. The link has an access key (`?t=…`); keep the whole link.
 2. **Create your bot**: the panel walks you through it (name, server, owner, language).
-3. **Play with it**: the panel offers to set up a test server for you the first time you run it. In **Minecraft Java 26.2**, go to *Multiplayer → Direct Connection* and enter `localhost:25565`.
+3. **Play with it**: the first time, the panel offers to set up a test server for you. In **Minecraft Java 26.2**, go to *Multiplayer → Direct Connection* and enter `localhost:25565`.
 
-Want to build it yourself? See **[Compile it yourself](docs/BUILD.md)**. The **[Guide](docs/GUIDE.md)** covers everything else: controlling the bot, the panel, servers and phones. To control bots from your own scripts, there is an **[HTTP API](docs/API.md)**.
-
-The bot speaks Minecraft Java 26.2; servers on **other versions** are joined transparently through [ViaProxy](docs/GUIDE.md#6-other-minecraft-versions).
+To talk to it in plain words, install [Ollama](https://ollama.com) once: the bot downloads its model by itself (see the [Guide](docs/GUIDE.md#7-talk-to-it-local-ai)).
 
 ### Advanced: Docker
 
@@ -144,6 +167,12 @@ Type commands in the bot's **console in the panel**. In game, whisper them as an
 /afk 120 64 -340              → walk there and stay
 ```
 
+**`/ask <request>`** (or just whisper it a sentence): plain words instead of commands. The local AI plans the commands, runs them and answers in the chat. It needs the AI assistant on in the bot's settings and Ollama running.
+```
+/ask mine 20 iron and bring it to me
+/ask how are you doing?       → it just answers in the chat
+```
+
 **`/inventory [grid]`**: shows what it carries: armor, hotbar and inventory.
 ```
 /inventory
@@ -204,6 +233,15 @@ hello everyone
 **`/help`**: lists every command. **`/quit`** disconnects the bot and closes it.
 
 The full reference, with every option, is in [docs/COMMANDS.md](docs/COMMANDS.md).
+
+## Learn more
+
+- **[Guide](docs/GUIDE.md)**: the panel, servers, Discord, phones, other versions and the local AI.
+- **[Commands](docs/COMMANDS.md)**: every command and option.
+- **[HTTP API](docs/API.md)**: list bots, send commands and follow chat and tasks live from your own scripts.
+- **[Compile it yourself](docs/BUILD.md)**: build from source.
+
+Play fair: use it on your own server, or on servers that allow bots.
 
 ---
 
