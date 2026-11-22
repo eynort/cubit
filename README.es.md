@@ -28,6 +28,7 @@ Corre en cualquier sitio: Linux, macOS, Windows, una Raspberry Pi, un VPS de 5 $
 - **Minar.** En ramas, como un jugador de verdad: baja por una escalera a la mejor capa para cada mineral, sin xray.
 - **Talar.** Árboles enteros de las maderas que digas, también los de 2×2 y los del Nether.
 - **Moverse.** Encuentra el camino solo con A*, y hace torres y puentes si le hacen falta.
+- **Discord (opcional).** Da órdenes con `/bot`, `/bots` y `/status`, y lee en un canal lo que dicen tus bots. Mira la [guía](docs/GUIA.md#discord-opcional).
 
 Todos tus bots se manejan desde un **panel web**. Ahí cada bot tiene su propia consola de órdenes, y el panel incluye un servidor de pruebas en el que puedes jugar al momento.
 

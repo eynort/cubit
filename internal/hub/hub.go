@@ -57,11 +57,12 @@ const (
 
 // hubConfig es hub.json.
 type hubConfig struct {
-	Token   string      `json:"token"`
-	Bots    []string    `json:"bots"`              // los ids, en orden
-	Run     []string    `json:"run"`               // los que estaban en marcha (se arrancan al empezar)
-	Last    string      `json:"last,omitempty"`    // el último que se abrió en el panel
-	Servers []hubServer `json:"servers,omitempty"` // los externos (servers.go)
+	Token   string         `json:"token"`
+	Bots    []string       `json:"bots"`              // los ids, en orden
+	Run     []string       `json:"run"`               // los que estaban en marcha (se arrancan al empezar)
+	Last    string         `json:"last,omitempty"`    // el último que se abrió en el panel
+	Servers []hubServer    `json:"servers,omitempty"` // los externos (servers.go)
+	Discord *discordConfig `json:"discord,omitempty"` // la integración con Discord (discord.go; con el token, 0600)
 }
 
 type hubBot struct {
@@ -84,6 +85,8 @@ type hub struct {
 	bots map[string]*hubBot
 	ctx  context.Context
 	opts Options
+
+	discord *discordMgr
 }
 
 // Options: lo que el hub toma del programa que lo arranca.
@@ -146,6 +149,7 @@ func Run(addr string, opts Options) {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	h.ctx = ctx
+	h.startDiscord()
 	for _, id := range h.cfg.Run {
 		if b := h.bots[id]; b != nil {
 			_ = h.start(b)
@@ -788,5 +792,6 @@ func (h *hub) routes() http.Handler {
 	})
 	mcserver.Routes(mux, ok)
 	h.serverRoutesAPI(mux, ok)
+	h.discordRoutes(mux, ok)
 	return mux
 }
