@@ -24,6 +24,7 @@ func runDemo() {
 	if err != nil {
 		log.Fatalf("--demo: %v", err)
 	}
+	s.KeepAlive = 10 * time.Second                              // (sin keep-alive el bot da la conexión por perdida a los 20 s)
 	s.World.Fill(-6, 64, 8, 6, 66, 8, "minecraft:stone_bricks") // un muro para ver /goto rodearlo
 	s.World.Fill(4, 64, -3, 6, 64, -1, "minecraft:oak_planks")
 	dir := filepath.Join(os.TempDir(), "cubit-demo")
