@@ -1186,6 +1186,16 @@ func (c *chopper) gatherScaffold(n int) {
 		}
 	}
 	pick := j.Count("netherite_pickaxe")+j.Count("diamond_pickaxe")+j.Count("iron_pickaxe")+j.Count("stone_pickaxe")+j.Count("wooden_pickaxe") > 0
+	// en /chop solo se recoge madera: sin esto, la tierra cavada se quedaba en
+	// el suelo, los bloques no subían y seguía cavando hoyos sin parar
+	prev := j.ignore
+	j.ignore = func(item string) bool {
+		if scaffoldGround(item, true) || item == "cobbled_deepslate" {
+			return false
+		}
+		return prev != nil && prev(item)
+	}
+	defer func() { j.ignore = prev }()
 	skip := map[world.BlockPos]bool{}
 	for tries := 0; b.Blocks() < n && tries < 3*n+12; tries++ {
 		if j.Fatal() != nil {

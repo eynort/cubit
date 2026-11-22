@@ -26,7 +26,8 @@ services:
       SPAWN_PROTECTION: 0
       MEMORY: 2G
       MOTD: Cubit
-      OPS: "${OWNER:-}"
+      # (sin OPS: la imagen busca el nombre en las cuentas premium y, si no
+      # existe, no arranca; el panel hace op a los dueños por RCON)
       # server.properties se crea con lo de arriba y luego se cambia desde el
       # panel (Servidor): no se vuelve a pisar en cada arranque
       OVERRIDE_SERVER_PROPERTIES: "false"

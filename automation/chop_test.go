@@ -287,3 +287,31 @@ func TestParseWoods(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// TestChopNoBlocks: sin bloques de construir, junta la tierra justa para la
+// torre: la recoge (aunque en /chop solo se recoja madera) y no se pone a
+// cavar hoyos sin parar.
+func TestChopNoBlocks(t *testing.T) {
+	simworld.Run(t, func(t *testing.T) {
+		g := simworld.Start(t, simworld.Options{Setup: append(treeOf("oak", 6, 0, 8), "give Tester iron_axe 1")})
+		err := runChop(t, g, []string{"oak"}, world.BlockPos{X: 0, Y: 64, Z: 0})
+		holes := 0
+		for x := -12; x <= 18; x++ {
+			for z := -12; z <= 12; z++ {
+				if st, ok := g.B.World.BlockAt(world.BlockPos{X: x, Y: 63, Z: z}); ok && world.StateString(st) == "minecraft:air" {
+					holes++
+				}
+			}
+		}
+		t.Logf("error %v; hoyos %d; troncos %d; tierra %d", err, holes, g.Count("minecraft:oak_log"), g.Count("minecraft:dirt"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n := logsLeft(g, 6, 0, 6, 0); n > 0 {
+			t.Errorf("quedan %d troncos en pie", n)
+		}
+		if holes > 10 {
+			t.Errorf("cavó %d hoyos para una torre de unos 4 bloques", holes)
+		}
+	})
+}
