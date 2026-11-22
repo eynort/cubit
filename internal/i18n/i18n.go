@@ -11,7 +11,35 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync/atomic"
 )
+
+// El idioma del bot (/lang) para los paquetes que no son main (combat,
+// automation, pathing): main lo engancha con SetLang al arrancar. Sin
+// enganchar, inglés.
+var botLang atomic.Pointer[func() string]
+
+// SetLang engancha de dónde sale el idioma del bot ("en" o "es").
+func SetLang(f func() string) { botLang.Store(&f) }
+
+// Lang es el idioma del bot ("en" si nadie lo enganchó).
+func Lang() string {
+	if f := botLang.Load(); f != nil && *f != nil {
+		return (*f)()
+	}
+	return "en"
+}
+
+// T elige el texto en el idioma del bot.
+func T(en, es string) string {
+	if Lang() == "es" && es != "" {
+		return es
+	}
+	return en
+}
+
+// Tf es T con formato.
+func Tf(en, es string, args ...any) string { return fmt.Sprintf(T(en, es), args...) }
 
 // LangFile: el idioma del bot (en o es), en su carpeta.
 const LangFile = ".lang"

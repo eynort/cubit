@@ -73,7 +73,7 @@ func cmdAfk(b *Bot, args []string) error {
 	default:
 		return errf("usage: /afk [here | <x> <y> <z>]", "uso: /afk [here | <x> <y> <z>]")
 	}
-	log.Printf("afk: me quedo en %d %d %d (/stop para parar)", spot.X, spot.Y, spot.Z)
+	log.Printf(tr("afk: staying at %d %d %d (/stop to stop)", "afk: me quedo en %d %d %d (/stop para parar)"), spot.X, spot.Y, spot.Z)
 	// por si muere o se reconecta: vuelve andando a este sitio (resumeWork)
 	b.work.mu.Lock()
 	b.work.pos, b.work.hasPos = spot, true

@@ -1345,7 +1345,7 @@ function renderAct(){const s=lastBot;if(!s)return;
  if(h!=actP.last){actP.last=h;actP.set(h)}}
 function fillPlayers(list){$('dl-players').innerHTML=[...new Set(list)].filter(n=>n!=botName).map(n=>`<option value="${esc(n)}">`).join('')}
 let next=0,logBusy=false;
-function cls(l){if(/\[panel\]|\[servidor\]/.test(l))return 's';if(/error|no se pudo|falla|fallo|muri|expuls/i.test(l))return 'e';if(/<[^>]+>|susurra|whisper|\/msg/i.test(l))return 'p';return ''}
+function cls(l){if(/\[panel\]|\[servidor\]/.test(l))return 's';if(/error|fail|died|kicked|no se pudo|falla|fallo|muri|expuls/i.test(l))return 'e';if(/<[^>]+>|susurra|whisper|\/msg/i.test(l))return 'p';return ''}
 async function logs(){
  if(logBusy||!cur||botOff)return;logBusy=true;const my=cur;
  try{

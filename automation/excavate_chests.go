@@ -20,6 +20,8 @@ import (
 
 	"github.com/mj41/go-mc26-kit/bot/world"
 	"github.com/mj41/go-mc26/protocol/types"
+
+	"cubit/internal/i18n"
 )
 
 // excavateChestsMax: cuántos cofres se apuntan como mucho.
@@ -38,7 +40,7 @@ func (s *Storage) AddExcavateChest(p world.BlockPos) (bool, error) {
 		}
 	}
 	if len(s.ExcavateChests) >= excavateChestsMax {
-		return false, fmt.Errorf("ya hay %d cofres apuntados (el máximo)", excavateChestsMax)
+		return false, i18n.Errorf("there are already %d chests saved (the maximum)", "ya hay %d cofres apuntados (el máximo)", excavateChestsMax)
 	}
 	s.ExcavateChests = append(s.ExcavateChests, p)
 	s.save()
@@ -155,9 +157,9 @@ func (e *excavation) deposit(final bool) bool {
 func (e *excavation) storeIn(c world.BlockPos) (int, bool, error) {
 	j := e.j
 	if b := j.Block(c); b != "" && !IsContainer(b) {
-		return 0, false, fmt.Errorf("ahí no hay un cofre (hay %s)", strings.TrimPrefix(b, "minecraft:"))
+		return 0, false, i18n.Errorf("there's no chest there (there's %s)", "ahí no hay un cofre (hay %s)", strings.TrimPrefix(b, "minecraft:"))
 	}
-	j.Status("guardando en el cofre %v", c)
+	j.StatusT("storing in the chest at %v", "guardando en el cofre %v", c)
 	if err := j.Open(c); err != nil {
 		return 0, false, err
 	}
@@ -304,7 +306,7 @@ func (e *excavation) fetchPicks() bool {
 		if b := j.Block(c); b != "" && !IsContainer(b) {
 			continue
 		}
-		j.Status("buscando picos en el cofre %v", c)
+		j.StatusT("looking for pickaxes in the chest at %v", "buscando picos en el cofre %v", c)
 		if err := j.Open(c); err != nil {
 			j.Logf("excavar: no pude abrir el cofre %v: %v", c, err)
 			continue

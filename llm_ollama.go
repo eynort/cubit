@@ -199,15 +199,15 @@ func llmPull() {
 		llmDL.pulling, llmDL.probed = false, time.Time{}
 		llmDL.Unlock()
 		if err != nil {
-			log.Printf("[ia] no pude bajar %s de %s: %v", model, url, err)
+			log.Printf(tr("[ai] couldn't download %s from %s: %v", "[ia] no pude bajar %s de %s: %v"), model, url, err)
 		} else {
-			log.Printf("[ia] modelo %s listo", model)
+			log.Printf(tr("[ai] model %s ready", "[ia] modelo %s listo"), model)
 		}
 	}()
 }
 
 func llmPullNow(url, model string) error {
-	log.Printf("[ia] bajando el modelo %s de %s (la primera vez tarda)", model, url)
+	log.Printf(tr("[ai] downloading model %s from %s (takes a while the first time)", "[ia] bajando el modelo %s de %s (la primera vez tarda)"), model, url)
 	body, _ := json.Marshal(map[string]any{"model": model, "stream": true})
 	req, err := http.NewRequest(http.MethodPost, url+"/api/pull", bytes.NewReader(body))
 	if err != nil {

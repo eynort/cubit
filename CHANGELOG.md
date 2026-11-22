@@ -12,6 +12,9 @@ All notable changes to Cubit. Versions are the `v*` tags of the repository.
 - `"schema"` version in `hub.json` and `bot.json`, with a migration runner at startup.
 - Releases now embed their version (`-X main.version`), `cubit --version`, and sign `SHA256SUMS` (`SHA256SUMS.sig`, see `tools/sign`).
 
+### Fixed
+- Bots set to English (`/lang en`) no longer show Spanish in `/status`, in the panel's combat and task fields, in the common console lines (connecting, joined, died, task started/finished/stuck, goto, queue, AI), or in ore-name and path errors. The AI gets its state in English, and the "Ollama is down" reply follows the speaker's language.
+
 ## v0.0.1
 
 First tagged version: the hub and its panel, bots with PvP, excavate and pathfinding, and the test server.

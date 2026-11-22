@@ -133,13 +133,13 @@ func (b *Bot) gotoPlayer(ctx context.Context, name string, uid uuid.UUID) {
 			continue
 		}
 		if !isOnline(name) {
-			log.Printf("goto: %s se desconectó", name)
+			log.Printf(tr("goto: %s disconnected", "goto: %s se desconectó"), name)
 			return
 		}
 		// 1. a la vista: directo
 		if e, ok := b.Entities.ByUUID(uid); ok {
 			if b.chase(ctx, name, e.ID) {
-				log.Printf("goto: llegué hasta %s", name)
+				log.Printf(tr("goto: reached %s", "goto: llegué hasta %s"), name)
 				return
 			}
 			continue // lo perdió de vista o se cortó: otra vuelta
@@ -158,7 +158,7 @@ func (b *Bot) gotoPlayer(ctx context.Context, name string, uid uuid.UUID) {
 			// no se sabe dónde está: preguntarle (una vez) y esperar
 			if askedAt.IsZero() || time.Since(askedAt) > 60*time.Second {
 				if !askedAt.IsZero() {
-					log.Printf("goto: %s no me dijo dónde está; usa /goto <x> <y> <z>", name)
+					log.Printf(tr("goto: %s didn't tell me where they are; use /goto <x> <y> <z>", "goto: %s no me dijo dónde está; usa /goto <x> <y> <z>"), name)
 					return
 				}
 				b.askWhere(name, uid)
@@ -170,9 +170,9 @@ func (b *Bot) gotoPlayer(ctx context.Context, name string, uid uuid.UUID) {
 			continue
 		}
 		p := b.Player.Position()
-		log.Printf("goto: %s no está a la vista; voy a %s: %.0f %.0f (a %.0f bloques)", name, src, tx, tz, math.Hypot(tx-p.X, tz-p.Z))
+		log.Printf(tr("goto: %s isn't in sight; going to %s: %.0f %.0f (%.0f blocks away)", "goto: %s no está a la vista; voy a %s: %.0f %.0f (a %.0f bloques)"), name, src, tx, tz, math.Hypot(tx-p.X, tz-p.Z))
 		if b.gotoCoordsY(ctx, tx, ty, tz, visible) && !visible() {
-			log.Printf("goto: %s no está aquí", name)
+			log.Printf(tr("goto: %s isn't here", "goto: %s no está aquí"), name)
 			// allí no está: preguntar (si no se hizo ya)
 		}
 	}
@@ -183,7 +183,7 @@ func (b *Bot) askWhere(name string, uid uuid.UUID) {
 	travel.Lock()
 	travel.asked[strings.ToLower(name)] = uid
 	travel.Unlock()
-	log.Printf("goto: no sé dónde está %s; se lo pregunto por privado", name)
+	log.Printf(tr("goto: I don't know where %s is; asking them by whisper", "goto: no sé dónde está %s; se lo pregunto por privado"), name)
 	c := play.ChatCommand{Command: pk.String(fmt.Sprintf("msg %s %s", name, tr("where are you? send me your coords (x z)", "¿dónde estás? pásame tus coords (x z)")))}
 	if err := b.Client.Conn.WritePacket(pk.Marshal(c.PacketID(), c)); err != nil {
 		log.Print("goto: ", err)
@@ -200,7 +200,7 @@ func (b *Bot) chase(ctx context.Context, name string, id int32) bool {
 	}, 2)
 	defer b.Walker.Stop()
 	if e, ok := b.Entities.Get(id); ok {
-		log.Printf("goto: veo a %s (a %.0f bloques): voy directo", name, b.distanceTo(e))
+		log.Printf(tr("goto: I see %s (%.0f blocks away): heading straight there", "goto: veo a %s (a %.0f bloques): voy directo"), name, b.distanceTo(e))
 	}
 	for {
 		if b.Ctl.WaitTicks(ctx, 5) != nil || b.Combat.Fighting() {
@@ -208,7 +208,7 @@ func (b *Bot) chase(ctx context.Context, name string, id int32) bool {
 		}
 		e, ok := b.Entities.Get(id)
 		if !ok {
-			log.Printf("goto: perdí de vista a %s", name)
+			log.Printf(tr("goto: lost sight of %s", "goto: perdí de vista a %s"), name)
 			return false
 		}
 		if b.distanceTo(e) <= 2.5 {
@@ -220,12 +220,12 @@ func (b *Bot) chase(ctx context.Context, name string, id int32) bool {
 // waitFight espera a que termine la pelea en curso (pelear, o huir y comer,
 // lo decide el módulo de pelea); false si cancelaron la orden mientras.
 func (b *Bot) waitFight(ctx context.Context) bool {
-	log.Print("pelea: la orden espera a que termine")
+	log.Print(tr("fight: the order waits until it's over", "pelea: la orden espera a que termine"))
 	for b.Combat.Fighting() {
 		if b.Ctl.WaitTicks(ctx, 10) != nil {
 			return false
 		}
 	}
-	log.Print("pelea terminada: sigo con la orden")
+	log.Print(tr("fight over: back to the order", "pelea terminada: sigo con la orden"))
 	return true
 }

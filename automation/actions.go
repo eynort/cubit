@@ -15,6 +15,9 @@ import (
 	"github.com/mj41/go-mc26/protocol/types"
 
 	"github.com/mj41/go-mc26-kit/bot/world"
+
+	"cubit/internal/i18n"
+	"cubit/pathing"
 )
 
 // reachDist es hasta dónde llega la mano (el juego: 4.5 desde los ojos; con margen).
@@ -53,21 +56,21 @@ func (j *Job) GoNear(p world.BlockPos) error {
 			return nil
 		}
 		if stuck() {
-			return fmt.Errorf("no avanzo hacia %v (sin moverme; %s)", p, j.fromHere(p))
+			return j.walkErr("not getting closer to %v (not moving; %s)", "no avanzo hacia %v (sin moverme; %s)", p, "")
 		}
 		switch st := w.Status(); {
 		case st == "arrived":
 			if j.Reaches(p) {
 				return nil
 			}
-			return fmt.Errorf("llegué cerca de %v pero no lo alcanzo (%s)", p, j.fromHere(p))
+			return j.walkErr("got near %v but can't reach it (%s)", "llegué cerca de %v pero no lo alcanzo (%s)", p, "")
 		case strings.HasPrefix(st, "failed"):
-			return fmt.Errorf("no llego a %v: %s (%s)", p, st, j.fromHere(p))
+			return j.walkErr("can't reach %v: %s (%s)", "no llego a %v: %s (%s)", p, st)
 		case st == "stopped": // una pelea paró el walker: retomar
 			w.Goto(p)
 		}
 		if t > j.walkLimit() { // 60 s
-			return fmt.Errorf("tardo demasiado en llegar a %v (%s)", p, j.fromHere(p))
+			return j.walkErr("taking too long to reach %v (%s)", "tardo demasiado en llegar a %v (%s)", p, "")
 		}
 	}
 }
@@ -96,18 +99,18 @@ func (j *Job) GoTo(p world.BlockPos) error {
 			if j.Feet() == p { // (ya está en la celda: el walker no lo dio por llegado, pero lo está)
 				return nil
 			}
-			return fmt.Errorf("no avanzo hacia %v (sin moverme; %s)", p, j.fromHere(p))
+			return j.walkErr("not getting closer to %v (not moving; %s)", "no avanzo hacia %v (sin moverme; %s)", p, "")
 		}
 		switch st := w.Status(); {
 		case st == "arrived":
 			return nil
 		case strings.HasPrefix(st, "failed"):
-			return fmt.Errorf("no llego a %v: %s (%s)", p, st, j.fromHere(p))
+			return j.walkErr("can't reach %v: %s (%s)", "no llego a %v: %s (%s)", p, st)
 		case st == "stopped":
 			w.Goto(p)
 		}
 		if t > j.walkLimit() {
-			return fmt.Errorf("tardo demasiado en llegar a %v (%s)", p, j.fromHere(p))
+			return j.walkErr("taking too long to reach %v (%s)", "tardo demasiado en llegar a %v (%s)", p, "")
 		}
 	}
 }
@@ -462,7 +465,7 @@ func (j *Job) CollectAround(x, y, z, radius float64) error {
 			under.Y--
 			quiet = 0
 			leaves[e.ID]++
-			j.Status("tirando de las hojas lo que se quedó encima")
+			j.StatusT("knocking down items stuck on the leaves", "tirando de las hojas lo que se quedó encima")
 			if err := j.GoNear(under); err == nil {
 				_ = j.Dig(under)
 			} else if j.Fatal() != nil {
@@ -598,9 +601,20 @@ func (j *Job) stuckFor(p world.BlockPos) func() bool {
 	return j.stuckWatch()
 }
 
-// fromHere: "desde 210 -19 -477, a 34 bloques": para los errores de camino.
-func (j *Job) fromHere(p world.BlockPos) string {
+// walkErr: un error al andar hacia p, en los dos idiomas: en, es con p, el
+// estado del walker st (si no es "") y desde dónde ("desde 210 -19 -477, a 34
+// bloques").
+func (j *Job) walkErr(en, es string, p world.BlockPos, st string) error {
 	f := j.Feet()
 	dx, dy, dz := float64(p.X-f.X), float64(p.Y-f.Y), float64(p.Z-f.Z)
-	return fmt.Sprintf("desde %v, a %.0f bloques", f, math.Sqrt(dx*dx+dy*dy+dz*dz))
+	d := math.Sqrt(dx*dx + dy*dy + dz*dz)
+	enArgs := []any{p}
+	esArgs := []any{p}
+	if st != "" {
+		enArgs = append(enArgs, pathing.StatusEN(st))
+		esArgs = append(esArgs, st)
+	}
+	enArgs = append(enArgs, fmt.Sprintf("from %v, %.0f blocks away", f, d))
+	esArgs = append(esArgs, fmt.Sprintf("desde %v, a %.0f bloques", f, d))
+	return &i18n.Error{EN: fmt.Sprintf(en, enArgs...), ES: fmt.Sprintf(es, esArgs...)}
 }

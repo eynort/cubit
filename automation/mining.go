@@ -16,6 +16,8 @@ import (
 	"github.com/mj41/go-mc26/protocol/types"
 
 	"cubit/pathing"
+
+	"cubit/internal/i18n"
 )
 
 // Minar: llegar a un bloque bajo tierra cavando un túnel en escalera (como
@@ -290,7 +292,7 @@ func (j *Job) plug(p world.BlockPos) bool {
 		return false
 	}
 	j.plugged += len(cells)
-	j.Status("tapé %d de lava junto a %v", len(cells), p)
+	j.StatusT("plugged %d lava next to %v", "tapé %d de lava junto a %v", len(cells), p)
 	return true
 }
 
@@ -423,7 +425,7 @@ func (j *Job) tunnelTo(target world.BlockPos, there func() bool) error {
 		if there() {
 			return nil
 		}
-		j.Status("cavando un túnel hacia %v", target)
+		j.StatusT("digging a tunnel to %v", "cavando un túnel hacia %v", target)
 		cur := j.Feet()
 		visited[cur] = true
 		if d := dist(cur); d < best {
@@ -608,7 +610,7 @@ func (j *Job) ToSky() error {
 		if err := j.Wait(1); err != nil {
 			return err
 		}
-		j.Status("subiendo a la superficie")
+		j.StatusT("climbing to the surface", "subiendo a la superficie")
 		f := j.Feet()
 		d := [][2]int{{1, 0}, {0, 1}, {-1, 0}, {0, -1}}[k%4]
 		to := world.BlockPos{X: f.X + 6*d[0], Y: f.Y + 6, Z: f.Z + 6*d[1]}
@@ -621,7 +623,7 @@ func (j *Job) ToSky() error {
 	}
 	j.trail = nil // ese túnel ya no es para volver
 	if j.Underground() {
-		return fmt.Errorf("no consigo salir a la superficie (estoy en %v)", j.Feet())
+		return i18n.Errorf("can't get to the surface (I'm at %v)", "no consigo salir a la superficie (estoy en %v)", j.Feet())
 	}
 	return nil
 }
@@ -643,7 +645,7 @@ func (j *Job) walkCells(path []world.BlockPos) error {
 		if p == cur {
 			continue
 		}
-		j.Status("por el túnel (%d/%d)", i+1, len(path))
+		j.StatusT("through the tunnel (%d/%d)", "por el túnel (%d/%d)", i+1, len(path))
 		cells := []world.BlockPos{{X: p.X, Y: p.Y + 1, Z: p.Z}, p}
 		if p.Y > cur.Y {
 			cells = append([]world.BlockPos{{X: cur.X, Y: cur.Y + 2, Z: cur.Z}}, cells...)
@@ -743,7 +745,7 @@ func (j *Job) mine(o mineOpts) error {
 			}
 		}
 		j.makeRoom()
-		j.Status("minando %s (%d/%d)", o.what, o.have(), o.want)
+		j.StatusT("mining %s (%d/%d)", "minando %s (%d/%d)", o.what, o.have(), o.want)
 		f := j.Feet()
 		var p world.BlockPos
 		found := false
@@ -760,7 +762,7 @@ func (j *Job) mine(o mineOpts) error {
 		}
 		if !found {
 			if explored >= o.runs {
-				return fmt.Errorf("no encuentro %s (exploré %d túneles)", o.what, explored)
+				return i18n.Errorf("can't find %s (explored %d tunnels)", "no encuentro %s (exploré %d túneles)", o.what, explored)
 			}
 			explored++
 			if o.level != nil {
@@ -814,7 +816,7 @@ func (j *Job) mine(o mineOpts) error {
 		}
 	}
 	if o.have() < o.want {
-		return fmt.Errorf("solo junté %d de %d (%s)", o.have(), o.want, o.what)
+		return i18n.Errorf("only gathered %d of %d (%s)", "solo junté %d de %d (%s)", o.have(), o.want, o.what)
 	}
 	return nil
 }
@@ -870,7 +872,7 @@ func (j *Job) DescendTo(y int) error {
 		}
 	}
 	if j.Feet().Y > y+4 {
-		return fmt.Errorf("no consigo bajar (estoy en y=%d)", j.Feet().Y)
+		return i18n.Errorf("can't get down (I'm at y=%d)", "no consigo bajar (estoy en y=%d)", j.Feet().Y)
 	}
 	return nil
 }
@@ -894,7 +896,7 @@ func (j *Job) stripRun(dx, dz, n int, ok func(string) bool, skip map[world.Block
 				return fmt.Errorf("agua o lava delante que no puedo tapar (%v)", c)
 			}
 		}
-		j.Status("galería (%d/%d)", i+1, n)
+		j.StatusT("branch tunnel (%d/%d)", "galería (%d/%d)", i+1, n)
 		for _, c := range []world.BlockPos{head, next} {
 			if err := j.clearCell(c); err != nil {
 				return err
@@ -1147,7 +1149,7 @@ func (j *Job) fetchDrops(ok func(string) bool, radius float64) error {
 		tried[target.ID] = true
 		id, cell := target.ID, itemCell(*target)
 		what := strings.TrimPrefix(itemName(int32(target.Data[entitydata.ItemEntityItem].Value.(*types.ItemStack).Item)), "minecraft:")
-		j.Status("cavando hasta %s que quedó en %v", what, cell)
+		j.StatusT("digging to the %s left at %v", "cavando hasta %s que quedó en %v", what, cell)
 		gone := func() bool {
 			_, still := j.r.d.Entities.Get(id)
 			return !still

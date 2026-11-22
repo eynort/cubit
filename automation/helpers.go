@@ -38,6 +38,17 @@ func dimName(dim string) string {
 	return dim
 }
 
+// dimNameEN es dimName en inglés.
+func dimNameEN(dim string) string {
+	switch dim {
+	case theNether:
+		return "the Nether"
+	case overworld:
+		return "the overworld"
+	}
+	return dim
+}
+
 // standAt deja los pies en p (andando, o cavando hasta allí).
 func (j *Job) standAt(p world.BlockPos) error {
 	if j.Feet() == p {
@@ -137,7 +148,7 @@ func (r *Runner) NoteChat() { r.chats.Add(1) }
 // cayó al morir).
 func PickUp(r float64) func(j *Job) error {
 	return func(j *Job) error {
-		j.Status("recogiendo lo que hay tirado")
+		j.StatusT("picking up items nearby", "recogiendo lo que hay tirado")
 		before := len(j.Items())
 		if err := j.Collect(r); err != nil {
 			return err

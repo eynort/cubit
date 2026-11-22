@@ -165,11 +165,11 @@ func Chop(kinds []string, center world.BlockPos) func(j *Job) error {
 		// a por lo que cae sobre las hojas era subir y bajar para nada)
 		j.ignore = func(item string) bool { return !isLogBlock(item) }
 		defer func() { j.ignore = nil }()
-		j.Logf("talar %s alrededor de %v (radio %d)", strings.Join(kinds, ","), center, ChopRadius)
+		j.LogT("chopping %s around %v (radius %d)", "talar %s alrededor de %v (radio %d)", strings.Join(kinds, ","), center, ChopRadius)
 		if axe := j.bestAxe(); axe != "" {
-			j.Logf("uso el %s (sin romperlo)", axe)
+			j.LogT("using the %s (without breaking it)", "uso el %s (sin romperlo)", axe)
 		} else {
-			j.Logf("sin hacha: talo a mano (más lento)")
+			j.LogT("no axe: chopping by hand (slower)", "sin hacha: talo a mano (más lento)")
 		}
 		if err := c.travel(center); err != nil {
 			return err
@@ -181,7 +181,7 @@ func Chop(kinds []string, center world.BlockPos) func(j *Job) error {
 			if j.Fatal() != nil {
 				return j.Fatal()
 			}
-			j.Status("buscando árboles (%d talados)", c.total(c.trees))
+			j.StatusT("looking for trees (%d chopped)", "buscando árboles (%d talados)", c.total(c.trees))
 			t, ok := c.next()
 			if !ok {
 				break
@@ -244,9 +244,9 @@ func (c *chopper) summary(before map[string]int) {
 			gotN += d
 		}
 	}
-	j.Logf("talado: %d árboles y %d troncos (%s); recogidos: %s", c.total(c.trees), c.total(c.logs), strings.Join(parts, "; "), strings.Join(got, ", "))
+	j.LogT("chopped: %d trees and %d logs (%s); picked up: %s", "talado: %d árboles y %d troncos (%s); recogidos: %s", c.total(c.trees), c.total(c.logs), strings.Join(parts, "; "), strings.Join(got, ", "))
 	if loose := c.total(c.logs) - gotN; loose > 0 {
-		j.Logf("%d troncos cortados quedaron sin recoger (sobre las hojas de la copa o sin camino)", loose)
+		j.LogT("%d cut logs were left on the ground (on top of the leaves or with no path)", "%d troncos cortados quedaron sin recoger (sobre las hojas de la copa o sin camino)", loose)
 	}
 	if n, first := c.remaining(); n > 0 {
 		j.Logf("quedan %d troncos de esas maderas a menos de %d bloques que no son de un árbol (construcciones, troncos caídos) o que dejé (el primero en %v)", n, ChopRadius, first)
@@ -297,7 +297,7 @@ func (c *chopper) travel(p world.BlockPos) error {
 		if d <= 3 {
 			return nil
 		}
-		j.Status("yendo a %v (a %.0f bloques)", p, d)
+		j.StatusT("walking to %v (%.0f blocks away)", "yendo a %v (a %.0f bloques)", p, d)
 		goal, ok := c.segment(pos.X, pos.Y, pos.Z, p, d, fails)
 		if !ok {
 			if d <= ChopRadius/2 {
@@ -577,7 +577,7 @@ func (c *chopper) process(t *chopTree) {
 		}
 	}
 	c.trees[t.kind]++
-	j.Status("recogiendo lo que cayó")
+	j.StatusT("picking up the drops", "recogiendo lo que cayó")
 	c.descend(ground) // (antes de quitar la torre: desde arriba solo se baja por ella)
 	c.removeScaffold(t.logs)
 	c.descend(ground)
@@ -685,7 +685,7 @@ func (c *chopper) climbCut(t *chopTree) {
 		if !c.higherLeft(t.logs) {
 			break
 		}
-		j.Status("subiendo (%d cortados)", c.total(c.logs))
+		j.StatusT("climbing (%d logs cut)", "subiendo (%d cortados)", c.total(c.logs))
 		if err := c.pillarUp(); err != nil {
 			j.Logf("subir: %v", err)
 			break
@@ -771,7 +771,7 @@ func (c *chopper) finish(t *chopTree, ground int) {
 			return
 		}
 		c.unpause()
-		j.Status("terminando el árbol (quedan %d troncos)", len(left))
+		j.StatusT("finishing the tree (%d logs left)", "terminando el árbol (quedan %d troncos)", len(left))
 		j.Logf("al árbol le quedan %d troncos: voy a por ellos", len(left))
 		c.ensureScaffold(left[len(left)-1].Y - ground)
 		before := len(left)
@@ -855,7 +855,7 @@ func (c *chopper) removeScaffold(logs []world.BlockPos) {
 				continue
 			}
 		}
-		j.Status("quitando los bloques que puse")
+		j.StatusT("removing the blocks I placed", "quitando los bloques que puse")
 		if err := j.Dig(p); err == nil {
 			b.Forget(p)
 		}
@@ -1154,7 +1154,7 @@ func (c *chopper) climbDown(ground int) {
 		if f.Y <= ground || j.r.d.Builder == nil || !c.downable(under) {
 			return
 		}
-		j.Status("bajando de la torre")
+		j.StatusT("climbing down the pillar", "bajando de la torre")
 		if err := j.Dig(under); err != nil {
 			return
 		}
@@ -1213,7 +1213,7 @@ func (c *chopper) gatherScaffold(n int) {
 		if j.Fatal() != nil {
 			return
 		}
-		j.Status("juntando bloques para subir (%d de %d)", b.Blocks(), n)
+		j.StatusT("gathering blocks to climb (%d of %d)", "juntando bloques para subir (%d de %d)", b.Blocks(), n)
 		f := j.Feet()
 		var best world.BlockPos
 		bd, found := math.Inf(1), false
@@ -1299,7 +1299,7 @@ func (c *chopper) clearWayTo(target world.BlockPos, done func() bool) error {
 				}
 				for _, cell := range cells {
 					if j.solid(cell) {
-						j.Status("rompiendo hojas para pasar")
+						j.StatusT("breaking leaves to get through", "rompiendo hojas para pasar")
 						if err := j.Dig(cell); err != nil {
 							return fmt.Errorf("hojas en %v: %w", cell, err)
 						}

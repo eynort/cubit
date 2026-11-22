@@ -213,10 +213,10 @@ func TestMineChest(t *testing.T) {
 		if g.Count("minecraft:bread") != 5 || g.Count("minecraft:torch") == 0 {
 			t.Errorf("dejó la comida o las antorchas: pan %d, antorchas %d", g.Count("minecraft:bread"), g.Count("minecraft:torch"))
 		}
-		if strings.Count(out, "al cofre") < 3 { // (al empezar sin pico, y al menos dos veces por llevar 2)
+		if strings.Count(out, "to the chest") < 3 { // (al empezar sin pico, y al menos dos veces por llevar 2)
 			t.Errorf("tenía que ir al cofre varias veces:\n%s", out)
 		}
-		if !strings.Contains(out, "resumen") {
+		if !strings.Contains(out, "summary") {
 			t.Errorf("sin resumen")
 		}
 	})
@@ -420,7 +420,7 @@ func TestMineReturnCave(t *testing.T) {
 		if n := g.ChestCount(-3, 64, 0, "minecraft:raw_iron"); n != 1 {
 			t.Errorf("hierro en el cofre: %d, tenía que ser 1", n)
 		}
-		if !strings.Contains(out, "vuelvo a la mina") || !strings.Contains(out, "túnel principal llegó") {
+		if !strings.Contains(out, "back to the mine") || !strings.Contains(out, "túnel principal llegó") {
 			t.Errorf("no volvió a la mina y siguió:\n%s", out)
 		}
 	})

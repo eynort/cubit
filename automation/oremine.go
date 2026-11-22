@@ -14,6 +14,8 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/world"
 	"github.com/mj41/go-mc26/data/entitydata"
 	"github.com/mj41/go-mc26/protocol/types"
+
+	"cubit/internal/i18n"
 )
 
 // /mine <mineral> <x> <y> <z> [every N] [total M]: minar minerales como un
@@ -126,7 +128,7 @@ func MineOres(cfg MineConfig) func(j *Job) error {
 		j.pickFloor = pickReserve // (ningún pico se rompe)
 		defer func() { j.pickOK, j.pickFloor = nil, 0 }()
 		defer m.summary()
-		j.Logf("minar %s: %s; cofre en %v, lo dejo cada %d; túnel de 1×2 con ramas cada %d", strings.Join(names, ", "), why, cfg.Chest, m.cfg.Every, branchGap)
+		j.LogT("mining %s: %s; chest at %v, storing every %d; 1×2 tunnel with branches every %d", "minar %s: %s; cofre en %v, lo dejo cada %d; túnel de 1×2 con ramas cada %d", strings.Join(names, ", "), why, cfg.Chest, m.cfg.Every, branchGap)
 
 		// sin pico: primero al cofre
 		if !m.hasPick() {
@@ -207,7 +209,7 @@ func (m *oreMine) deposited() int {
 }
 
 func (m *oreMine) status(what string) {
-	m.j.Status("minar: %s (capa y=%d; llevo %d, dejados %d)", what, m.layer, m.carried(), m.deposited())
+	m.j.StatusT("%s (layer y=%d; carrying %d, stored %d)", "%s (capa y=%d; llevo %d, dejados %d)", what, m.layer, m.carried(), m.deposited())
 }
 
 // summary: el resumen, al acabar o parar.
@@ -223,9 +225,9 @@ func (m *oreMine) summary() {
 		parts = append(parts, fmt.Sprintf("%s %d", k, mined[k]))
 	}
 	if len(parts) == 0 {
-		parts = []string{"nada"}
+		parts = []string{m.j.tr("nothing", "nada")}
 	}
-	m.j.Logf("minar: resumen: minado %s (en total %d; en el cofre %d, encima %d); %d viajes al cofre; %s",
+	m.j.LogT("summary: mined %s (total %d; in the chest %d, carrying %d); %d trips to the chest; %s", "minar: resumen: minado %s (en total %d; en el cofre %d, encima %d); %d viajes al cofre; %s",
 		strings.Join(parts, ", "), m.minedTotal(), m.deposited(), m.carried(), m.trips, time.Since(m.started).Round(time.Second))
 }
 
@@ -400,7 +402,7 @@ func (m *oreMine) relocate(why error) error {
 		m.cur = spot
 		return nil
 	}
-	return fmt.Errorf("no encuentro dónde empezar otra escalera cerca (%v)", lastErr)
+	return i18n.Errorf("can't find a spot nearby to start another staircase (%v)", "no encuentro dónde empezar otra escalera cerca (%v)", lastErr)
 }
 
 // openPath deja libres las celdas (de arriba abajo) con suelo firme en
@@ -575,7 +577,7 @@ func (m *oreMine) upkeep() error {
 		return err
 	}
 	if m.cfg.Total > 0 && m.minedTotal() >= m.cfg.Total {
-		j.Logf("minar: juntados %d de %d", m.minedTotal(), m.cfg.Total)
+		j.LogT("gathered %d of %d", "minar: juntados %d de %d", m.minedTotal(), m.cfg.Total)
 		return errMineDone // (lo que lleve se deja al acabar)
 	}
 	j.makeRoom()
@@ -690,7 +692,7 @@ func (m *oreMine) take(p world.BlockPos) bool {
 		return fail("sigue ahí:", errors.New("el bloque no se rompió"))
 	}
 	m.dug++
-	j.Logf("minar: piqué %s en %v", name, p)
+	j.LogT("mined %s at %v", "minar: piqué %s en %v", name, p)
 	return true
 }
 
@@ -701,7 +703,7 @@ func (m *oreMine) trip(why string, final bool) error {
 	m.trips++
 	back := m.cur
 	m.status("al cofre (" + why + ")")
-	j.Logf("minar: al cofre %v (%s)", m.cfg.Chest, why)
+	j.LogT("to the chest %v (%s)", "minar: al cofre %v (%s)", m.cfg.Chest, why)
 	if len(m.trail) > 1 {
 		if err := m.standAt(m.cur); err != nil {
 			return err
@@ -716,13 +718,13 @@ func (m *oreMine) trip(why string, final bool) error {
 		return err
 	}
 	if !m.hasPick() && !m.waitForPick() {
-		return fmt.Errorf("no tengo ningún pico de nivel %d o más con más de %d usos (no rompo ninguno): déjalos en el cofre %v o tírame uno, y repite la orden", m.need, pickReserve, m.cfg.Chest)
+		return i18n.Errorf("I have no pickaxe of tier %d or better with more than %d uses left (I won't break any): leave some in the chest at %v or throw me one, and repeat the command", "no tengo ningún pico de nivel %d o más con más de %d usos (no rompo ninguno): déjalos en el cofre %v o tírame uno, y repite la orden", m.need, pickReserve, m.cfg.Chest)
 	}
 	if final {
 		return nil
 	}
 	if len(m.trail) > 1 {
-		j.Logf("minar: vuelvo a la mina (%d celdas)", len(loopTrail(m.trail)))
+		j.LogT("back to the mine (%d cells)", "minar: vuelvo a la mina (%d celdas)", len(loopTrail(m.trail)))
 		fwd := loopTrail(m.trail)
 		if err := j.GoTo(fwd[0]); err != nil && j.Feet() != fwd[0] {
 			return fmt.Errorf("volver a la mina (%v): %w", fwd[0], err)
@@ -898,7 +900,7 @@ func (m *oreMine) visitChests() error {
 		if b := j.Block(c); b != "" && !IsContainer(b) {
 			continue
 		}
-		j.Status("minar: en el cofre %v", c)
+		j.StatusT("at the chest %v", "en el cofre %v", c)
 		if err := j.Open(c); err != nil {
 			j.Logf("minar: no pude abrir el cofre %v: %v", c, err)
 			continue
@@ -977,12 +979,12 @@ func (m *oreMine) visitChests() error {
 	}
 	j.CloseScreen()
 	if opened == 0 {
-		return fmt.Errorf("no pude abrir ningún cofre en %v", m.cfg.Chest)
+		return i18n.Errorf("couldn't open any chest at %v", "no pude abrir ningún cofre en %v", m.cfg.Chest)
 	}
 	if n := len(m.toStore()); n > 0 {
-		j.Logf("minar: los cofres están llenos (o no llego a ellos): me quedan %d montones por dejar", n)
+		j.LogT("the chests are full (or I can't reach them): %d stacks left to store", "minar: los cofres están llenos (o no llego a ellos): me quedan %d montones por dejar", n)
 	}
-	j.Logf("minar: tras el cofre: llevo %d picos buenos, %d minerales encima, %d dejados en total", j.UsablePicks(), m.carried(), m.deposited())
+	j.LogT("after the chest: %d good pickaxes, carrying %d ores, %d stored in total", "minar: tras el cofre: llevo %d picos buenos, %d minerales encima, %d dejados en total", j.UsablePicks(), m.carried(), m.deposited())
 	return nil
 }
 
@@ -1064,12 +1066,12 @@ func (m *oreMine) waitForPick() bool {
 		"me quedé sin pico (me hace falta uno %s o mejor) y en el cofre de %d %d %d no hay. déjame uno ahí o tíramelo, te espero %d s",
 		name, c.X, c.Y, c.Z, secs)
 	for waited := 0; waited < secs; waited++ {
-		j.Status("esperando un pico (%d s de %d)", waited, secs)
+		j.StatusT("waiting for a pickaxe (%d s of %d)", "esperando un pico (%d s de %d)", waited, secs)
 		if err := j.Rest(20); err != nil {
 			return false
 		}
 		if m.hasPick() {
-			j.Logf("minar: ya tengo pico: sigo")
+			j.LogT("got a pickaxe: carrying on", "minar: ya tengo pico: sigo")
 			return true
 		}
 	}

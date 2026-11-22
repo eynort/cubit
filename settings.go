@@ -120,7 +120,7 @@ func applySettings(s panelSettings) (restart bool, err error) {
 	if err != nil {
 		return false, err
 	}
-	log.Printf("[panel] ajustes guardados · dueños: %s", strings.Join(owners, ", "))
+	log.Printf(tr("[panel] settings saved · owners: %s", "[panel] ajustes guardados · dueños: %s"), strings.Join(owners, ", "))
 	if s.Lang != "" && s.Lang != lang() {
 		setLang(s.Lang)
 	}
@@ -145,7 +145,7 @@ func validLoginPassword(pw string) error {
 var restartRequested atomic.Bool
 
 func requestRestart() {
-	log.Print("[panel] reinicio para aplicar los ajustes…")
+	log.Print(tr("[panel] restarting to apply the settings…", "[panel] reinicio para aplicar los ajustes…"))
 	restartRequested.Store(true)
 	appQuit()
 }
@@ -182,7 +182,7 @@ func renameBot(name string) (restart bool, err error) {
 	if err != nil {
 		return false, err
 	}
-	log.Printf("[panel] nombre del bot: %s → %s", old, name)
+	log.Printf(tr("[panel] bot name: %s → %s", "[panel] nombre del bot: %s → %s"), old, name)
 	return true, nil
 }
 

@@ -75,7 +75,7 @@ func (e *excavation) layerReach(y int) error {
 			return nil // (lo que quede: bloque a bloque, en layer)
 		}
 		tried[st]++
-		j.Status("excavar: capas %d-%d, a %v (llevo %d)", y, e.passTop(y), st, e.dug)
+		j.StatusT("layers %d-%d, going to %v (%d dug)", "capas %d-%d, a %v (llevo %d)", y, e.passTop(y), st, e.dug)
 		if err := e.moveTo(st); err != nil {
 			if j.Fatal() != nil {
 				return j.Fatal()
@@ -163,7 +163,7 @@ func (e *excavation) moveTo(s world.BlockPos) error {
 	}
 	// sin camino andando (un hoyo, o el servidor no deja construir torres ni
 	// puentes): cavando hasta allí, en vez de probar otro sitio y otro
-	j.Status("excavar: sin camino a %v: cavo hasta allí", s)
+	j.StatusT("no path to %v: digging my way there", "sin camino a %v: cavo hasta allí", s)
 	return j.standAt(s)
 }
 
@@ -260,7 +260,7 @@ func (e *excavation) stairsDown(y int) error {
 				return j.Fatal()
 			}
 			// sin camino andando (un hoyo, sin poder construir): cavando hasta allí
-			j.Status("excavar: sin camino a la caja (%v): cavo hasta allí", g)
+			j.StatusT("no path to the box (%v): digging my way there", "sin camino a la caja (%v): cavo hasta allí", g)
 			if err := j.standAt(g); err != nil {
 				return err
 			}
@@ -275,7 +275,7 @@ func (e *excavation) stairsDown(y int) error {
 			return err
 		}
 		f := j.Feet()
-		j.Status("excavar: bajando al fondo de la pasada (%d; en %d)", y, f.Y)
+		j.StatusT("going down to the bottom of the pass (%d; at %d)", "bajando al fondo de la pasada (%d; en %d)", y, f.Y)
 		dirs := [][2]int{{sign(cx - f.X), 0}, {0, sign(cz - f.Z)}, {1, 0}, {-1, 0}, {0, 1}, {0, -1}}
 		if abs(cz-f.Z) > abs(cx-f.X) {
 			dirs[0], dirs[1] = dirs[1], dirs[0]

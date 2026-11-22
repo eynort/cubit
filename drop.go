@@ -314,11 +314,11 @@ func (b *Bot) dropAll(ctx context.Context, to string) {
 	}
 	switch {
 	case n == 0:
-		log.Print("drop: no llevo nada")
+		log.Print(tr("drop: my inventory is empty", "drop: no llevo nada"))
 	case to != "":
-		log.Printf("drop: le he tirado a %s todo lo que llevaba (%d objetos)", to, n)
+		log.Printf(tr("drop: gave %s everything I had (%d items)", "drop: le he tirado a %s todo lo que llevaba (%d objetos)"), to, n)
 	default:
-		log.Printf("drop: he tirado todo lo que llevaba (%d objetos)", n)
+		log.Printf(tr("drop: dropped everything I had (%d items)", "drop: he tirado todo lo que llevaba (%d objetos)"), n)
 	}
 }
 
@@ -330,7 +330,7 @@ func (b *Bot) resyncInventory(ctx context.Context) {
 		return
 	}
 	if err := b.Screens.Resync(); err != nil {
-		log.Printf("inventario: no pude pedirlo al servidor: %v", err)
+		log.Printf(tr("inventory: couldn't get it from the server: %v", "inventario: no pude pedirlo al servidor: %v"), err)
 		return
 	}
 	_ = b.Ctl.WaitTicks(ctx, 6)

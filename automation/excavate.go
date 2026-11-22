@@ -263,7 +263,7 @@ func Excavate(box Box) func(j *Job) error {
 		for _, ps := range passPlan(box) {
 			sizes = append(sizes, fmt.Sprint(ps[1]))
 		}
-		j.Logf("a excavar %s (%d bloques como mucho): %d de alto, de 4 en 4 (%d pasadas de %s): cada pasada entera en toda la caja antes de bajar a la siguiente; en cada una, desde el fondo, pico los 4 de alto que alcanzo y voy al siguiente sitio",
+		j.LogT("excavating %s (%d blocks at most): %d high, 4 at a time (%d passes of %s): each pass over the whole box before going down to the next; in each, from the bottom, I dig the 4 blocks I can reach and move on", "a excavar %s (%d bloques como mucho): %d de alto, de 4 en 4 (%d pasadas de %s): cada pasada entera en toda la caja antes de bajar a la siguiente; en cada una, desde el fondo, pico los 4 de alto que alcanzo y voy al siguiente sitio",
 			box, box.Volume(), box.Max.Y-box.Min.Y+1, len(sizes), strings.Join(sizes, "+"))
 		if j.UsablePicks() == 0 {
 			if err := e.stash(true); err != nil {
@@ -309,10 +309,10 @@ func Excavate(box Box) func(j *Job) error {
 			j.Logf("excavar: dejé %d bloques a los que no había forma de llegar (sueltos en el aire, sin dónde apoyarme)", e.unreached)
 		}
 		if left == "" {
-			j.Logf("excavado %s: %d bloques", box, e.dug)
+			j.LogT("excavated %s: %d blocks", "excavado %s: %d bloques", box, e.dug)
 			j.sayf("done digging, %d blocks out", "listo, terminé de excavar: %d bloques fuera", e.dug)
 		} else {
-			j.Logf("excavado %s: %d bloques; quedan sin cavar: %s", box, e.dug, left)
+			j.LogT("excavated %s: %d blocks; left undug: %s", "excavado %s: %d bloques; quedan sin cavar: %s", box, e.dug, left)
 			j.sayf("done digging (%d blocks), but I had to leave a few I couldn't reach", "terminé de excavar (%d bloques), pero dejé algunos a los que no llegaba", e.dug)
 		}
 		return nil
@@ -378,7 +378,7 @@ func (e *excavation) run() error {
 			return nil
 		}
 		name := j.Block(target)
-		j.Status("excavando: capa %d de %d…%d, %s en %v (llevo %d)", target.Y, e.box.Max.Y, e.box.Min.Y, name, target, e.dug)
+		j.StatusT("layer %d of %d…%d, %s at %v (%d dug)", "capa %d de %d…%d, %s en %v (llevo %d)", target.Y, e.box.Max.Y, e.box.Min.Y, name, target, e.dug)
 		if toolFor(name) == "pickaxe" && j.bestPickSlot(pickReserve) < 0 {
 			if err := e.restockPicks(); err != nil {
 				return err
@@ -483,7 +483,7 @@ func (e *excavation) next() (world.BlockPos, bool, error) {
 			if g, ok := j.r.d.Walker.Ground(c.X, c.Z, f.Y); ok {
 				c = g
 			}
-			j.Status("excavar: voy hacia %v (aún no lo veo)", c)
+			j.StatusT("heading to %v (not loaded yet)", "voy hacia %v (aún no lo veo)", c)
 			if e.approached++; e.approached > 3 {
 				return world.BlockPos{}, false, fmt.Errorf("no veo los bloques de %v (¿fuera de lo que carga el bot?)", c)
 			}
@@ -530,7 +530,7 @@ func (e *excavation) ensureLoaded() error {
 			return nil
 		}
 		f := j.Feet()
-		j.Status("excavar: voy hacia la caja (aún no veo %d chunks de ella)", missing)
+		j.StatusT("heading to the box (%d chunks of it not loaded yet)", "voy hacia la caja (aún no veo %d chunks de ella)", missing)
 		if try == 0 {
 			j.Logf("excavar: aún no veo la caja (%d chunks sin cargar): me acerco", missing)
 		}
@@ -703,7 +703,7 @@ func (e *excavation) leftovers() string {
 // lo den (tirándoselo cerca). Error si nadie se lo da.
 func (e *excavation) restockPicks() error {
 	j := e.j
-	j.Logf("excavar: no me quedan picos sin gastar")
+	j.LogT("no unworn pickaxes left", "excavar: no me quedan picos sin gastar")
 	if e.fetchPicks() && j.bestPickSlot(pickReserve) >= 0 { // (de los cofres de /excavate, si hay)
 		return nil
 	}
@@ -724,12 +724,12 @@ func (e *excavation) waitForPick() bool {
 	secs := int(pickWait / time.Second)
 	j.sayf("I'm out of pickaxes, can you toss me one? I'll wait %d s", "me quedé sin pico, ¿me tiras uno? te espero %d s", secs)
 	for waited := 0; waited < secs; waited++ {
-		j.Status("esperando un pico (%d s de %d)", waited, secs)
+		j.StatusT("waiting for a pickaxe (%d s of %d)", "esperando un pico (%d s de %d)", waited, secs)
 		if err := j.Rest(20); err != nil {
 			return false
 		}
 		if j.bestPickSlot(pickReserve) >= 0 {
-			j.Logf("excavar: ya tengo pico: sigo")
+			j.LogT("got a pickaxe: carrying on", "excavar: ya tengo pico: sigo")
 			return true
 		}
 	}
@@ -770,7 +770,7 @@ func (e *excavation) stash(restock bool) error {
 	if len(throw) > 0 {
 		j.CloseScreen()
 		if n := j.throwSlots(throw, nil); n > 0 {
-			j.Logf("excavar: tiro %d bloques de basura para hacer sitio", n)
+			j.LogT("dropping %d junk blocks to make room", "excavar: tiro %d bloques de basura para hacer sitio", n)
 			_ = j.r.d.Ctl.WaitTicks(j.ctx, 5)
 		}
 		j.ignore = junk // (la basura ya no se recoge)

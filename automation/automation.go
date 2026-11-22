@@ -26,8 +26,18 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/screen"
 	"github.com/mj41/go-mc26-kit/bot/world"
 
+	"cubit/internal/i18n"
 	"cubit/pathing"
 )
+
+// errText: el texto de un error en el idioma del bot (los de i18n vienen en los dos).
+func errText(r *Runner, err error) string {
+	var e *i18n.Error
+	if errors.As(err, &e) {
+		return r.tr(e.EN, e.ES)
+	}
+	return err.Error()
+}
 
 // Deps es lo que las tareas usan del bot.
 type Deps struct {
@@ -79,11 +89,12 @@ type Runner struct {
 	job     atomic.Pointer[Job] // la tarea en curso (para su progreso en Status)
 	chats   atomic.Int64        // los mensajes de jugadores recibidos: una respuesta (NoteChat)
 
-	mu     sync.Mutex
-	cancel context.CancelFunc
-	name   string
-	status string
-	done   chan struct{}
+	mu       sync.Mutex
+	cancel   context.CancelFunc
+	name     string
+	status   string
+	statusEN string // status en inglés (status, en español): StatusT; statusNow elige
+	done     chan struct{}
 }
 
 // New crea el ejecutor (y carga el almacén guardado).
@@ -129,7 +140,7 @@ func (r *Runner) start(parent context.Context, name string, task func(j *Job) er
 	ctx, cancel := context.WithCancel(parent)
 	done := make(chan struct{})
 	r.mu.Lock()
-	r.cancel, r.name, r.status, r.done = cancel, name, "empezando", done
+	r.cancel, r.name, r.status, r.statusEN, r.done = cancel, name, "empezando", "starting", done
 	r.mu.Unlock()
 	r.beat.Store(time.Now().UnixNano())
 	go r.watch(ctx, parent, name, task, restarts, done)
@@ -149,19 +160,19 @@ func (r *Runner) start(parent context.Context, name string, task func(j *Job) er
 		if err != nil && !errors.Is(err, context.Canceled) {
 			j.snapshot("la tarea terminó con error: " + err.Error())
 		}
-		sum := j.ProblemSummary()
+		sum, label := j.ProblemSummary(), r.label(name)
 		switch {
 		case errors.Is(err, context.Canceled):
-			log.Printf("[%s] parado%s", name, sum)
+			log.Printf(r.tr("[%s] stopped%s", "[%s] parado%s"), label, sum)
 		case err != nil:
-			log.Printf("[%s] terminado: %v%s", name, err, sum)
+			log.Printf(r.tr("[%s] finished: %s%s", "[%s] terminado: %s%s"), label, errText(r, err), sum)
 		default:
-			log.Printf("[%s] terminado%s", name, sum)
+			log.Printf(r.tr("[%s] finished%s", "[%s] terminado%s"), label, sum)
 		}
 		r.mu.Lock()
 		current := r.done == done
 		if current {
-			r.cancel, r.name, r.status = nil, "", ""
+			r.cancel, r.name, r.status, r.statusEN = nil, "", "", ""
 		}
 		r.mu.Unlock()
 		if current && r.d.OnEnd != nil {
@@ -205,16 +216,17 @@ func (r *Runner) watch(ctx, parent context.Context, name string, task func(j *Jo
 		why := ""
 		switch {
 		case idle >= stallAfter:
-			why = fmt.Sprintf("%s sin hacer nada", idle.Round(time.Second))
+			why = fmt.Sprintf(r.tr("%s doing nothing", "%s sin hacer nada"), idle.Round(time.Second))
 		case still >= stuckAfter:
-			why = fmt.Sprintf("%s sin avanzar (a menos de %d bloques de %v, sin cambiar el inventario)", still.Round(time.Second), stuckMove, prog.anchor)
+			why = fmt.Sprintf(r.tr("%s without progress (within %d blocks of %v, inventory unchanged)", "%s sin avanzar (a menos de %d bloques de %v, sin cambiar el inventario)"), still.Round(time.Second), stuckMove, prog.anchor)
 		default:
 			continue
 		}
 		r.mu.Lock()
-		status := r.status
+		status := r.statusNow()
 		r.mu.Unlock()
-		log.Printf("[%s] atascada %s (en \"%s\"): dejo la traza en el log", name, why, status)
+		label := r.label(name)
+		log.Printf(r.tr("[%s] stuck: %s (at \"%s\"): trace saved to the log", "[%s] atascada %s (en \"%s\"): dejo la traza en el log"), label, why, status)
 		if j := r.job.Load(); j != nil {
 			j.snapshot(fmt.Sprintf("atascada %s", why))
 		}
@@ -222,14 +234,14 @@ func (r *Runner) watch(ctx, parent context.Context, name string, task func(j *Jo
 			r.d.Trace("TAREA ATASCADA %s (%s):\n%s", name, status, taskStacks())
 		}
 		if restarts >= 3 {
-			log.Printf("[%s] atascada otra vez: la paro", name)
+			log.Printf(r.tr("[%s] stuck again: stopping it", "[%s] atascada otra vez: la paro"), label)
 			if r.d.OnStall != nil {
 				go r.d.OnStall(name, status, restarts, true)
 			}
 			r.Stop()
 			return
 		}
-		log.Printf("[%s] la vuelvo a empezar (%d de 3)", name, restarts+1)
+		log.Printf(r.tr("[%s] restarting it (%d of 3)", "[%s] la vuelvo a empezar (%d de 3)"), label, restarts+1)
 		if r.d.OnStall != nil {
 			go r.d.OnStall(name, status, restarts+1, false)
 		}
@@ -347,10 +359,29 @@ func (r *Runner) Status() string {
 	if r.name == "" {
 		return ""
 	}
-	if strings.HasPrefix(r.status, r.name+":") {
-		return r.status // (el estado ya lleva el nombre: "excavar: …")
+	label := r.label(r.name)
+	cur := r.statusNow()
+	if strings.HasPrefix(cur, label+":") {
+		return cur // (el estado ya lleva el nombre: "excavar: …")
 	}
-	return r.name + ": " + r.status
+	return label + ": " + cur
+}
+
+// statusNow es el estado en el idioma del bot (con r.mu).
+func (r *Runner) statusNow() string { return r.tr(r.statusEN, r.status) }
+
+// StatusEN es Status en inglés (el estado que se le da a la IA).
+func (r *Runner) StatusEN() string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.name == "" {
+		return ""
+	}
+	label := r.name
+	if en, ok := taskLabels[r.name]; ok {
+		label = en
+	}
+	return label + ": " + r.statusEN
 }
 
 // Job es una tarea en marcha: lo que puede hacer, paso a paso.
@@ -428,7 +459,60 @@ func (j *Job) Status(format string, args ...any) {
 	j.r.beat.Store(time.Now().UnixNano())
 	j.r.mu.Lock()
 	j.r.status = fmt.Sprintf(format, args...)
+	j.r.statusEN = j.r.status
 	j.r.mu.Unlock()
+}
+
+// StatusT es Status en el idioma del bot (en, es: los dos con los mismos %v).
+func (j *Job) StatusT(en, es string, args ...any) {
+	j.r.beat.Store(time.Now().UnixNano())
+	j.r.mu.Lock()
+	j.r.status = fmt.Sprintf(es, args...)
+	j.r.statusEN = fmt.Sprintf(en, args...)
+	j.r.mu.Unlock()
+}
+
+// LogT es Logf en el idioma del bot (en, es: los dos con los mismos %v).
+func (j *Job) LogT(en, es string, args ...any) { j.Logf(j.tr(en, es), args...) }
+
+// tr elige el texto en el idioma del bot (Deps.Lang; sin él, el de i18n).
+func (j *Job) tr(en, es string) string { return j.r.tr(en, es) }
+
+func (r *Runner) tr(en, es string) string {
+	l := i18n.Lang()
+	if r.d.Lang != nil {
+		l = r.d.Lang()
+	}
+	if l == "es" {
+		return es
+	}
+	return en
+}
+
+// taskLabels: el nombre de cada tarea en inglés (el interno, el de la orden
+// en español, es el que sale con /lang es).
+var taskLabels = map[string]string{
+	"excavar": "excavate",
+	"talar":   "chop",
+	"minar":   "mine",
+	"recoger": "pick up",
+	"afk":     "afk",
+}
+
+// Label es cómo se llama la tarea name en /status, el panel y los logs, en
+// el idioma del bot.
+func Label(name string) string {
+	if en, ok := taskLabels[name]; ok {
+		return i18n.T(en, name)
+	}
+	return name
+}
+
+func (r *Runner) label(name string) string {
+	if en, ok := taskLabels[name]; ok {
+		return r.tr(en, name)
+	}
+	return name
 }
 
 // Logf escribe en el log con el nombre de la tarea.
@@ -437,7 +521,7 @@ func (j *Job) Logf(format string, args ...any) {
 	j.r.mu.Lock()
 	name := j.r.name
 	j.r.mu.Unlock()
-	log.Printf("["+name+"] "+format, args...)
+	log.Printf("["+j.r.label(name)+"] "+format, args...)
 }
 
 // Wait es un punto seguro: espera n ticks y, si hay una pelea, hasta que

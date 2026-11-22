@@ -25,6 +25,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 )
 
 const (
@@ -193,7 +194,7 @@ func llmRun(ctx context.Context, model llmModel, host llmHost, from, said, langu
 				spoke, pending = true, ""
 			} else {
 				pending = t // (si acaba sin decir nada, se dice esto)
-				log.Printf("[ia] (solo en el log) %s", t)
+				log.Printf(tr("[ai] (log only) %s", "[ia] (solo en el log) %s"), t)
 			}
 		}
 		if terminal && pending != "" {
@@ -210,7 +211,7 @@ func llmRun(ctx context.Context, model llmModel, host llmHost, from, said, langu
 		var results []string
 		for _, a := range r.Actions {
 			out := llmExec(ctx, host, from, a)
-			log.Printf("[ia] %s %v → %s", a.Command, a.Args, clip(out, 120))
+			log.Printf(tr("[ai] %s %v → %s", "[ia] %s %v → %s"), a.Command, a.Args, clip(out, 120))
 			results = append(results, fmt.Sprintf("%s %s: %s", a.Command, strings.Join(a.Args, " "), out))
 		}
 		if r.Done { // pidió acciones y acabar: se ejecutan y listo
@@ -266,18 +267,57 @@ func llmExec(ctx context.Context, host llmHost, from string, a llmAction) string
 	return out
 }
 
-// llmFriendly: la frase para el jugador cuando el modelo falla (el detalle va al log).
-func llmFriendly(err error) string {
+// llmFriendly: la frase para el jugador cuando el modelo falla (el detalle va
+// al log), en el idioma l de quien habla ("": el del bot).
+func llmFriendly(err error, l string) string {
 	var le *llmError
 	if errors.As(err, &le) {
 		switch le.Kind {
 		case "down":
-			return tr("ugh, my AI brain isn't answering right now, but commands still work", "uf, no me llega la cabeza ahora mismo, pero las órdenes de siempre me valen")
+			return trIn(l, "ugh, my AI brain isn't answering right now, but commands still work", "uf, no me llega la cabeza ahora mismo, pero las órdenes de siempre me valen")
 		case "missing":
-			return tr("hang on, I'm still downloading my brain, ask me again in a few minutes", "espera, que aún me estoy bajando el cerebro, pídemelo en unos minutos")
+			return trIn(l, "hang on, I'm still downloading my brain, ask me again in a few minutes", "espera, que aún me estoy bajando el cerebro, pídemelo en unos minutos")
 		}
 	}
-	return tr("ugh, I got confused there, try again in a bit", "uf, me he liado, prueba otra vez en un rato")
+	return trIn(l, "ugh, I got confused there, try again in a bit", "uf, me he liado, prueba otra vez en un rato")
+}
+
+// trIn es tr en el idioma l ("en" o "es"; "": el del bot).
+func trIn(l, en, es string) string {
+	switch l {
+	case "en":
+		return en
+	case "es":
+		return es
+	}
+	return tr(en, es)
+}
+
+// speakerLang adivina en qué idioma escribe alguien ("en", "es" o "" si no
+// está claro), para contestarle en el suyo cuando la IA no puede (sin Ollama).
+func speakerLang(said string) string {
+	es, en := 0, 0
+	if strings.ContainsAny(said, "ñ¿¡áéíóú") {
+		es += 2
+	}
+	for _, w := range strings.FieldsFunc(strings.ToLower(said), func(r rune) bool {
+		return !unicode.IsLetter(r) && r != '\''
+	}) {
+		switch w {
+		case "que", "qué", "de", "el", "la", "los", "las", "por", "para", "con", "una", "un", "y", "es", "eres", "estás", "esta", "está",
+			"hola", "ven", "aquí", "aqui", "dónde", "donde", "cómo", "como", "mina", "trae", "tráeme", "traeme", "dame", "puedes", "hierro", "madera", "mí", "mi", "tu", "tú", "gracias":
+			es++
+		case "the", "you", "your", "what", "where", "how", "come", "here", "please", "can", "bring", "give", "is", "are", "i", "my", "it", "and", "to", "of", "some", "iron", "wood", "thanks", "hi", "hello":
+			en++
+		}
+	}
+	switch {
+	case es > en:
+		return "es"
+	case en > es:
+		return "en"
+	}
+	return ""
 }
 
 // llmAsk atiende una frase de from: la manda al modelo y contesta con reply.
@@ -286,26 +326,27 @@ func llmAsk(host llmHost, from, said string, reply func(string)) {
 	if !llmEnabled() {
 		return
 	}
+	sl := speakerLang(said)
 	if !llm.busy.TryLock() {
-		reply(tr("hold on, I'm in the middle of something, one sec", "espera, que estoy a lo mío, un segundín"))
+		reply(trIn(sl, "hold on, I'm in the middle of something, one sec", "espera, que estoy a lo mío, un segundín"))
 		return
 	}
 	defer llm.busy.Unlock()
 	if !llm.underCap(time.Now()) {
-		reply(tr("I'm a bit overloaded, ask me again later", "voy un poco saturado, pídemelo más tarde"))
+		reply(trIn(sl, "I'm a bit overloaded, ask me again later", "voy un poco saturado, pídemelo más tarde"))
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), llmAskTimeout)
 	defer cancel()
-	log.Printf("[ia] %s: %s", from, clip(said, 200))
+	log.Printf(tr("[ai] %s: %s", "[ia] %s: %s"), from, clip(said, 200))
 	_, err := llmRun(ctx, llm.model(), host, from, said, lang(), reply)
 	if err != nil {
-		log.Printf("[ia] el modelo falló: %v", err)
+		log.Printf(tr("[ai] the model failed: %v", "[ia] el modelo falló: %v"), err)
 		var le *llmError
 		if errors.As(err, &le) && le.Kind == "missing" {
 			llmPull() // (se baja solo)
 		}
-		reply(llmFriendly(err))
+		reply(llmFriendly(err, sl))
 	}
 }
 
@@ -320,7 +361,7 @@ func (h botHost) Run(from, line string) error {
 
 func (h botHost) Task() string {
 	var parts []string
-	if t := h.b.Tasks.Status(); t != "" {
+	if t := h.b.Tasks.StatusEN(); t != "" {
 		parts = append(parts, t)
 	}
 	if m := currentMove(); m != "" {
@@ -434,7 +475,7 @@ func (h botHost) stateText(from string) string {
 	} else {
 		s += ", idle"
 	}
-	if c := b.Combat.Status(); c != "" {
+	if c := b.Combat.StatusEN(); c != "" {
 		s += ", combat: " + c
 	}
 	if from != "" {
@@ -496,7 +537,7 @@ func cmdAsk(b *Bot, args []string) error {
 	orderFrom.Lock()
 	who := orderFrom.who
 	orderFrom.Unlock()
-	reply := func(s string) { log.Printf("[ia] → %s", s) }
+	reply := func(s string) { log.Printf(tr("[ai] → %s", "[ia] → %s"), s) }
 	if who != "" { // llegó por /msg: se contesta por privado a quien lo pidió
 		reply = func(s string) { b.whisper(who, s) }
 	}

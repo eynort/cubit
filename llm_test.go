@@ -268,7 +268,7 @@ func TestOllamaDownAndMissing(t *testing.T) {
 	if llmProbe(srv.URL, "x") != "down" {
 		t.Error("probe down")
 	}
-	if llmFriendly(err) == "" {
+	if llmFriendly(err, "") == "" {
 		t.Error("sin frase amable")
 	}
 }

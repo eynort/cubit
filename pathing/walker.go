@@ -23,6 +23,8 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/physics"
 	"github.com/mj41/go-mc26-kit/bot/world"
 	"github.com/mj41/go-mc26/level/block"
+
+	"cubit/internal/i18n"
 )
 
 // Walker camina caminos: pon su Think como Think del controlador (o llámalo
@@ -274,6 +276,32 @@ func (w *Walker) Stop() {
 	defer w.mu.Unlock()
 	w.reset()
 	w.status = "stopped"
+}
+
+// failEN: los motivos de "failed: …" (en español, los que se comparan) en inglés.
+var failEN = []struct{ es, en string }{
+	{"failed: no hay camino", "failed: no path"},
+	{"failed: no me puedo acercar más", "failed: can't get any closer"},
+	{"failed: no llego a ", "failed: can't reach "},
+	{"failed: atascado antes de ", "failed: stuck before "},
+}
+
+// StatusEN es un estado de Status en inglés (el motivo de un "failed: …").
+func StatusEN(st string) string {
+	for _, f := range failEN {
+		if strings.HasPrefix(st, f.es) {
+			return f.en + st[len(f.es):]
+		}
+	}
+	return st
+}
+
+// StatusText es un estado de Status en el idioma del bot (para enseñarlo).
+func StatusText(st string) string {
+	if i18n.Lang() == "es" {
+		return st
+	}
+	return StatusEN(st)
 }
 
 // Status es "walking", "following", "arrived", "stopped" o "failed: …".

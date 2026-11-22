@@ -236,7 +236,7 @@ func (b *Bot) launch(it queued) {
 	workQueue.mu.Lock()
 	workQueue.active = true
 	workQueue.mu.Unlock()
-	log.Printf("cola: empiezo %s", it.line)
+	log.Printf(tr("queue: starting %s", "cola: empiezo %s"), it.line)
 	err := asOrderFrom(it.by, func() error { return b.run(it.line) })
 	if err != nil {
 		b.queueFail(tr("I couldn't start %s: %s", "no he podido empezar %s: %s"), it.line, errText(err))
@@ -300,7 +300,7 @@ func cmdQueue(b *Bot, args []string) error {
 		b.logQueue()
 	case "clear":
 		n := workQueue.clear()
-		log.Printf("cola vaciada (%d)", n)
+		log.Printf(tr("queue cleared (%d)", "cola vaciada (%d)"), n)
 		b.notifyQueue()
 	case "remove":
 		if len(args) != 2 {
@@ -314,14 +314,14 @@ func cmdQueue(b *Bot, args []string) error {
 		if !ok {
 			return errf("there is no #%d in the queue", "no hay ningún nº %d en la cola", n)
 		}
-		log.Printf("cola: quito %s", it.line)
+		log.Printf(tr("queue: removed %s", "cola: quito %s"), it.line)
 		b.notifyQueue()
 	case "pause":
 		b.queuePause()
-		log.Print("cola en pausa")
+		log.Print(tr("queue paused", "cola en pausa"))
 	case "resume":
 		workQueue.setPaused(false)
-		log.Print("cola: sigo")
+		log.Print(tr("queue: resuming", "cola: sigo"))
 		b.kickQueue()
 		b.notifyQueue()
 	default:
@@ -343,7 +343,7 @@ func cmdQueue(b *Bot, args []string) error {
 		b.kickQueue()
 		b.notifyQueue()
 		lines, _ := workQueue.snapshot()
-		log.Printf("cola: apuntada (%d en espera)", len(lines))
+		log.Printf(tr("queue: added (%d waiting)", "cola: apuntada (%d en espera)"), len(lines))
 	}
 	return nil
 }

@@ -104,7 +104,7 @@ func (e *excavation) layer(y, k, passes, lo, hi int) error {
 				}
 			}
 			e.fastPass(y) // (dice con qué y a qué ritmo se pica)
-			j.Status("excavando: pasada %d de %d (capas %d-%d)", k+1, passes, lo, hi)
+			j.StatusT("pass %d of %d (layers %d-%d)", "pasada %d de %d (capas %d-%d)", k+1, passes, lo, hi)
 			err = e.layerReach(y) // por alcance: desde cada sitio, toda la altura de la pasada a mano
 		} else {
 			j.Logf("excavar: a las capas %d-%d les quedan %d bloques: otra vez, bloque a bloque (%d de %d)", lo, hi, e.passWork(y), try+1, passTries)
@@ -198,7 +198,7 @@ func (e *excavation) collectPass(lo, hi int) {
 	b := e.box
 	cx, cz := float64(b.Min.X+b.Max.X)/2+0.5, float64(b.Min.Z+b.Max.Z)/2+0.5
 	r := math.Hypot(float64(b.Max.X-b.Min.X+1), float64(b.Max.Z-b.Min.Z+1))/2 + 2
-	j.Status("excavar: recogiendo lo de las capas %d-%d", lo, hi)
+	j.StatusT("picking up the drops from layers %d-%d", "recogiendo lo de las capas %d-%d", lo, hi)
 	// solo lo de dentro de la caja, a la altura de la pasada (no ir por el
 	// terreno de fuera, sin cavar, a por lo que rodó lejos)
 	j.collectOnly = func(c world.BlockPos) bool {
@@ -400,8 +400,8 @@ func (e *excavation) pass(L int, fast bool) error {
 				continue
 			}
 		}
-		j.Status("excavando: capas %d-%d, fila z=%d (%d→%d)%s (llevo %d)", L, e.passTop(L), zc, xa, xb,
-			map[bool]string{true: " corriendo", false: ""}[fast], e.dug)
+		j.StatusT("layers %d-%d, row z=%d (%d→%d)%s (%d dug)", "capas %d-%d, fila z=%d (%d→%d)%s (llevo %d)", L, e.passTop(L), zc, xa, xb,
+			map[bool]string{true: j.tr(" sprinting", " corriendo"), false: ""}[fast], e.dug)
 		err := e.row(L, zc, width, xa, xb, fast)
 		switch {
 		case err == nil:

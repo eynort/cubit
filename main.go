@@ -230,13 +230,13 @@ func run(ctx context.Context, quit func(), prev *Bot) (b *Bot, again bool, err e
 	b.inherit(prev) // la cola y el trabajo de la conexión anterior
 	current.Store(b)
 
-	log.Printf("conectando a %s como %s", addr, b.Client.Auth.Name)
+	log.Printf(tr("connecting to %s as %s", "conectando a %s como %s"), addr, b.Client.Auth.Name)
 	if err := b.Client.JoinServerWithOptions(joinAddr, joinOpts); err != nil {
 		return b, true, fmt.Errorf("no se pudo entrar: %w", err)
 	}
 	defer b.Client.Close()
 	defer b.markInterrupted() // (antes de cancel: el trabajo se retoma al volver)
-	log.Print("login correcto")
+	log.Print(tr("login ok", "login correcto"))
 	b.connectedAt = time.Now()
 	memtune.ReleaseSoon(conn, 30*time.Second) // (pasado el pico de entrar y cargar el mundo)
 
@@ -266,15 +266,15 @@ func run(ctx context.Context, quit func(), prev *Bot) (b *Bot, again bool, err e
 		var handlerErr bot.PacketHandlerError
 		switch {
 		case ctx.Err() != nil:
-			log.Print("desconectado")
+			log.Print(tr("disconnected", "desconectado"))
 			return b, false, nil
 		case b.noRetry.Load():
 			return b, false, nil // (el login falló: repetir no sirve)
 		case errors.As(err, &kicked):
 			reason := chat.Message(kicked).ClearString()
-			log.Print("expulsado: ", reason)
+			log.Print(tr("kicked: ", "expulsado: "), reason)
 			if finalKick.MatchString(reason) {
-				log.Print("no vuelvo a entrar: eso no se arregla esperando")
+				log.Print(tr("not reconnecting: waiting won't fix that", "no vuelvo a entrar: eso no se arregla esperando"))
 				return b, false, nil
 			}
 			return b, true, nil

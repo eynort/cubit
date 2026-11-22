@@ -16,6 +16,9 @@ import (
 
 var curLang atomic.Pointer[string]
 
+// los otros paquetes (combat, automation, pathing) leen el idioma de aquí
+func init() { i18n.SetLang(lang) }
+
 // languages son los idiomas que hay.
 var languages = map[string]string{"en": "English", "es": "Español"}
 
