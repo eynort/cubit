@@ -4,7 +4,7 @@ package main
 // manda al bot por /msg se ejecuta como si se escribiera en su consola, y el
 // bot le contesta por privado. "yo"/"me" en la orden es quien la manda:
 // "/follow yo", "/guard yo", "/goto yo". Lo que no parece una orden (y lo
-// que manda cualquier otro jugador) lo contesta la IA (ai.go), si está.
+// que manda cualquier otro jugador) lo atiende la IA local (llm.go), si está encendida.
 
 import (
 	"fmt"
@@ -40,6 +40,10 @@ func (b *Bot) onWhisper(from, text string) {
 	}
 	if !allowedRemote(from) {
 		log.Printf("ignoro la orden por /msg de %s (no está en remoteOwners): %s", from, text)
+		return
+	}
+	if llmHandles(text) { // lenguaje natural: lo atiende el modelo local (llm.go)
+		b.llmWhisper(from, text)
 		return
 	}
 	line := remoteLine(text, from)

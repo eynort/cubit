@@ -28,7 +28,8 @@ Corre en cualquier sitio: Linux, macOS, Windows, una Raspberry Pi, un VPS de 5 $
 - **Minar.** En ramas, como un jugador de verdad: baja por una escalera a la mejor capa para cada mineral, sin xray.
 - **Talar.** Árboles enteros de las maderas que digas, también los de 2×2 y los del Nether.
 - **Moverse.** Encuentra el camino solo con A*, y hace torres y puentes si le hacen falta.
-- **Discord (opcional).** Da órdenes con `/bot`, `/bots` y `/status`, y lee en un canal lo que dicen tus bots. Mira la [guía](docs/GUIA.md#discord-opcional).
+- **Discord (opcional).** Da órdenes con `/bot`, `/bots` y `/status`, y lee en un canal lo que dicen tus bots. Mira la [guía](docs/GUIA.md#3-discord-opcional).
+- **Háblale.** Los dueños pueden escribir frases normales ("mina 20 de hierro y tráemelo") y una IA local y gratuita (Ollama, sin cuentas ni claves) las convierte en órdenes. Opcional: se apaga por bot en el panel. Mira la [Guía](docs/GUIA.md#7-háblale-ia-local).
 
 Todos tus bots se manejan desde un **panel web**. Ahí cada bot tiene su propia consola de órdenes, y el panel incluye un servidor de pruebas en el que puedes jugar al momento.
 
@@ -57,7 +58,7 @@ Al terminar, te escribe el enlace de tu panel:
 
 También puedes usar el programa suelto, sin Docker: descárgalo en [Releases](../../releases). Todo lo demás está en la **[Guía](docs/GUIA.md)**: cómo controlar el bot, el panel, los servidores y los móviles. Para manejar los bots desde tus propios scripts hay una **[API HTTP](docs/API.es.md)**.
 
-El bot habla Minecraft Java 26.2; en servidores de **otras versiones** entra solo a través de [ViaProxy](docs/GUIA.md#5-otras-versiones-de-minecraft).
+El bot habla Minecraft Java 26.2; en servidores de **otras versiones** entra solo a través de [ViaProxy](docs/GUIA.md#6-otras-versiones-de-minecraft).
 
 ## Instrucciones para usar el bot
 

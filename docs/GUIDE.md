@@ -47,7 +47,7 @@ On **Android**, install Termux and pick the `android-arm64` file. Add `--view 4 
   - `Tab` completes, `↑` and `↓` go through the history.
 - **Servers**: start, stop and restart the test server, see who is online, and add external servers. Each server card tells you how to join it. Under *World* you can remake the test world with any seed, or a random one: the old one is kept as `world.anterior`.
 
-## Discord (optional)
+## 3. Discord (optional)
 
 Off by default. When you turn it on, the hub connects a Discord bot of yours so you can run your Cubit bots from Discord and watch what they say. Everything runs inside the hub; nothing is sent anywhere else.
 
@@ -67,7 +67,7 @@ The card shows the connection state (connecting, connected, no connection); if i
 
 The token is stored only in `hub.json` on the machine running the hub (it is git-ignored). The panel shows just its last four characters and it never appears in logs.
 
-## 3. Control the bot
+## 4. Control the bot
 
 You can give it orders in two ways:
 
@@ -92,7 +92,7 @@ The full list is in [COMMANDS.md](COMMANDS.md). `/help` in the console shows it 
 
 To control the bots from scripts or other programs (list them, send commands, follow chat and tasks live), see the [HTTP API](API.md).
 
-## 4. Good to know
+## 5. Good to know
 
 - **Owners**: only the owners may give orders in game. Set them with `--owner A,B`, or in the bot's settings in the panel.
 - **Server login (AuthMe / nLogin)**: if the server asks for `/login` or `/register`, put the password in the bot's settings in the panel ("Server login password"); the bot answers by itself, in English or Spanish prompts. It is saved only in `bot.json` and never shown again or written to the log.
@@ -101,7 +101,7 @@ To control the bots from scripts or other programs (list them, send commands, fo
 - **Version**: Minecraft Java **26.2** (protocol 776), and other versions through ViaProxy (see section 5). Vanilla servers only: it uses no plugin commands.
 - **Play fair**: use it on your own server, or on servers that allow bots.
 
-## 5. Other Minecraft versions
+## 6. Other Minecraft versions
 
 The bot speaks Minecraft Java **26.2** only. To join a server running another version (older or newer), it goes through [ViaProxy](https://github.com/ViaVersion/ViaProxy), which translates between versions. It is transparent: nothing to set up per server.
 
@@ -132,3 +132,17 @@ Limitations:
 - A server with an SRV record and no port in its address: write the real `host:port`.
 - Game features that do not exist in the server's version may not work (the bot assumes 26.2 behavior). Very old servers (before 1.13) are the most fragile.
 - Use ViaProxy only on trusted networks: it accepts any destination from whoever can reach it.
+
+## 7. Talk to it (local AI)
+
+Owners can write plain sentences instead of commands, by whisper (`/msg MyBot mine 20 iron and bring it to me`), in the chat naming the bot, or with `/ask <text>`. A small AI model that runs **on your own machine** reads it, plans the commands (the same ones as above, only those: never server commands, never `/quit`), runs them, checks the results and answers in the chat like a mate. Plain commands (`/follow Steve`) never go through the AI and keep working even if it is down.
+
+It is free: no account, no API key, nothing leaves your network. It uses [Ollama](https://ollama.com).
+
+- **With Docker (`./up.sh`)**: it is already on. `up.sh` starts an `ollama` service and downloads the model the first time: about **4.6 GB, once** (`./up.sh logs ollama-pull` shows the progress). Until it finishes, the bot says it is still downloading its brain; the panel (bot settings, *AI assistant*) shows the progress too. Turn it off per bot there, or pick another model.
+- **Without Docker (binary, Linux, macOS, Windows)**: install Ollama, then `ollama pull gemma4:e2b-it-q4_K_M`. The bot finds it at `http://localhost:11434`; if it is elsewhere, use `--ollama http://host:11434`, the `OLLAMA_URL` variable, or the *Ollama address* box in the panel. If the model is missing the bot starts downloading it by itself.
+- **Android (Termux)**: `pkg install ollama`, `ollama serve &`, `ollama pull gemma4:e2b-it-q4_K_M`, then run the bot with the default address. Or keep Ollama on your PC and point the phone's bot to it with `--ollama http://<pc-ip>:11434`.
+
+**Models and RAM, honestly.** The default `gemma4:e2b-it-q4_K_M` (4.6 GB download) needs roughly **3-4 GB of free RAM** while it answers. `gemma4:e4b` is smarter but needs more (about 7 GB download). `qwen3:4b` is another option. A phone with 800 MB cannot run a useful model: there, run Ollama on another machine and use `--ollama`, or switch the AI off. Answers take a few seconds on a PC and longer on a phone.
+
+Settings (per bot, in the panel): on/off, model, Ollama address. The bot remembers the last few exchanges with each player for 10 minutes, does at most 6 steps per sentence and at most 60 sentences per hour.

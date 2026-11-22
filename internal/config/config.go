@@ -11,4 +11,13 @@ type Bot struct {
 	// LoginPassword: la contraseña de AuthMe / nLogin del servidor (solo la lee el bot: nunca sale por la API)
 	LoginPassword string `json:"login_password,omitempty"`
 	Seeded        bool   `json:"seeded,omitempty"` // ya se usaron los flags una vez (--defaults)
+	LLM           LLM    `json:"llm,omitempty"`    // el control por lenguaje natural (llm.go)
+}
+
+// LLM: el control por lenguaje natural con un modelo local (Ollama, llm.go).
+// Encendido por defecto; no hay claves.
+type LLM struct {
+	Off   bool   `json:"off,omitempty"`   // apagado desde el panel
+	Model string `json:"model,omitempty"` // vacío = OLLAMA_MODEL o el de siempre
+	URL   string `json:"url,omitempty"`   // vacío = --ollama, OLLAMA_URL o localhost
 }

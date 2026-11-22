@@ -52,6 +52,29 @@ services:
     tty: true
     restart: unless-stopped
 
+  # la IA local (Ollama): los bots entienden frases normales ("mina 20 de hierro y
+  # tráemelo"). Gratis y sin claves; los modelos van en un volumen propio.
+  ollama:
+    image: ollama/ollama:0.40.17
+    volumes: [ollama-models:/root/.ollama]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  # baja el modelo la primera vez (unos 4,6 GB) y se apaga; las veces siguientes
+  # ya está en el volumen y termina al momento. Sin él, el bot también lo baja solo.
+  ollama-pull:
+    image: ollama/ollama:0.40.17
+    depends_on:
+      ollama: {condition: service_healthy}
+    environment:
+      OLLAMA_HOST: ollama:11434
+    entrypoint: ["ollama", "pull", "${OLLAMA_MODEL:-gemma4:e2b-it-q4_K_M}"]
+    restart: "no"
+
   # el hub: el panel siempre encendido y los bots (cada uno un proceso, en
   # bot-data/bots/<id>/); se crean, arrancan y paran desde el panel
   bot:
@@ -70,7 +93,12 @@ services:
       MCBOT_TEST_SERVER: minecraft # (el servidor de pruebas, visto desde el bot)
       MCBOT_VIAPROXY: "${VIAPROXY_ADDR:-viaproxy:25568}" # (para servidores de otra versión; sin el perfil viaproxy no hay nadie ahí y el panel avisa)
       MCBOT_TEST_PORT: "${MC_PORT:-25565}" # (y desde tu equipo: para decirte cómo entrar)
+      OLLAMA_URL: http://ollama:11434 # (la IA local; se apaga por bot en el panel)
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-gemma4:e2b-it-q4_K_M}"
     command:
       - --hub=:8080
       - --owner=${OWNER:-} # (el dueño que propone el asistente para un bot nuevo)
     restart: unless-stopped
+
+volumes:
+  ollama-models:

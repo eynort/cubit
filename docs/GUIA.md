@@ -47,7 +47,7 @@ En **Android**, instala Termux y usa el archivo `android-arm64`. Añade `--view 
   - `Tab` completa, y `↑` `↓` recorren el historial.
 - **Servidores**: encender, apagar y reiniciar el servidor de pruebas, ver quién está conectado y añadir servidores de fuera. En *Mundo* puedes rehacer el mundo de pruebas con la semilla que quieras, o una al azar: el anterior queda guardado como `world.anterior`. La tarjeta de cada servidor te dice cómo entrar.
 
-## Discord (opcional)
+## 3. Discord (opcional)
 
 Viene apagado. Al activarlo, el hub conecta un bot de Discord tuyo para que puedas dar órdenes a tus bots de Cubit desde Discord y ver lo que dicen. Todo corre dentro del hub; no se envía nada a ningún otro sitio.
 
@@ -67,7 +67,7 @@ La tarjeta muestra el estado de la conexión (conectando, conectado, sin conexi�
 
 El token solo se guarda en `hub.json` del equipo que ejecuta el hub (está fuera de git). El panel solo enseña sus 4 últimas letras y no sale nunca en los logs.
 
-## 3. Controlar el bot
+## 4. Controlar el bot
 
 Puedes darle órdenes de dos formas:
 
@@ -92,7 +92,7 @@ La lista completa está en [ORDENES.md](ORDENES.md). También la ves con `/help`
 
 Para manejar los bots desde scripts u otros programas (listarlos, mandarles órdenes, seguir el chat y las tareas en directo), mira la [API HTTP](API.es.md).
 
-## 4. Bueno saberlo
+## 5. Bueno saberlo
 
 - **Dueños**: solo los dueños pueden darle órdenes desde el juego. Se ponen con `--owner A,B`, o en los ajustes del bot en el panel.
 - **Inicio de sesión del servidor (AuthMe / nLogin)**: si el servidor pide `/login` o `/register`, pon la contraseña en los ajustes del bot en el panel ("Contraseña de acceso al servidor"); el bot contesta solo, con avisos en inglés o en español. Se guarda solo en `bot.json` y no se vuelve a mostrar ni se escribe en el log.
@@ -101,7 +101,7 @@ Para manejar los bots desde scripts u otros programas (listarlos, mandarles órd
 - **Versión**: Minecraft Java **26.2** (protocolo 776), y otras versiones por ViaProxy (ver el apartado 5). Solo servidores vanilla: no usa comandos de plugins.
 - **Juega limpio**: úsalo en tu servidor o en los que permiten bots.
 
-## 5. Otras versiones de Minecraft
+## 6. Otras versiones de Minecraft
 
 El bot habla solo Minecraft Java **26.2**. Para entrar en un servidor de otra versión (más vieja o más nueva) pasa por [ViaProxy](https://github.com/ViaVersion/ViaProxy), que traduce entre versiones. Es transparente: no hay que configurar nada por servidor.
 
@@ -132,3 +132,17 @@ Límites:
 - Un servidor con registro SRV y sin puerto en la dirección: escribe el `host:puerto` real.
 - Lo que no existe en la versión del servidor puede no funcionar (el bot da por hecho el comportamiento de 26.2). Los servidores muy viejos (antes de 1.13) son los más frágiles.
 - Usa ViaProxy solo en redes de confianza: acepta cualquier destino de quien llegue a él.
+
+## 7. Háblale (IA local)
+
+Los dueños pueden escribirle frases normales en vez de órdenes, por privado (`/msg MiBot mina 20 de hierro y tráemelo`), por el chat nombrando al bot, o con `/ask <texto>`. Un modelo de IA pequeño que corre **en tu propio equipo** la lee, planea las órdenes (las de arriba y solo esas: nunca comandos del servidor ni `/quit`), las ejecuta, mira los resultados y te contesta en el chat como un colega. Las órdenes normales (`/follow Steve`) no pasan por la IA y siguen funcionando aunque esta falle.
+
+Es gratis: sin cuenta, sin clave de API y nada sale de tu red. Usa [Ollama](https://ollama.com).
+
+- **Con Docker (`./up.sh`)**: ya viene encendida. `up.sh` levanta un servicio `ollama` y baja el modelo la primera vez: unos **4,6 GB, una sola vez** (`./up.sh logs ollama-pull` enseña el progreso). Hasta que acabe, el bot dice que aún se está bajando el cerebro; el panel (ajustes del bot, *Asistente IA*) también enseña el progreso. Ahí mismo la apagas por bot o eliges otro modelo.
+- **Sin Docker (programa suelto, Linux, macOS, Windows)**: instala Ollama y `ollama pull gemma4:e2b-it-q4_K_M`. El bot lo busca en `http://localhost:11434`; si está en otro sitio, usa `--ollama http://equipo:11434`, la variable `OLLAMA_URL` o la casilla *Dirección de Ollama* del panel. Si falta el modelo, el bot empieza a bajarlo solo.
+- **Android (Termux)**: `pkg install ollama`, `ollama serve &`, `ollama pull gemma4:e2b-it-q4_K_M` y arranca el bot con la dirección por defecto. O deja Ollama en tu PC y apunta el bot del móvil con `--ollama http://<ip-del-pc>:11434`.
+
+**Modelos y RAM, con franqueza.** El de por defecto, `gemma4:e2b-it-q4_K_M` (4,6 GB de descarga), necesita más o menos **3-4 GB de RAM libre** mientras contesta. `gemma4:e4b` es más listo pero pide más (unos 7 GB de descarga). `qwen3:4b` es otra opción. Un móvil de 800 MB no puede con un modelo útil: ahí, pon Ollama en otro equipo y usa `--ollama`, o apaga la IA. En un PC contesta en unos segundos; en un móvil, bastante más.
+
+Ajustes (por bot, en el panel): encendida o no, modelo y dirección de Ollama. El bot recuerda 10 minutos los últimos intercambios con cada jugador, hace como mucho 6 pasos por frase y 60 frases por hora.

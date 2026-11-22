@@ -46,6 +46,11 @@ var commandExamples = map[string][]example{
 		{"/afk 120 64 -340", text{"walk to that block and stay there", "ir a ese bloque y quedarse"}},
 		{"/afk ~ ~ ~", text{"the block it stands on now", "el bloque donde está ahora"}},
 	},
+	"ask": {
+		{"/ask mine 20 iron and bring it to me", text{"plain words: the local AI plans the commands", "con palabras normales: la IA local planea las órdenes"}},
+		{"/ask ve a talar unos robles", text{}},
+		{"/ask how are you doing?", text{"it just answers in the chat", "solo te contesta en el chat"}},
+	},
 	"inventory": {
 		{"/inventory", text{}},
 		{"/inventory grid", text{"laid out like the game screen", "como en la pantalla del juego"}},
