@@ -34,7 +34,7 @@ func main() {
 		os.Exit(1)
 	}
 	defer s.Close()
-	s.KeepAlive = 15 * time.Second // (como un servidor de verdad: sin esto el bot se desconecta a los 20 s)
+	s.KeepAlive = 15 * time.Second                       // (como un servidor de verdad: sin esto el bot se desconecta a los 20 s)
 	s.World.Fill(3, 64, -2, 6, 64, 2, "minecraft:stone") // un escalón para probar
 	fmt.Println(s.Addr)
 	if *quiet {
