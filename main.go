@@ -43,6 +43,7 @@ import (
 	"cubit/automation"
 	"cubit/combat"
 	"cubit/internal/hub"
+	"cubit/internal/memtune"
 	"cubit/internal/rcon"
 	"cubit/internal/update"
 	"cubit/pathing"
@@ -142,6 +143,8 @@ func main() {
 		}
 	}
 	if *hubFlag != "" {
+		memtune.Apply(0)                                          // (GOGC más bajo: el hub vive con ~4 MB de montón)
+		memtune.ReleaseSoon(context.Background(), 15*time.Second) // (el pico del arranque, de vuelta al sistema)
 		hub.ViaProxy = *viaFlag
 		hub.Run(*hubFlag, hub.Options{DefaultOwner: *ownerFlag, Open: *openFlag, Version: appVersion()}) // (el panel para varios bots; no vuelve hasta Ctrl-C)
 		return
@@ -235,6 +238,7 @@ func run(ctx context.Context, quit func(), prev *Bot) (b *Bot, again bool, err e
 	defer b.markInterrupted() // (antes de cancel: el trabajo se retoma al volver)
 	log.Print("login correcto")
 	b.connectedAt = time.Now()
+	memtune.ReleaseSoon(conn, 30*time.Second) // (pasado el pico de entrar y cargar el mundo)
 
 	// Al cancelar ctx se cierra la conexión, y eso termina HandleGame.
 	go func() {
