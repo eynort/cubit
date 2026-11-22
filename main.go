@@ -126,7 +126,7 @@ func main() {
 		}
 		return
 	}
-	if *dataFlag == "" {
+	if *dataFlag == "" && !flagGiven("config") { // (los bots del hub ya arrancan en su carpeta, bots/<id>)
 		// modo portátil: una carpeta "data" junto al ejecutable (Scoop y el zip de Windows)
 		if exe, err := os.Executable(); err == nil {
 			if st, err := os.Stat(filepath.Join(filepath.Dir(exe), "data")); err == nil && st.IsDir() {
@@ -484,4 +484,10 @@ type tickInfo struct {
 	sprinting          bool
 	vel                [3]float64
 	tick               uint64
+}
+
+// flagGiven: si la opción name se pasó en la línea de órdenes.
+func flagGiven(name string) (given bool) {
+	flag.Visit(func(f *flag.Flag) { given = given || f.Name == name })
+	return
 }

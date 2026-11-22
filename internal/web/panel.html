@@ -1783,7 +1783,7 @@ function renderChip(){const b=curBot();if(!cur)return;
   const pi=$('bot-pow').querySelector('.ic');const ic=b.running?IC.power:IC.play;if(!pi||pi.outerHTML!=ic){pi?.remove();$('bot-pow').insertAdjacentHTML('afterbegin',ic)}}
  renderLogin()}
 function renderLogin(){const b=curBot(),lg=b?.login,el=$('loginb');const show=!!(lg&&lg.code&&!curScr);
- if(show){$('lg-url').textContent=lg.url;$('lg-url').href=lg.url;$('lg-code').textContent=lg.code}
+ if(show){$('lg-url').textContent=lg.url;$('lg-url').href=/^https:\/\//.test(lg.url)?lg.url:'#';$('lg-code').textContent=lg.code}
  if(el.hidden==show){el.hidden=!show;relayout()}}
 $('lg-copy-u').onclick=()=>copyText($('lg-url').textContent);$('lg-copy-c').onclick=()=>copyText($('lg-code').textContent);
 async function hubLoad(){if(!hub||hubBusy)return;hubBusy=true;
@@ -2090,7 +2090,7 @@ function wizProgress(first){const b=hub.bots.find(x=>x.id==W.newId),ts=hub.test_
  const h=`<div class="wq"><span class="code">${T('Puesta en marcha')}</span><h2>${er?T('{n} no consigue arrancar',{n:esc(n)}):con?T('{n} ya está dentro',{n:esc(n)}):T('Arrancando a {n}…',{n:esc(n)})}</h2><p>${er?T('Estas son sus últimas líneas. Puedes revisarlo en Ajustes una vez dentro, o reintentar.'):con?T('Entra tú también con la dirección de abajo y luego abre su panel.'):T(W.testOn&&ts.power!='on'?'Esto tarda unos segundos; el servidor de pruebas también está arrancando.':'Esto tarda unos segundos.')}</p></div>
   <div class="prog-row" style="display:flex;gap:var(--s6);align-items:flex-start;flex-wrap:wrap"><span class="frame"><img class="head" src="${b?botAv(b):wizAv(n)}" alt="" width="80" height="80" style="width:80px;height:80px"></span>
   <ol class="prog${con?' done-all':''}">${stg.map(([l,c])=>`<li class="${c}">${l}</li>`).join('')}</ol></div>
-  ${lg?`<div class="pl loginband" style="margin-top:var(--s4)"><div class="lb-t"><span class="code">${T('CUENTA DE MICROSOFT')}</span><b>${T('Vincula la cuenta del bot')}</b><span class="lb-steps">${T('Abre')} <a href="${esc(lg.url)}" target="_blank" rel="noopener">${esc(lg.url)}</a> ${T('y escribe')} <code>${esc(lg.code)}</code></span></div><button class="k sm pri" type="button" data-copy="${esc(lg.code)}"><span>${T('Copiar código')}</span></button></div>`:''}
+  ${lg?`<div class="pl loginband" style="margin-top:var(--s4)"><div class="lb-t"><span class="code">${T('CUENTA DE MICROSOFT')}</span><b>${T('Vincula la cuenta del bot')}</b><span class="lb-steps">${T('Abre')} <a href="${/^https:\/\//.test(lg.url)?esc(lg.url):'#'}" target="_blank" rel="noopener">${esc(lg.url)}</a> ${T('y escribe')} <code>${esc(lg.code)}</code></span></div><button class="k sm pri" type="button" data-copy="${esc(lg.code)}"><span>${T('Copiar código')}</span></button></div>`:''}
   ${er?'':`<div class="pl joinband${con?' ok':''}"><b>${T('Ahora entra tú en el servidor')}</b>${joinHTML(botSrv(b)||srvById(W.d.server_id))}<span class="hint" style="margin:0">${T('{o} puede darle órdenes con /msg {b} …',{o:esc(W.d.owner||T('Su dueño')),b:esc(n)})}</span></div>`}
   ${er?`<pre class="well errpre">${esc(b.error)}</pre>`:''}`;
  if(h!=W.lastProg){$('wbody').innerHTML=h;W.lastProg=h;if(first)enter([$('wbody')],1)}

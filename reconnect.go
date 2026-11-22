@@ -10,8 +10,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"log"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -24,6 +26,7 @@ import (
 	mcversion "github.com/mj41/go-mc26/data/version"
 
 	"cubit/automation"
+	"cubit/internal/hub"
 )
 
 var (
@@ -87,11 +90,17 @@ func (b *Bot) setAuth(ctx context.Context) error {
 		b.Client.Auth = bot.Auth{Name: botName} // modo offline: solo hace falta el nombre
 		return nil
 	}
+	cacheDir := filepath.Join(filepath.Dir(cfgPath), ".microsoft") // (junto a bot.json: sobrevive al contenedor)
+	codeFile := filepath.Join(cacheDir, hub.DeviceCodeFile)        // (para el panel; ver hub.DeviceCodeFile)
+	defer os.Remove(codeFile)
 	acc, err := microsoft.AuthenticateDeviceCode(ctx, microsoft.Options{
 		CacheKey: strings.ToLower(botName),
-		CacheDir: filepath.Join(filepath.Dir(cfgPath), ".microsoft"), // (junto a bot.json: sobrevive al contenedor)
+		CacheDir: cacheDir,
 		OnDeviceCode: func(c microsoft.DeviceCode) {
 			log.Printf("\n\n  ===> CUENTA DE MICROSOFT: abre %s y escribe el código  %s  <===\n", c.VerificationURI, c.UserCode)
+			if j, err := json.Marshal(map[string]string{"url": c.VerificationURI, "code": c.UserCode}); err == nil && os.MkdirAll(cacheDir, 0o700) == nil {
+				_ = os.WriteFile(codeFile, j, 0o600)
+			}
 		},
 		OnStatus: func(m string) { log.Printf("microsoft: %s", m) },
 	})

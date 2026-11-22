@@ -261,7 +261,7 @@ func startMonitor(ctx context.Context) {
 		}
 		mux.ServeHTTP(w, r)
 	})
-	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second}
+	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 2 * time.Minute}
 	go func() {
 		<-ctx.Done()
 		_ = srv.Close()

@@ -96,7 +96,7 @@ services:
       OLLAMA_URL: http://ollama:11434 # (la IA local; se apaga por bot en el panel)
       OLLAMA_MODEL: "${OLLAMA_MODEL:-gemma4:e2b-it-q4_K_M}"
     command:
-      - --hub=:8080
+      - --hub=0.0.0.0:8080 # (dentro del contenedor; desde fuera, solo lo que abra PANEL_BIND)
       - --owner=${OWNER:-} # (el dueño que propone el asistente para un bot nuevo)
     restart: unless-stopped
 

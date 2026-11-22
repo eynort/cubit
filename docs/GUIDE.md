@@ -10,6 +10,8 @@
 - **Linux**: `curl -fsSL https://github.com/eynort/cubit/releases/latest/download/install.sh | sh` installs into `~/.local/bin` (it checks the SHA256), or use the `.deb` / `.rpm`. Start the panel from your app menu, or keep it always on with `systemctl --user enable --now cubit`. Remove it with `sh install.sh --uninstall`. Data lives in `~/.local/share/cubit`.
 - **macOS / Android (Termux)**: download the binary from Releases and run `./cubit --hub :8080 --open`.
 
+By default only the device running Cubit can open the panel. To open it from your phone or another computer on your network (or on a VPS), use `--hub 0.0.0.0:8080`. The panel speaks plain HTTP, so anyone on that network who sees the link with its key can get in: do it only on networks you trust, or put it behind an HTTPS proxy or a VPN such as Tailscale.
+
 The panel offers to set up a test server (and the local AI) the first time you run it. To choose where the data goes, use `--data <folder>` (or `CUBIT_DATA`); `--open` opens the panel in your browser, or just opens it if a hub is already running.
 
 To build it yourself, see [BUILD.md](BUILD.md).

@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -369,16 +370,32 @@ type msLogin struct {
 	Code string `json:"code"`
 }
 
-var msLoginLine = regexp.MustCompile(`CUENTA DE MICROSOFT: abre (\S+) y escribe el código\s+(\S+)`)
+// DeviceCodeFile: donde el bot deja el código de Microsoft que está esperando
+// (en .microsoft/, junto a su bot.json), y lo borra al terminar. No se saca de
+// su salida: ahí también va el chat, y cualquier jugador podría escribir un
+// código suyo para que el panel lo enseñe como si fuera del bot.
+const DeviceCodeFile = "devicecode.json"
 
-// loginFrom: el último código pedido en la salida del bot, si aún no entró.
-func loginFrom(tail []string) *msLogin {
-	for i := len(tail) - 1; i >= 0; i-- {
-		if strings.Contains(tail[i], "login correcto") || strings.Contains(tail[i], "login ok") || strings.Contains(tail[i], "microsoft: la cuenta") || strings.Contains(tail[i], "microsoft: the account") {
-			return nil
-		}
-		if m := msLoginLine.FindStringSubmatch(tail[i]); m != nil {
-			return &msLogin{URL: m[1], Code: m[2]}
+var msUserCode = regexp.MustCompile(`^[A-Za-z0-9-]{4,16}$`)
+
+// loginFrom: el código que espera el bot de la carpeta dir, si es válido.
+func loginFrom(dir string) *msLogin {
+	b, err := os.ReadFile(filepath.Join(dir, ".microsoft", DeviceCodeFile))
+	if err != nil {
+		return nil
+	}
+	var l msLogin
+	if json.Unmarshal(b, &l) != nil || !msUserCode.MatchString(l.Code) {
+		return nil
+	}
+	u, err := url.Parse(l.URL)
+	if err != nil || u.Scheme != "https" || u.User != nil {
+		return nil
+	}
+	host := strings.ToLower(u.Hostname())
+	for _, d := range []string{"microsoft.com", "live.com"} {
+		if host == d || strings.HasSuffix(host, "."+d) {
+			return &l
 		}
 	}
 	return nil

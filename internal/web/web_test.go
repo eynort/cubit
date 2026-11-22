@@ -42,13 +42,45 @@ func TestKeyCheckRateLimit(t *testing.T) {
 	for i := 0; i < maxFails; i++ {
 		call(ok, func(r *http.Request) { r.Header.Set("Authorization", "Bearer bad") })
 	}
-	w := call(ok, func(r *http.Request) { r.Header.Set("Authorization", "Bearer tok") })
+	w := call(ok, func(r *http.Request) { r.Header.Set("Authorization", "Bearer bad2") })
 	if w.Code != http.StatusTooManyRequests {
 		t.Fatalf("esperaba 429, hay %d", w.Code)
 	}
-	// otra IP no se ve afectada
-	w = call(ok, func(r *http.Request) { r.RemoteAddr = "10.0.0.2:1"; r.Header.Set("Authorization", "Bearer tok") })
+	// la clave buena entra siempre (si no, otra web podría dejarte fuera)
+	w = call(ok, func(r *http.Request) { r.Header.Set("Authorization", "Bearer tok") })
 	if w.Code != 200 {
+		t.Fatalf("clave buena bloqueada: %d", w.Code)
+	}
+	// otra IP no se ve afectada
+	w = call(ok, func(r *http.Request) { r.RemoteAddr = "10.0.0.2:1"; r.Header.Set("Authorization", "Bearer nope") })
+	if w.Code != 401 {
 		t.Fatalf("otra IP: %d", w.Code)
+	}
+}
+
+func TestKeyCheckCrossSite(t *testing.T) {
+	ok := KeyCheck("tok", "en", "es")
+	post := func(set func(r *http.Request)) int {
+		return call(ok, func(r *http.Request) {
+			r.Method = http.MethodPost
+			r.Host = "localhost:8080"
+			r.AddCookie(&http.Cookie{Name: "mcbot", Value: "tok"})
+			set(r)
+		}).Code
+	}
+	if c := post(func(r *http.Request) { r.Header.Set("Origin", "http://evil.example") }); c != 403 {
+		t.Fatalf("otra web: %d", c)
+	}
+	if c := post(func(r *http.Request) { r.Header.Set("Origin", "http://localhost:3000") }); c != 403 {
+		t.Fatalf("otro puerto: %d", c)
+	}
+	if c := post(func(r *http.Request) { r.Header.Set("Sec-Fetch-Site", "same-site") }); c != 403 {
+		t.Fatalf("same-site: %d", c)
+	}
+	if c := post(func(r *http.Request) { r.Header.Set("Origin", "http://localhost:8080"); r.Header.Set("Sec-Fetch-Site", "same-origin") }); c != 200 {
+		t.Fatalf("el propio panel: %d", c)
+	}
+	if c := post(func(r *http.Request) {}); c != 200 {
+		t.Fatalf("sin Origin (curl): %d", c)
 	}
 }

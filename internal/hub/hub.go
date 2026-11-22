@@ -110,6 +110,7 @@ func (h *hub) save() {
 
 // Run: el modo hub, con el panel en addr (no vuelve hasta Ctrl-C).
 func Run(addr string, opts Options) {
+	addr = ListenAddr(addr)
 	if opts.Open && openRunning(addr) {
 		log.Print("hub: ya había uno en marcha: abro el panel en el navegador")
 		return
@@ -182,10 +183,13 @@ func Run(addr string, opts Options) {
 		host = net.JoinHostPort(web.LocalIP(), port)
 	}
 	log.Printf("hub: panel en http://%s/?t=%s (%d bots)", host, h.cfg.Token, len(h.cfg.Bots))
+	if hh, port, err := net.SplitHostPort(ln.Addr().String()); err == nil && net.ParseIP(hh).IsLoopback() {
+		log.Printf(i18n.T("hub: only this device can open it; to use it from another one on your network: --hub 0.0.0.0:%s (anyone on that network who sees the link gets in)", "hub: solo se abre desde este equipo; para usarlo desde otro de tu red: --hub 0.0.0.0:%s (cualquiera de esa red que vea el enlace entra)"), port)
+	}
 	if opts.Open {
 		openBrowser(localURL(addr, h.cfg.Token))
 	}
-	srv := &http.Server{Handler: h.routes(), ReadHeaderTimeout: 5 * time.Second}
+	srv := &http.Server{Handler: h.routes(), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 2 * time.Minute}
 	go func() { _ = srv.Serve(ln) }()
 	go h.up.chk.Loop(ctx)
 	go h.confirmUpdate(ln.Addr().String())
@@ -539,7 +543,9 @@ func (h *hub) state() State {
 			if b.fails > 0 && len(b.tail) > 0 {
 				bs.Error = strings.Join(b.tail[max(0, len(b.tail)-3):], "\n")
 			}
-			bs.Login = loginFrom(b.tail)
+			if b.cmd != nil {
+				bs.Login = loginFrom(filepath.Join(botsDir, id))
+			}
 			b.mu.Unlock()
 			if bs.Running {
 				anyRunning = true
@@ -858,4 +864,14 @@ func (h *hub) routes() http.Handler {
 	h.apiRoutes(mux, ok)
 	h.updateRoutes(mux, ok, jsonOut)
 	return mux
+}
+
+// ListenAddr: sin máquina (":8080") el panel escucha solo en este equipo. La
+// clave va sin cifrar (http): en una wifi compartida otro podría verla. Para
+// abrirlo desde el móvil u otro equipo de tu red, 0.0.0.0:8080 a propósito.
+func ListenAddr(addr string) string {
+	if strings.HasPrefix(addr, ":") {
+		return "127.0.0.1" + addr
+	}
+	return addr
 }
