@@ -1,7 +1,7 @@
 # Todo de una vez: el servidor de pruebas (Minecraft vanilla) y el hub con los bots.
 #
 #   ./up.sh                    # lo levanta todo y te da la URL del panel
-#   docker compose up -d       # (lo mismo)
+#   docker compose up -d       # (lo mismo, con RCON_PASSWORD ya en .env)
 #
 # Los bots se crean y se configuran en el panel (bot-data/bots/<id>/); en
 # .env (ver .env.example) solo los puertos y tu nombre de jugador.
@@ -13,7 +13,7 @@ services:
     # arrancar Minecraft hasta que se quita (Encender en el panel, o ./up.sh)
     entrypoint: ["/bin/sh", "-c", "while [ -e /data/.mcbot-apagado ]; do sleep 2; done; exec /image/scripts/start"]
     profiles: ["local"] # (COMPOSE_PROFILES=local en .env: sin él, solo el hub)
-    ports: ["${MC_PORT:-25565}:25565"]
+    ports: ["${MC_BIND:-127.0.0.1}:${MC_PORT:-25565}:25565"] # (MC_BIND=0.0.0.0 en .env: también desde tu red)
     environment:
       EULA: "TRUE"
       TYPE: VANILLA
@@ -31,7 +31,7 @@ services:
       # server.properties se crea con lo de arriba y luego se cambia desde el
       # panel (Servidor): no se vuelve a pisar en cada arranque
       OVERRIDE_SERVER_PROPERTIES: "false"
-      RCON_PASSWORD: "${RCON_PASSWORD:-cubit}" # (la consola del servidor, para el panel; no sale de la red de Docker)
+      RCON_PASSWORD: "${RCON_PASSWORD:?pon RCON_PASSWORD en .env (o usa ./up.sh, que la crea)}" # (la consola del servidor, para el panel; no sale de la red de Docker)
     volumes: ["./mc-data:/data"]
     restart: unless-stopped
 
@@ -82,13 +82,13 @@ services:
     image: cubit
     depends_on:
       minecraft: {condition: service_started, required: false}
-    ports: ["${PANEL_PORT:-8080}:8080"]
+    ports: ["${PANEL_BIND:-127.0.0.1}:${PANEL_PORT:-8080}:8080"] # (PANEL_BIND=0.0.0.0 en .env: también desde tu red)
     volumes:
       - ./bot-data:/data
       - ./mc-data:/server # (la configuración del servidor local, para el panel)
     environment:
       MCBOT_RCON: "${RCON_ADDR:-minecraft:25575}" # (la consola del servidor local; con uno de fuera no hace nada)
-      MCBOT_RCON_PASSWORD: "${RCON_PASSWORD:-cubit}"
+      MCBOT_RCON_PASSWORD: "${RCON_PASSWORD:?pon RCON_PASSWORD en .env (o usa ./up.sh, que la crea)}"
       MCBOT_SERVER_DIR: /server
       MCBOT_TEST_SERVER: minecraft # (el servidor de pruebas, visto desde el bot)
       MCBOT_VIAPROXY: "${VIAPROXY_ADDR:-viaproxy:25568}" # (para servidores de otra versión; sin el perfil viaproxy no hay nadie ahí y el panel avisa)

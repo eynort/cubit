@@ -546,6 +546,9 @@ func extractTarGz(archive, dest string) error {
 		if skip {
 			continue
 		}
+		if err := noLinkOnPath(dest, p); err != nil {
+			return err
+		}
 		switch h.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(p, 0o755); err != nil {
@@ -606,11 +609,34 @@ func extractZip(archive, dest string) error {
 	return nil
 }
 
+// noLinkOnPath: ninguna carpeta entre dest y p es un enlace. El destino de cada
+// enlace se comprueba al crearlo, pero una cadena de enlaces relativos (a -> ..,
+// a/b -> ../..) saldría de la carpeta; así no se escribe nunca a través de uno.
+func noLinkOnPath(dest, p string) error {
+	rel, err := filepath.Rel(dest, filepath.Dir(p))
+	if err != nil || rel == "." {
+		return err
+	}
+	cur := dest
+	for _, part := range strings.Split(rel, string(filepath.Separator)) {
+		cur = filepath.Join(cur, part)
+		fi, err := os.Lstat(cur)
+		if err != nil {
+			return nil // (aún no existe: se crea como carpeta normal)
+		}
+		if fi.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("ruta a través de un enlace en el archivo: %q", p)
+		}
+	}
+	return nil
+}
+
 func writeFile(p string, r io.Reader, mode os.FileMode) error {
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		return err
 	}
-	f, err := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
+	_ = os.Remove(p) // (si ya hay un enlace con ese nombre, no se sigue)
+	f, err := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
 	if err != nil {
 		return err
 	}

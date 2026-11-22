@@ -4,7 +4,8 @@
 # (--wildcard-domain-handling public). Versión fijada abajo.
 FROM eclipse-temurin:21.0.5_11-jre-jammy
 ARG VIAPROXY_VERSION=3.4.14
-ADD https://github.com/ViaVersion/ViaProxy/releases/download/v${VIAPROXY_VERSION}/ViaProxy-${VIAPROXY_VERSION}.jar /app/ViaProxy.jar
+# (al cambiar la versión, cambia también el sha256 de abajo)
+ADD --checksum=sha256:2894bbfb2f4342f8fde887af6c689313efd5b0e46a8006775eea0e21e2948ab5 https://github.com/ViaVersion/ViaProxy/releases/download/v${VIAPROXY_VERSION}/ViaProxy-${VIAPROXY_VERSION}.jar /app/ViaProxy.jar
 WORKDIR /app/run
 # VIAPROXY_AUTH: none (servidores sin premium) o account (con la cuenta de
 # Microsoft que se añade una vez: "account add microsoft" en la consola)

@@ -6,7 +6,7 @@ COPY go.mod go.sum ./
 COPY third_party ./third_party
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /cubit .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X cubit/internal/update.Method=docker" -o /cubit .
 
 FROM alpine:3.22
 RUN apk add --no-cache ca-certificates tzdata

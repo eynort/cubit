@@ -109,7 +109,8 @@ func (a *Applier) Apply(ctx context.Context, rel *Release) error {
 
 	a.phase("downloading")
 	newPath := a.Exe + ".new"
-	f, err := os.OpenFile(newPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
+	_ = os.Remove(newPath) // (O_EXCL: un .new que ya estaba, o un enlace, no se sigue)
+	f, err := os.OpenFile(newPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o755)
 	if err != nil {
 		return err
 	}
