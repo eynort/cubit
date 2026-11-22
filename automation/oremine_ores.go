@@ -100,7 +100,7 @@ func ParseOres(list string) ([]OreSpec, error) {
 		}
 		found := false
 		for _, o := range OreSpecs {
-			if o.Key == w || slices.Contains(o.Aliases, w) {
+			if o.Key == w || slices.Contains(o.Aliases, w) || o.Key == strings.TrimSuffix(w, "s") { // (irons, emeralds)
 				if !slices.ContainsFunc(out, func(x OreSpec) bool { return x.Key == o.Key }) {
 					out = append(out, o)
 				}

@@ -95,6 +95,16 @@ func clip(s string, n int) string {
 	return string(r[:n]) + "…"
 }
 
+// llmHints: lo que el modelo necesita saber de algunas órdenes y que la
+// primera frase de la ayuda no dice (probado con gemma4: sin esto inventa
+// coordenadas para /mine, se olvida del /drop o dice "oaks").
+var llmHints = map[string]string{
+	"chop":  "chop the trees of those woods (oak, birch, spruce, jungle, acacia, dark_oak, cherry…; singular, comma-separated) within 24 blocks of the point; no coordinates = where it stands",
+	"mine":  "strip-mine ores (iron, coal, copper, gold, diamond, redstone, lapis, emerald); x y z = the chest it takes pickaxes from and leaves ores in (no coordinates = the chest where it stands); total <n> = stop after n ores",
+	"drop":  "throw an item (its exact name from the inventory, e.g. raw_iron, oak_log) and how many; with a player (me = the owner) it walks to them and throws it to them",
+	"guard": "bodyguard: follow a player and attack whoever hits them",
+}
+
 // llmCommandList: una línea por orden, "/chop <woods> <x> <y> <z> - chop trees…".
 func llmCommandList() string {
 	var sb strings.Builder
@@ -107,7 +117,11 @@ func llmCommandList() string {
 		if n == "excavate" {
 			u = "/excavate <x> <y> <z> <x2> <y2> <z2> | chunk <y1> <y2>"
 		}
-		fmt.Fprintf(&sb, "%s - %s\n", u, firstSentence(c.desc.en, 90))
+		d := firstSentence(c.desc.en, 90)
+		if h, ok := llmHints[n]; ok {
+			d = h
+		}
+		fmt.Fprintf(&sb, "%s - %s\n", u, d)
 	}
 	sb.WriteString("wait [seconds] - wait until the current task ends (not for follow/guard)\n")
 	return sb.String()

@@ -10,6 +10,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"cubit/automation"
 	"cubit/internal/config"
 )
 
@@ -39,6 +41,12 @@ func (h *evalHost) inv() string {
 
 func (h *evalHost) Run(from, line string) error {
 	line = remoteLine(strings.TrimPrefix(line, "/"), from) // (como botHost: "me" = quien habla)
+	if err := evalCheck(line, h.inv()); err != nil {
+		h.mu.Lock()
+		h.runs = append(h.runs, "ERR "+line)
+		h.mu.Unlock()
+		return err
+	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.runs = append(h.runs, line)
@@ -50,6 +58,32 @@ func (h *evalHost) Run(from, line string) error {
 			h.running = "goto"
 		case "/stop":
 			h.running = ""
+		}
+	}
+	return nil
+}
+
+// evalCheck: lo que la orden de verdad rechazaría (maderas, minerales, objetos que no lleva).
+func evalCheck(line, inv string) error {
+	f := strings.Fields(line)
+	switch f[0] {
+	case "/chop":
+		if len(f) != 2 && len(f) != 5 {
+			return errors.New("usage: /chop <woods> [<x> <y> <z>]")
+		}
+		if _, err := automation.ParseWoods(f[1]); err != nil {
+			return err
+		}
+	case "/mine":
+		if len(f) < 2 {
+			return errors.New("usage: /mine <ores> [<x> <y> <z>] [total <n>]")
+		}
+		if _, err := automation.ParseOres(f[1]); err != nil {
+			return err
+		}
+	case "/drop":
+		if len(f) > 1 && f[1] != "Steve" && !strings.Contains(inv, " "+f[1]) {
+			return fmt.Errorf("I carry no %s", f[1])
 		}
 	}
 	return nil
@@ -129,7 +163,8 @@ func TestLLMEval(t *testing.T) {
 		var says []string
 		start := time.Now()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		_, err := llmRun(ctx, model, h, "Steve", c.said, c.lang, func(s string) { says = append(says, s) })
+		// el bot está en inglés (lo de siempre): contesta en el idioma de quien le habla
+		_, err := llmRun(ctx, model, h, "Steve", c.said, "en", func(s string) { says = append(says, s) })
 		cancel()
 		ok := err == nil
 		var miss []string
@@ -151,6 +186,12 @@ func TestLLMEval(t *testing.T) {
 				}
 			}
 		}
+		if c.lang == "es" && len(says) > 0 && !looksSpanish(strings.Join(says, " ")) {
+			miss = append(miss, "(reply not in Spanish)")
+		}
+		if len(says) > 3 {
+			miss = append(miss, fmt.Sprintf("(chatty: %d chat lines)", len(says)))
+		}
 		if len(miss) > 0 || !ok {
 			fails++
 		}
@@ -161,4 +202,18 @@ func TestLLMEval(t *testing.T) {
 		t.Logf("%s [%s] %q (%.1fs)\n    runs: %q\n    says: %q\n    err: %v missing: %q", mark, c.lang, c.said, time.Since(start).Seconds(), h.runs, says, err, miss)
 	}
 	fmt.Printf("eval: %d/%d ok\n", len(cases)-fails, len(cases))
+}
+
+// looksSpanish: una pista basta (tildes, ñ, ¿¡ o palabras muy comunes).
+func looksSpanish(s string) bool {
+	t := " " + strings.ToLower(s) + " "
+	if strings.ContainsAny(t, "áéíóúñ¿¡") {
+		return true
+	}
+	for _, w := range []string{" voy ", " vale ", " te ", " ya ", " tengo ", " llevo ", " que ", " de ", " y "} {
+		if strings.Contains(t, w) {
+			return true
+		}
+	}
+	return false
 }

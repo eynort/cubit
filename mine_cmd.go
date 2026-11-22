@@ -19,13 +19,13 @@ func init() {
 	oreArg := arg{name: "ores", kind: argList, choices: automation.OreKeys(),
 		desc: text{"what to mine: one, or several separated by commas (diamond,iron); in the Nether, ancient_debris and quartz",
 			"qué minar: uno, o varios separados por comas (diamond,iron); en el Nether, ancient_debris y quartz"}}
-	chestDesc := text{"the chest (or a wall of chests: any one of them) where it takes pickaxes from and leaves the ores (~ = where the bot is)",
-		"el cofre (o una pared de cofres: vale uno cualquiera) de donde coge picos y donde deja los minerales (~ = donde está el bot)"}
+	chestDesc := text{"the chest (or a wall of chests: any one of them) where it takes pickaxes from and leaves the ores (~ = where the bot is; without it, where it stands)",
+		"el cofre (o una pared de cofres: vale uno cualquiera) de donde coge picos y donde deja los minerales (~ = donde está el bot; sin él, donde está)"}
 	commands["mine"] = command{
 		desc: text{"mine ores like a real player (strip mining, no xray): from where it stands, it goes down a staircase to the ore's best layer, digs a 1×2 main tunnel with a branch to each side every 3 blocks, and only mines what a player would see (ore touching the air of the tunnel, and the rest of a vein once it shows). It never breaks a pickaxe: it takes them from the chest and, with none left, goes back for more (or asks in chat). Every 8 ores (every <n>) it walks back to the chest, leaves the ores and valuables (never tools or food), and returns to the mine. /stop stops it; /status says what it is doing. When it ends it prints a summary",
 			"minar minerales como un jugador de verdad (strip mining, sin xray): desde donde está baja por una escalera a la mejor capa del mineral, cava un túnel principal de 1×2 con una rama a cada lado cada 3 bloques, y solo pica lo que vería un jugador (mineral que toca el aire del túnel, y el resto de una veta cuando se ve). Nunca rompe un pico: los coge del cofre y, si no le quedan, vuelve a por más (o los pide por el chat). Cada 8 minerales (every <n>) vuelve andando al cofre, deja los minerales y lo valioso (nunca herramientas ni comida) y regresa a la mina. /stop lo para; /status dice qué hace. Al acabar da un resumen"},
 		args: []arg{oreArg,
-			{name: "x", kind: argCoord, desc: chestDesc}, {name: "y", kind: argCoord, desc: chestDesc}, {name: "z", kind: argCoord, desc: chestDesc},
+			{name: "x", kind: argCoord, opt: true, desc: chestDesc}, {name: "y", kind: argCoord, opt: true, desc: chestDesc}, {name: "z", kind: argCoord, opt: true, desc: chestDesc},
 			{name: "option", kind: argChoice, opt: true, choices: []string{"every", "total"},
 				descs: map[string]text{
 					"every": {"leave the ores in the chest every <n> (default 8)", "dejar los minerales en el cofre cada <n> (por defecto 8)"},
@@ -33,7 +33,7 @@ func init() {
 			{name: "n", kind: argNumber, opt: true, desc: text{"how many", "cuántos"}}},
 		run: cmdMine,
 	}
-	usages["mine"] = "/mine <ores> <x> <y> <z> [every <n>] [total <n>]"
+	usages["mine"] = "/mine <ores> [<x> <y> <z>] [every <n>] [total <n>]"
 	commandExamples["mine"] = []example{
 		{"/mine diamond 104 103 -224", text{"mine diamonds, using the chest there (leaves them every 8)", "minar diamantes, con el cofre de ahí (los deja cada 8)"}},
 		{"/mine iron,coal 104 103 -224 every 16", text{"iron and coal at once, leaving them every 16", "hierro y carbón a la vez, dejándolos cada 16"}},
@@ -42,10 +42,22 @@ func init() {
 	}
 }
 
-// cmdMine: /mine <ores> <x> <y> <z> [every <n>] [total <n>].
+// isMineOption: every / cada / total (lo que va tras las coordenadas).
+func isMineOption(s string) bool {
+	switch strings.ToLower(s) {
+	case "every", "cada", "total":
+		return true
+	}
+	return false
+}
+
+// cmdMine: /mine <ores> [<x> <y> <z>] [every <n>] [total <n>] (sin coordenadas, el cofre está donde está el bot).
 func cmdMine(b *Bot, args []string) error {
-	usage := errf("usage: /mine <ores> <x> <y> <z> [every <n>] [total <n>] (ores: %s)",
-		"uso: /mine <ores> <x> <y> <z> [every <n>] [total <n>] (ores: %s)", strings.Join(automation.OreKeys(), ", "))
+	usage := errf("usage: /mine <ores> [<x> <y> <z>] [every <n>] [total <n>] (ores: %s)",
+		"uso: /mine <ores> [<x> <y> <z>] [every <n>] [total <n>] (ores: %s)", strings.Join(automation.OreKeys(), ", "))
+	if len(args) == 1 || len(args) > 1 && isMineOption(args[1]) { // sin coordenadas: el cofre, donde está
+		args = append([]string{args[0], "~", "~", "~"}, args[1:]...)
+	}
 	if len(args) < 4 {
 		return usage
 	}

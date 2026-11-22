@@ -41,14 +41,14 @@ Ask the bot in plain words and it does it, using its commands as tools (needs th
 
 ## /chop
 
-`/chop <woods> <x> <y> <z>`
+`/chop <woods> [<x>] [<y>] [<z>]`
 
 Chop whole trees of the given woods (oak, birch, spruce, jungle, acacia, dark_oak, mangrove, cherry, pale_oak, and crimson/warped in the Nether), separated by commas (/chop oak,birch 100 64 200; ~ = where the bot is): it goes to the point and fells every tree of those woods within 24 blocks of it, all the logs (also the tall ones: the pathfinding places blocks to climb and they are removed after) and picks up what falls; no log is left floating. It only chops trees (natural leaves around, nothing built next to the logs): player-made log structures and stripped logs are left alone. It uses the best axe it carries, never breaking it (without one, by hand). At the end it logs how many trees and logs of each wood.
 
 - `<woods>`: one or more woods, separated by commas (oak,birch)
-- `<x>`: the point to chop around (~ = where the bot is)
-- `<y>`: the point to chop around (~ = where the bot is)
-- `<z>`: the point to chop around (~ = where the bot is)
+- `<x>` (optional): the point to chop around (~ = where the bot is; without it, where it stands)
+- `<y>` (optional): the point to chop around (~ = where the bot is; without it, where it stands)
+- `<z>` (optional): the point to chop around (~ = where the bot is; without it, where it stands)
 
 **Examples**
 
@@ -237,14 +237,14 @@ Language of the explanations (commands are always in English)
 
 ## /mine
 
-`/mine <ores> <x> <y> <z> [every <n>] [total <n>]`
+`/mine <ores> [<x> <y> <z>] [every <n>] [total <n>]`
 
 Mine ores like a real player (strip mining, no xray): from where it stands, it goes down a staircase to the ore's best layer, digs a 1×2 main tunnel with a branch to each side every 3 blocks, and only mines what a player would see (ore touching the air of the tunnel, and the rest of a vein once it shows). It never breaks a pickaxe: it takes them from the chest and, with none left, goes back for more (or asks in chat). Every 8 ores (every <n>) it walks back to the chest, leaves the ores and valuables (never tools or food), and returns to the mine. /stop stops it; /status says what it is doing. When it ends it prints a summary.
 
 - `<ores>`: what to mine: one, or several separated by commas (diamond,iron); in the Nether, ancient_debris and quartz
-- `<x>`: the chest (or a wall of chests: any one of them) where it takes pickaxes from and leaves the ores (~ = where the bot is)
-- `<y>`: the chest (or a wall of chests: any one of them) where it takes pickaxes from and leaves the ores (~ = where the bot is)
-- `<z>`: the chest (or a wall of chests: any one of them) where it takes pickaxes from and leaves the ores (~ = where the bot is)
+- `<x>` (optional): the chest (or a wall of chests: any one of them) where it takes pickaxes from and leaves the ores (~ = where the bot is; without it, where it stands)
+- `<y>` (optional): the chest (or a wall of chests: any one of them) where it takes pickaxes from and leaves the ores (~ = where the bot is; without it, where it stands)
+- `<z>` (optional): the chest (or a wall of chests: any one of them) where it takes pickaxes from and leaves the ores (~ = where the bot is; without it, where it stands)
 - `<option>` (optional)
   - `every`: leave the ores in the chest every <n> (default 8)
   - `total`: stop after <n> ores (default: until /stop)

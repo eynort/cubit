@@ -41,14 +41,14 @@ Pídele al bot en lenguaje normal y lo hace, usando sus órdenes como herramient
 
 ## /chop
 
-`/chop <woods> <x> <y> <z>`
+`/chop <woods> [<x>] [<y>] [<z>]`
 
 Talar árboles enteros de las maderas dichas (oak, birch, spruce, jungle, acacia, dark_oak, mangrove, cherry, pale_oak, y crimson/warped en el Nether), separadas por comas (/chop oak,birch 100 64 200; ~ = donde está el bot): va hasta el punto y tala todos los árboles de esas maderas a menos de 24 bloques de él, todos los troncos (también los altos: el pathfinding pone bloques para subir y luego se quitan) y recoge lo que cae; no deja ningún tronco flotando. Solo tala árboles (con hojas naturales alrededor, nada construido pegado a los troncos): las construcciones de troncos de jugadores y los troncos pelados no se tocan. Usa la mejor hacha que lleve, sin romperla (sin hacha, a mano). Al acabar deja en el log cuántos árboles y troncos de cada madera.
 
 - `<woods>`: una o más maderas, separadas por comas (oak,birch)
-- `<x>`: el punto alrededor del que talar (~ = donde está el bot)
-- `<y>`: el punto alrededor del que talar (~ = donde está el bot)
-- `<z>`: el punto alrededor del que talar (~ = donde está el bot)
+- `<x>` (opcional): el punto alrededor del que talar (~ = donde está el bot; sin él, donde está)
+- `<y>` (opcional): el punto alrededor del que talar (~ = donde está el bot; sin él, donde está)
+- `<z>` (opcional): el punto alrededor del que talar (~ = donde está el bot; sin él, donde está)
 
 **Ejemplos**
 
@@ -237,14 +237,14 @@ Idioma de las explicaciones (las órdenes siempre en inglés)
 
 ## /mine
 
-`/mine <ores> <x> <y> <z> [every <n>] [total <n>]`
+`/mine <ores> [<x> <y> <z>] [every <n>] [total <n>]`
 
 Minar minerales como un jugador de verdad (strip mining, sin xray): desde donde está baja por una escalera a la mejor capa del mineral, cava un túnel principal de 1×2 con una rama a cada lado cada 3 bloques, y solo pica lo que vería un jugador (mineral que toca el aire del túnel, y el resto de una veta cuando se ve). Nunca rompe un pico: los coge del cofre y, si no le quedan, vuelve a por más (o los pide por el chat). Cada 8 minerales (every <n>) vuelve andando al cofre, deja los minerales y lo valioso (nunca herramientas ni comida) y regresa a la mina. /stop lo para; /status dice qué hace. Al acabar da un resumen.
 
 - `<ores>`: qué minar: uno, o varios separados por comas (diamond,iron); en el Nether, ancient_debris y quartz
-- `<x>`: el cofre (o una pared de cofres: vale uno cualquiera) de donde coge picos y donde deja los minerales (~ = donde está el bot)
-- `<y>`: el cofre (o una pared de cofres: vale uno cualquiera) de donde coge picos y donde deja los minerales (~ = donde está el bot)
-- `<z>`: el cofre (o una pared de cofres: vale uno cualquiera) de donde coge picos y donde deja los minerales (~ = donde está el bot)
+- `<x>` (opcional): el cofre (o una pared de cofres: vale uno cualquiera) de donde coge picos y donde deja los minerales (~ = donde está el bot; sin él, donde está)
+- `<y>` (opcional): el cofre (o una pared de cofres: vale uno cualquiera) de donde coge picos y donde deja los minerales (~ = donde está el bot; sin él, donde está)
+- `<z>` (opcional): el cofre (o una pared de cofres: vale uno cualquiera) de donde coge picos y donde deja los minerales (~ = donde está el bot; sin él, donde está)
 - `<option>` (opcional)
   - `every`: dejar los minerales en el cofre cada <n> (por defecto 8)
   - `total`: acabar al juntar <n> minerales (por defecto: hasta /stop)
