@@ -39,3 +39,7 @@ fall back to *Nimbus Sans Narrow*, body text to the system sans (*Liberation San
 on Linux) and code to *JetBrains Mono*. The images in the repo were rendered on
 Linux with those three; another system will pick its own fonts from the stacks
 and the result will differ slightly. No Minecraft fonts, textures or logos are used.
+
+The Cubit logo is not text: the badge comes from `brand/symbol.svg` and the name
+from the outlines in `brand/src/wordmark.json` (Fredoka, see `brand/FONTS.md`), so
+it looks the same everywhere. Regenerate those first (`brand/src/`) if the logo changes.

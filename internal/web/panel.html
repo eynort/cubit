@@ -92,13 +92,13 @@ header.top{flex:none;position:relative;z-index:30;background:linear-gradient(180
 .mark{flex:none;display:flex;align-items:center;gap:var(--s3);height:28px}
 .mark svg{display:block;flex:none}
 .mark .cube{width:28px;height:28px}
-.mark .wm{width:38px;height:12px;color:var(--fg)}
+.mark .wm{width:47px;height:28px;color:var(--fg)}
 @media (max-width:1279px){.mark .wm{display:none}}
-/* logotipo en el asistente de primer uso: bloque 56 px y nombre a 2x (rejilla exacta) */
-.wiz-brand{flex:none;display:flex;align-items:flex-end;gap:var(--s4)}
+/* logotipo en el asistente de primer uso: insignia y nombre a 2x (rejilla exacta) */
+.wiz-brand{flex:none;display:flex;align-items:center;gap:var(--s4)}
 .wiz-brand svg{display:block;flex:none}
 .wiz-brand .cube{width:56px;height:56px}
-.wiz-brand .wm{width:76px;height:44px;color:var(--fg)}
+.wiz-brand .wm{width:94px;height:56px;color:var(--fg)}
 @media (max-height:760px),(max-width:1099px) and (max-height:819px){.wiz-brand{display:none!important}}
 .ident{min-width:0;display:flex;flex-direction:column;gap:3px}
 .ident .code{font-size:10px}
@@ -841,23 +841,27 @@ input[type=text],input:not([type]),input[type=number],select{height:36px}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style></head><body>
 <svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false"><defs>
- <linearGradient id="bm-f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#dddeda"/><stop offset="1" stop-color="#b8b9b5"/></linearGradient>
- <linearGradient id="bm-r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#90918d"/><stop offset="1" stop-color="#6a6b68"/></linearGradient>
- <symbol id="bm-cube" viewBox="2 2 28 28">
-  <path d="M2 8 8 2H30L24 8Z" fill="#f4f4f1"/><path d="M5.5 7 9.5 3H27.5L23.5 7Z" fill="none" stroke="#000" stroke-opacity=".07" stroke-width=".25"/>
-  <path d="M2 8H24V30H2Z" fill="url(#bm-f)"/><path d="M24 8 30 2V24L24 30Z" fill="url(#bm-r)"/>
-  <path d="M2 8.12H24" stroke="#fff" stroke-width=".25"/><path d="M24.1 7.9 30 2" stroke="#fff" stroke-opacity=".45" stroke-width=".25"/>
-  <path d="M2 14H24V20H2Z" fill="#131417"/><path d="M24 14 30 8V14L24 20Z" fill="#0a0b0d"/><path d="M2 14.12H24" stroke="#fff" stroke-opacity=".12" stroke-width=".25"/>
-  <path d="M6 16h4v2H6zM16 16h4v2h-4z" fill="#a8cfae"/><path d="M6 16h1v1H6zM16 16h1v1h-1z" fill="#e2f2e5"/>
-  <path d="M2 24.12H24" stroke="#000" stroke-opacity=".2" stroke-width=".25"/><path d="M2 24.38H24" stroke="#fff" stroke-opacity=".35" stroke-width=".25"/>
-  <path d="M9 26h1v2H9zM12 26h1v2h-1zM15 26h1v2h-1z" fill="#131417" fill-opacity=".5"/><path d="M4 26h1v1H4zM21 26h1v1h-1z" fill="#000" fill-opacity=".3"/>
-  <path d="M26 21.5l2-2M26 23.5l2-2M26 25.5l2-2" stroke="#000" stroke-opacity=".28" stroke-width=".5"/>
+ <linearGradient id="bmg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9ccaa4"/><stop offset="1" stop-color="#4c7d56"/></linearGradient>
+ <linearGradient id="bmfr" gradientUnits="userSpaceOnUse" x1="0" y1="10" x2="0" y2="22"><stop offset="0" stop-color="#e3e4e0"/><stop offset="1" stop-color="#b4b5b1"/></linearGradient>
+ <linearGradient id="bmsd" gradientUnits="userSpaceOnUse" x1="0" y1="6" x2="0" y2="22"><stop offset="0" stop-color="#9a9b97"/><stop offset="1" stop-color="#686965"/></linearGradient>
+ <clipPath id="bmc"><path d="M6 11Q6 10 6.71 9.29L9.29 6.71Q10 6 11 6L21 6Q22 6 22 7L22 17Q22 18 21.29 18.71L18.71 21.29Q18 22 17 22L7 22Q6 22 6 21Z"/></clipPath>
+ <symbol id="bm-cube" viewBox="0 0 28 28">
+  <circle cx="14" cy="14" r="14" fill="#f4f4f1"/>
+  <circle cx="14" cy="14" r="12.5" fill="url(#bmg)"/>
+  <g clip-path="url(#bmc)">
+  <path d="M6 10 10 6H22L18 10Z" fill="#fff"/>
+  <path d="M6 10H18V22H6Z" fill="url(#bmfr)"/>
+  <path d="M18 10 22 6V18L18 22Z" fill="url(#bmsd)"/>
+  <path d="M6 13H18V17H6Z" fill="#17191c"/>
+  <path d="M18 13 22 9V13L18 17Z" fill="#0b0c0e"/>
+  <path d="M8 14H11V16H8ZM13 14H16V16H13Z" fill="#b8e3c0"/>
+  </g>
  </symbol>
- <symbol id="bm-word" viewBox="0 0 38 12"><path fill="currentColor" fill-rule="evenodd" d="M0 1L1 0H6V2H2V10H6V11L5 12H0ZM9 1L10 0H11V10H13V0H15V11L14 12H9ZM18 1L19 0H24V5H23V7H24V11L23 12H18ZM20 2V5H22V2ZM20 7V10H22V7ZM27 1L28 0H29V11L28 12H27ZM32 1L33 0H38V2H36V11L35 12H34V2H32Z"/></symbol>
+ <symbol id="bm-word" viewBox="5.56 -224.7 502.9 299.6"><path fill="currentColor" d="M82.18 3.64Q72.76 3.64 62.27 0.64Q51.79 -2.35 41.73 -8.35Q31.67 -14.34 23.43 -23.65Q15.19 -32.96 10.38 -45.47Q5.56 -57.99 5.56 -74.04Q5.56 -89.45 10.38 -101.54Q15.19 -113.63 23.33 -122.62Q31.46 -131.61 41.52 -137.5Q51.57 -143.38 62.27 -146.27Q72.97 -149.16 82.6 -149.16Q93.52 -149.16 101.65 -146.59Q109.78 -144.02 114.92 -141.35Q120.05 -138.67 121.34 -137.6Q125.19 -135.25 128.61 -132.25Q132.04 -129.26 132.25 -124.33Q132.25 -121.77 131.29 -119.3Q130.33 -116.84 128.4 -114.06Q124.98 -109.14 121.87 -106.89Q118.77 -104.65 115.56 -104.65Q112.99 -104.65 110.75 -105.93Q108.5 -107.21 105.07 -109.35Q103.58 -110.42 100.79 -112.03Q98.01 -113.63 93.3 -115.03Q88.6 -116.42 81.32 -116.42Q73.83 -116.42 66.23 -113.74Q58.64 -111.07 52.22 -105.72Q45.8 -100.37 41.94 -92.13Q38.09 -83.89 38.09 -72.97Q38.09 -61.63 42.05 -53.5Q46.01 -45.37 52.43 -40.02Q58.85 -34.67 66.45 -31.99Q74.04 -29.32 81.32 -29.32Q87.74 -29.32 92.34 -30.6Q96.94 -31.89 100.26 -33.7Q103.58 -35.52 105.93 -37.02Q108.28 -38.52 110.75 -39.8Q113.21 -41.09 115.77 -41.09Q118.77 -41.09 121.87 -38.73Q124.98 -36.38 128.19 -31.24Q130.11 -28.46 131.18 -25.79Q132.25 -23.11 132.04 -20.54Q132.04 -16.05 128.61 -13.16Q125.19 -10.27 121.34 -7.92Q119.63 -7.06 114.7 -4.17Q109.78 -1.28 101.65 1.18Q93.52 3.64 82.18 3.64ZM190.39 1.71Q180.54 1.71 171.88 -2.14Q163.21 -5.99 156.79 -12.95Q150.37 -19.9 146.84 -29.43Q143.31 -38.95 143.31 -50.29V-89.02Q143.31 -93.3 144.16 -96.94Q145.02 -100.58 148.34 -102.93Q151.65 -105.29 159.57 -105.29Q167.49 -105.29 170.81 -102.93Q174.12 -100.58 174.87 -96.84Q175.62 -93.09 175.62 -88.81V-50.29Q175.62 -44.08 177.87 -39.48Q180.11 -34.88 184.5 -32.53Q188.89 -30.17 194.88 -30.17Q201.09 -30.17 205.47 -32.63Q209.86 -35.1 212.32 -39.59Q214.78 -44.08 214.78 -50.29V-89.24Q214.78 -93.52 215.64 -97.16Q216.49 -100.79 219.81 -103.04Q223.13 -105.29 231.05 -105.29Q238.96 -105.29 242.28 -102.93Q245.6 -100.58 246.35 -96.84Q247.1 -93.09 247.1 -89.02V-13.7Q247.1 -9.63 246.35 -6.1Q245.6 -2.57 242.17 -0.43Q238.75 1.71 231.05 1.71Q225.27 1.71 222.06 0.43Q218.85 -0.86 217.35 -2.78Q215.85 -4.71 215.53 -6.85Q215.21 -8.99 215.21 -10.7L217.99 -13.05Q217.35 -12.2 215.21 -9.84Q213.07 -7.49 209.54 -4.82Q206.01 -2.14 201.3 -0.21Q196.59 1.71 190.39 1.71ZM319.57 1.71Q309.08 1.71 301.06 -2.68Q293.03 -7.06 287.79 -14.55Q282.55 -22.04 279.87 -31.67Q277.2 -41.3 277.41 -52.22Q277.41 -62.7 280.19 -72.33Q282.97 -81.96 288.22 -89.24Q293.46 -96.51 301.27 -100.69Q309.08 -104.86 319.57 -104.86Q328.98 -104.86 337.87 -100.58Q346.75 -96.3 353.59 -88.92Q360.44 -81.53 364.4 -72.01Q368.36 -62.49 368.36 -52Q368.36 -41.09 364.4 -31.35Q360.44 -21.61 353.59 -14.12Q346.75 -6.63 337.97 -2.46Q329.2 1.71 319.57 1.71ZM315.07 -29.96Q321.07 -29.96 325.77 -32.85Q330.48 -35.74 333.37 -40.66Q336.26 -45.58 336.26 -51.57Q336.26 -57.78 333.48 -62.59Q330.7 -67.41 325.99 -70.19Q321.28 -72.97 315.29 -72.97Q309.51 -72.97 304.69 -70.19Q299.88 -67.41 297.21 -62.59Q294.53 -57.78 294.53 -51.57Q294.53 -45.58 297.31 -40.66Q300.09 -35.74 304.8 -32.85Q309.51 -29.96 315.07 -29.96ZM277.84 1.93Q270.13 1.93 266.71 -0.43Q263.29 -2.78 262.54 -6.53Q261.79 -10.27 261.79 -14.34V-137.39Q261.79 -141.88 262.64 -145.52Q263.5 -149.16 266.82 -151.4Q270.13 -153.65 278.05 -153.65Q285.76 -153.65 288.97 -151.3Q292.18 -148.94 292.82 -145.2Q293.46 -141.45 293.25 -137.39V-7.7Q292.18 -2.78 288.75 -0.43Q285.33 1.93 277.84 1.93ZM397.82 1.93Q389.9 1.93 386.58 -0.32Q383.27 -2.57 382.52 -6.31Q381.77 -10.06 381.77 -14.12V-88.81Q381.77 -93.09 382.52 -96.73Q383.27 -100.37 386.69 -102.61Q390.11 -104.86 398.03 -104.86Q405.74 -104.86 409.05 -102.51Q412.37 -100.15 413.12 -96.51Q413.87 -92.88 413.87 -88.38V-13.91Q413.87 -9.84 413.12 -6.1Q412.37 -2.35 409.05 -0.21Q405.74 1.93 397.82 1.93ZM397.82 -120.48Q389.69 -120.48 386.26 -122.84Q382.84 -125.19 382.09 -129.04Q381.34 -132.89 381.34 -137.17Q381.34 -141.67 382.2 -145.41Q383.05 -149.16 386.48 -151.4Q389.9 -153.65 398.03 -153.65Q405.95 -153.65 409.37 -151.3Q412.8 -148.94 413.55 -145.09Q414.3 -141.24 414.3 -136.96Q414.3 -132.68 413.55 -128.83Q412.8 -124.98 409.37 -122.73Q405.95 -120.48 397.82 -120.48ZM484.2 1.93Q473.29 1.93 465.48 -0.43Q457.66 -2.78 452.53 -7.7Q447.39 -12.63 444.93 -20.22Q442.47 -27.82 442.47 -38.31V-125.19Q442.47 -129.47 443.22 -132.89Q443.97 -136.32 447.39 -138.56Q450.82 -140.81 458.52 -140.81Q466.22 -140.81 469.65 -138.46Q473.07 -136.1 473.82 -132.47Q474.57 -128.83 474.57 -124.55V-39.59Q474.57 -36.17 475.11 -33.92Q475.64 -31.67 476.71 -30.6Q477.78 -29.53 479.71 -29.1Q481.63 -28.68 484.41 -28.68Q489.12 -28.68 492.76 -27.82Q496.4 -26.96 498.43 -23.97Q500.46 -20.97 500.46 -13.91Q500.46 -6.21 498.11 -2.78Q495.76 0.64 492.01 1.28Q488.27 1.93 484.2 1.93ZM435.84 -103.36H459.38L488.91 -104.22Q492.97 -104.22 496.61 -103.47Q500.25 -102.72 502.6 -99.3Q504.96 -95.87 504.96 -87.95Q504.96 -80.68 502.71 -77.25Q500.46 -73.83 496.83 -72.87Q493.19 -71.9 488.91 -71.9L460.87 -72.55H434.98Q428.77 -72.76 426.31 -76.29Q423.85 -79.82 423.85 -88.17Q423.85 -95.87 426.85 -99.62Q429.84 -103.36 435.84 -103.36Z"/></symbol>
 </defs></svg>
 <a class="sr" href="#main" data-i18n="saltar_al_contenido">Saltar al contenido</a>
 <header class="top"><div class="bar">
- <div class="mark" aria-hidden="true"><svg class="cube" viewBox="0 0 28 28"><use href="#bm-cube" width="28" height="28"/></svg><svg class="wm" viewBox="0 0 38 12"><use href="#bm-word" width="38" height="12"/></svg></div>
+ <div class="mark" aria-hidden="true"><svg class="cube" viewBox="0 0 28 28"><use href="#bm-cube" width="28" height="28"/></svg><svg class="wm" viewBox="0 0 47 28"><use href="#bm-word" width="47" height="28"/></svg></div>
  <nav class="tabs" id="nav" role="tablist" aria-label="Secciones" data-i18n-aria="secciones">
   <span class="car" aria-hidden="true"></span>
   <button role="tab" data-sec="bots" aria-selected="true" data-i18n-title="sec_bots_t" title="Bot · 1"><kbd>1</kbd><span data-i18n="sec_bots">Bot</span></button>
@@ -902,7 +906,7 @@ input[type=text],input:not([type]),input[type=number],select{height:36px}
 </section>
 <section class="scr" id="scr-wiz" hidden aria-label="Asistente" data-i18n-aria="asistente">
  <div class="wiz">
-  <div class="wiz-brand" id="wiz-brand" hidden aria-hidden="true"><svg class="cube" viewBox="0 0 28 28"><use href="#bm-cube" width="28" height="28"/></svg><svg class="wm" viewBox="0 0 38 22"><use href="#bm-word" width="38" height="12"/><path fill="#878a8f" fill-opacity=".55" d="M0 21.5H38V22H0ZM0 18h.5v4h-.5ZM3 19.5h.5v2.5h-.5ZM6 19.5h.5v2.5h-.5ZM9 19.5h.5v2.5h-.5ZM12 19.5h.5v2.5h-.5ZM15 18h.5v4h-.5ZM18 19.5h.5v2.5h-.5ZM21 19.5h.5v2.5h-.5ZM24 19.5h.5v2.5h-.5ZM27 19.5h.5v2.5h-.5ZM30 18h.5v4h-.5ZM33 19.5h.5v2.5h-.5Z"/><path fill="#a8cfae" d="M36 18h2v2h-2z"/></svg></div>
+  <div class="wiz-brand" id="wiz-brand" hidden aria-hidden="true"><svg class="cube" viewBox="0 0 28 28"><use href="#bm-cube" width="28" height="28"/></svg><svg class="wm" viewBox="0 0 47 28"><use href="#bm-word" width="47" height="28"/></svg></div>
   <div class="scr-head"><div><span class="code" id="wiz-code">NEW BOT</span><h1 id="wiz-h" class="wiz-h"></h1></div><span class="sp"></span><button class="k ghost sm" type="button" id="wiz-x"><span data-i18n="salir">Salir</span> <kbd class="kbd">Esc</kbd></button></div>
   <ol class="wsteps" id="wsteps" aria-label="Pasos" data-i18n-aria="pasos"></ol>
   <div class="pl wiz-card"><div class="wbody" id="wbody"></div>
