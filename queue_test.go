@@ -161,3 +161,25 @@ func TestChainInstantsRunInOrder(t *testing.T) {
 		t.Fatalf("lines = %q", lines)
 	}
 }
+
+// Una cadena que empieza por /goto x y z: al llegar, sigue la cola (probado
+// contra un servidor: se quedaba parada tras «goto: llegué»).
+func TestChainStartingWithGotoAdvances(t *testing.T) {
+	b, ran := testBot(t)
+	old := commands["goto"]
+	commands["goto"] = command{run: func(_ *Bot, args []string) error {
+		*ran = append(*ran, "goto "+strings.Join(args, " "))
+		return nil
+	}}
+	t.Cleanup(func() { commands["goto"] = old })
+	if err := b.run("/goto 1 2 3 ; /goto 4 5 6"); err != nil {
+		t.Fatal(err)
+	}
+	if lines, _ := workQueue.snapshot(); len(lines) != 1 {
+		t.Fatalf("lines = %q", lines)
+	}
+	b.moveEnded(true) // llegó
+	if !reflect.DeepEqual(*ran, []string{"goto 1 2 3", "goto 4 5 6"}) {
+		t.Fatalf("ran = %q", *ran)
+	}
+}

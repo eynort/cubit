@@ -178,7 +178,18 @@ func (b *Bot) runChain(segs []string) error {
 				return err
 			}
 		case !started:
+			goTo := k == kindTask && strings.EqualFold(strings.Fields(s)[0], "/goto")
+			if goTo { // un goto no tiene Runner que avise: moveEnded sigue la cola solo si está activa
+				workQueue.mu.Lock()
+				workQueue.active = true
+				workQueue.mu.Unlock()
+			}
 			if err := b.run(s); err != nil {
+				if goTo {
+					workQueue.mu.Lock()
+					workQueue.active = false
+					workQueue.mu.Unlock()
+				}
 				return err
 			}
 			started = true
