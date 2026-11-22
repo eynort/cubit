@@ -315,7 +315,9 @@ func loadPathMemory() *pathing.Memory {
 // setupModules crea el mundo, las físicas, el movimiento y los módulos.
 func (b *Bot) setupModules() {
 	b.World = world.NewWorld(b.Client, b.Player, world.EventsListener{})
-	b.World.SkipLight = true // el bot no mira la luz: es 3/4 de la memoria de cada chunk
+	b.World.SkipLight = true      // el bot no mira la luz: es 3/4 de la memoria de cada chunk
+	b.World.SkipHeightmaps = true // ni los mapas de alturas ni los biomas: ~18 % de lo que queda de cada chunk
+	b.World.SkipBiomes = true
 	b.Screens = screen.NewManager(b.Client, screen.EventsListener{})
 	totals := b.itemTotals
 	carriedSource.Store(&totals) // el autocompletado de /drop

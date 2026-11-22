@@ -88,7 +88,7 @@ func join(ctx context.Context, addr string, i int) {
 	players := playerlist.New(c)
 	msg.New(c, p, players, msg.EventsHandler{})
 	w := world.NewWorld(c, p, world.EventsListener{})
-	w.SkipLight = true // (como el bot)
+	w.SkipLight, w.SkipHeightmaps, w.SkipBiomes = true, true, true // (como el bot)
 	screens := screen.NewManager(c, screen.EventsListener{})
 	entities.New(c, entities.Events{})
 	ctl := control.New(c, p, w)

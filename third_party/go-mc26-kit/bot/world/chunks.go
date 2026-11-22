@@ -33,6 +33,11 @@ type World struct {
 	// false. The light is three quarters of a column's memory (some 100 KB of
 	// the 140 KB of an overworld column); a client that never reads it saves it.
 	SkipLight bool
+	// SkipHeightmaps and SkipBiomes, set before joining, keep neither a
+	// column's heightmaps nor its sections' biomes (BiomeAt and TemperatureAt
+	// then report false): some 5 KB of the ~30 KB of an overworld column
+	// without light, for a client that never reads them.
+	SkipHeightmaps, SkipBiomes bool
 }
 
 // RLock and RUnlock hold the world for reading; Lock and Unlock for writing.
@@ -120,9 +125,18 @@ func (w *World) handleLevelChunkWithLightPacket(packet pk.Packet) error {
 		}
 		heightmaps[int32(e.Key)] = longs
 	}
-	chunk.SetHeightmapData(heightmaps)
+	if w.SkipHeightmaps {
+		chunk.HeightMaps = level.HeightMaps{}
+	} else {
+		chunk.SetHeightmapData(heightmaps)
+	}
 	if err := chunk.PutSections(p.ChunkData.Buffer.V); err != nil {
 		return err
+	}
+	if w.SkipBiomes {
+		for i := range chunk.Sections {
+			chunk.Sections[i].Biomes = nil
+		}
 	}
 	chunk.BlockEntity = []level.BlockEntity(p.ChunkData.BlockEntitiesData)
 	pos := level.ChunkPos{int32(p.X), int32(p.Z)}

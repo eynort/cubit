@@ -19,6 +19,8 @@ import (
 	"github.com/mj41/go-mc26/save/region"
 )
 
+var trimFlag = flag.Bool("trim", false, "sin mapas de alturas ni biomas (lo que el bot no lee)")
+
 var regionFlag = flag.String("region", "third_party/go-mc26/save/testdata/world/region/r.0.0.mca", "archivo de región (.mca)")
 
 func main() {
@@ -63,6 +65,12 @@ func main() {
 		c := level.EmptyChunk(secs)
 		if err := c.PutSections(w); err != nil {
 			log.Fatal(err)
+		}
+		if *trimFlag {
+			c.HeightMaps = level.HeightMaps{}
+			for i := range c.Sections {
+				c.Sections[i].Biomes = nil
+			}
 		}
 		for i := range c.Sections {
 			if len(c.Sections[i].States.Palette()) > 1 {
