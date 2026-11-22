@@ -28,6 +28,7 @@ Corre en cualquier sitio: Linux, macOS, Windows, una Raspberry Pi, un VPS de 5 $
 - **Minar.** En ramas, como un jugador de verdad: baja por una escalera a la mejor capa para cada mineral, sin xray.
 - **Talar.** Árboles enteros de las maderas que digas, también los de 2×2 y los del Nether.
 - **Moverse.** Encuentra el camino solo con A*, y hace torres y puentes si le hacen falta.
+- **Háblale.** Los dueños pueden escribir frases normales ("mina 20 de hierro y tráemelo") y una IA local y gratuita (Ollama, sin cuentas ni claves) las convierte en órdenes. Opcional: se apaga por bot en el panel. Mira la [Guía](docs/GUIA.md#5-háblale-ia-local).
 
 Todos tus bots se manejan desde un **panel web**. Ahí cada bot tiene su propia consola de órdenes, y el panel incluye un servidor de pruebas en el que puedes jugar al momento.
 

@@ -40,6 +40,11 @@ var commandExamples = map[string][]example{
 		{"/chop dark_oak,pale_oak ~ ~ ~", text{"big 2×2 trees too", "también los árboles grandes de 2×2"}},
 		{"/chop crimson,warped ~ ~ ~", text{"Nether stems", "tallos del Nether"}},
 	},
+	"ask": {
+		{"/ask mine 20 iron and bring it to me", text{"plain words: the local AI plans the commands", "con palabras normales: la IA local planea las órdenes"}},
+		{"/ask ve a talar unos robles", text{}},
+		{"/ask how are you doing?", text{"it just answers in the chat", "solo te contesta en el chat"}},
+	},
 	"inventory": {
 		{"/inventory", text{}},
 		{"/inventory grid", text{"laid out like the game screen", "como en la pantalla del juego"}},

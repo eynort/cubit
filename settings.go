@@ -29,12 +29,25 @@ type panelSettings struct {
 	Owners []string `json:"owners"`
 	Lang   string   `json:"lang"` // el idioma del bot: su ayuda y las sugerencias (en, es)
 	RCON   bool     `json:"rcon"` // (solo lectura) hay consola del servidor
+
+	// La IA local (llm.go). Al guardar, nil = no tocar (el panel viejo no los manda).
+	AI      *bool   `json:"ai,omitempty"`
+	AIModel *string `json:"ai_model,omitempty"`
+	AIURL   *string `json:"ai_url,omitempty"`
+	// (solo lectura) cómo va: off, down, missing, downloading, ready
+	AIState string `json:"ai_state,omitempty"`
+	AIPct   int    `json:"ai_pct,omitempty"`
 }
 
 func currentSettings() panelSettings {
 	cfgMu.Lock()
 	defer cfgMu.Unlock()
-	return panelSettings{Server: cfg.Server, Name: cfg.Name, Owners: append([]string{}, cfg.Owners...), RCON: rcon.Addr() != "", Lang: lang()}
+	ai, model, url := !cfg.LLM.Off, cfg.LLM.Model, cfg.LLM.URL
+	s := panelSettings{Server: cfg.Server, Name: cfg.Name, Owners: append([]string{}, cfg.Owners...), RCON: rcon.Addr() != "", Lang: lang(), AI: &ai, AIModel: &model, AIURL: &url}
+	cfgMu.Unlock()
+	s.AIState, s.AIPct = llmStatus()
+	cfgMu.Lock()
+	return s
 }
 
 // applySettings guarda los ajustes; restart: hace falta reiniciar.
@@ -64,7 +77,26 @@ func applySettings(s panelSettings) (restart bool, err error) {
 		return false, i18n.Errorf("language %q: en or es", "idioma %q: en o es", s.Lang)
 	}
 
+	aiModel, aiURL := "", ""
+	if s.AIModel != nil {
+		aiModel = strings.TrimSpace(*s.AIModel)
+	}
+	if s.AIURL != nil {
+		if aiURL = strings.TrimRight(strings.TrimSpace(*s.AIURL), "/"); aiURL != "" && !strings.HasPrefix(aiURL, "http://") && !strings.HasPrefix(aiURL, "https://") {
+			return false, i18n.Errorf("Ollama address %q: it must start with http:// or https://", "dirección de Ollama %q: tiene que empezar por http:// o https://", aiURL)
+		}
+	}
+
 	cfgMu.Lock()
+	if s.AI != nil {
+		cfg.LLM.Off = !*s.AI
+	}
+	if s.AIModel != nil {
+		cfg.LLM.Model = aiModel
+	}
+	if s.AIURL != nil {
+		cfg.LLM.URL = aiURL
+	}
 	restart = !strings.EqualFold(s.Server, cfg.Server) || s.Name != cfg.Name
 	newOwners := !slices.Equal(owners, cfg.Owners)
 	cfg.Server, cfg.Name, cfg.Owners = s.Server, s.Name, owners

@@ -4,6 +4,22 @@ Type them in the bot's console, in the web panel, or whisper them with `/msg <bo
 
 _Generated with `go run . --gen-docs docs`: don't edit by hand._
 
+## /ask
+
+`/ask <request>`
+
+Ask the bot in plain words and it does it, using its commands as tools (needs the AI assistant on in the panel settings, and Ollama running): /ask mine 20 iron and bring it to me.
+
+- `<request>`: what you want, in your own words
+
+**Examples**
+
+```
+/ask mine 20 iron and bring it to me   # plain words: the local AI plans the commands
+/ask ve a talar unos robles
+/ask how are you doing?                # it just answers in the chat
+```
+
 ## /chop
 
 `/chop <woods> <x> <y> <z>`

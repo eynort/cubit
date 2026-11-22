@@ -16,7 +16,7 @@ sedi() { sed -i.bak "$@" && rm -f "${@: -1}.bak"; }
 
 case "${1:-}" in
 down) dc down; exit ;;
-logs) dc logs -f --tail 50 bot minecraft; exit ;;
+logs) shift; [ $# -gt 0 ] || set -- bot minecraft ollama-pull; dc logs -f --tail 50 "$@"; exit ;;
 esac
 
 if [ ! -f .env ]; then
@@ -35,6 +35,7 @@ fi
 mkdir -p bot-data mc-data
 rm -f mc-data/.mcbot-apagado # (levantarlo todo es encender también el servidor de pruebas)
 
+echo "IA local: la primera vez se baja el modelo (~4,6 GB, solo una vez; ./up.sh logs ollama-pull) / local AI: first run downloads the model (~4.6 GB, once)"
 dc up -d --build --remove-orphans
 set -a; . ./.env; set +a
 sleep 2

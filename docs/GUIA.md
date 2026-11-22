@@ -76,3 +76,17 @@ La lista completa está en [ORDENES.md](ORDENES.md). También la ves con `/help`
 - **Memoria**: unos 70 MB por bot. `--view` (distancia de visión en chunks) y `--memlimit` (en MB) la bajan para móviles.
 - **Versión**: solo Minecraft Java **26.2** (protocolo 776) y servidores vanilla: no usa comandos de plugins.
 - **Juega limpio**: úsalo en tu servidor o en los que permiten bots.
+
+## 5. Háblale (IA local)
+
+Los dueños pueden escribirle frases normales en vez de órdenes, por privado (`/msg MiBot mina 20 de hierro y tráemelo`), por el chat nombrando al bot, o con `/ask <texto>`. Un modelo de IA pequeño que corre **en tu propio equipo** la lee, planea las órdenes (las de arriba y solo esas: nunca comandos del servidor ni `/quit`), las ejecuta, mira los resultados y te contesta en el chat como un colega. Las órdenes normales (`/follow Steve`) no pasan por la IA y siguen funcionando aunque esta falle.
+
+Es gratis: sin cuenta, sin clave de API y nada sale de tu red. Usa [Ollama](https://ollama.com).
+
+- **Con Docker (`./up.sh`)**: ya viene encendida. `up.sh` levanta un servicio `ollama` y baja el modelo la primera vez: unos **4,6 GB, una sola vez** (`./up.sh logs ollama-pull` enseña el progreso). Hasta que acabe, el bot dice que aún se está bajando el cerebro; el panel (ajustes del bot, *Asistente IA*) también enseña el progreso. Ahí mismo la apagas por bot o eliges otro modelo.
+- **Sin Docker (programa suelto, Linux, macOS, Windows)**: instala Ollama y `ollama pull gemma4:e2b-it-q4_K_M`. El bot lo busca en `http://localhost:11434`; si está en otro sitio, usa `--ollama http://equipo:11434`, la variable `OLLAMA_URL` o la casilla *Dirección de Ollama* del panel. Si falta el modelo, el bot empieza a bajarlo solo.
+- **Android (Termux)**: `pkg install ollama`, `ollama serve &`, `ollama pull gemma4:e2b-it-q4_K_M` y arranca el bot con la dirección por defecto. O deja Ollama en tu PC y apunta el bot del móvil con `--ollama http://<ip-del-pc>:11434`.
+
+**Modelos y RAM, con franqueza.** El de por defecto, `gemma4:e2b-it-q4_K_M` (4,6 GB de descarga), necesita más o menos **3-4 GB de RAM libre** mientras contesta. `gemma4:e4b` es más listo pero pide más (unos 7 GB de descarga). `qwen3:4b` es otra opción. Un móvil de 800 MB no puede con un modelo útil: ahí, pon Ollama en otro equipo y usa `--ollama`, o apaga la IA. En un PC contesta en unos segundos; en un móvil, bastante más.
+
+Ajustes (por bot, en el panel): encendida o no, modelo y dirección de Ollama. El bot recuerda 10 minutos los últimos intercambios con cada jugador, hace como mucho 6 pasos por frase y 60 frases por hora.

@@ -4,6 +4,22 @@ Se escriben en la consola del bot, en el panel web o por `/msg <bot> <orden>` (s
 
 _Generado con `go run . --gen-docs docs`: no lo edites a mano._
 
+## /ask
+
+`/ask <request>`
+
+Pídele al bot en lenguaje normal y lo hace, usando sus órdenes como herramientas (hace falta el asistente IA activado en los ajustes del panel, y Ollama en marcha): /ask mina 20 de hierro y tráemelo.
+
+- `<request>`: lo que quieres, con tus palabras
+
+**Ejemplos**
+
+```
+/ask mine 20 iron and bring it to me   # con palabras normales: la IA local planea las órdenes
+/ask ve a talar unos robles
+/ask how are you doing?                # solo te contesta en el chat
+```
+
 ## /chop
 
 `/chop <woods> <x> <y> <z>`

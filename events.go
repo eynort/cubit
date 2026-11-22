@@ -139,6 +139,8 @@ func (b *Bot) onPlayerChat(m msg.PlayerChat) error {
 	noteCoords(m.Sender, m.Content)                 // por si son coordenadas (para /goto)
 	if m.Type == "minecraft:msg_command_incoming" { // un /msg al bot: una orden
 		go b.onWhisper(m.Name, m.Content)
+	} else if toBot(m.Content) {
+		b.llmPublic(m.Name, m.Content) // (si es un dueño y la IA está encendida)
 	}
 	return nil
 }
