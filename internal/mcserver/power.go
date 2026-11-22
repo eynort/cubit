@@ -47,6 +47,9 @@ func Off() bool {
 	if serverDir() == "" {
 		return false
 	}
+	if srvWorld.Load() {
+		return false // (la marca la pone el mundo nuevo, solo mientras se rehace: world.go)
+	}
 	_, err := os.Stat(powerMarkerPath())
 	return err == nil
 }

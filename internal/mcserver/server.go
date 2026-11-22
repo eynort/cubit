@@ -122,6 +122,7 @@ type serverState struct {
 	Difficulty string            `json:"difficulty"`
 	MSPT       float64           `json:"mspt"` // ms por tick (50 = al límite)
 	Seed       string            `json:"seed"`
+	LevelSeed  string            `json:"level_seed"` // la de server.properties (la del próximo mundo nuevo, o "" = al azar)
 	Whitelist  []string          `json:"whitelist"`
 	Bans       []string          `json:"bans"`
 	Ops        []string          `json:"ops"`
@@ -157,6 +158,7 @@ func serverStatus() (st serverState) {
 			for _, d := range serverProps {
 				st.Props[d.Key] = p[d.Key]
 			}
+			st.LevelSeed = p["level-seed"]
 		} else {
 			st.Files = false
 		}
@@ -428,6 +430,27 @@ func Routes(mux *http.ServeMux, ok func(http.ResponseWriter, *http.Request) bool
 			jsonOut(w, map[string]string{"power": after})
 		}
 	}
+	mux.HandleFunc("/server/world", func(w http.ResponseWriter, r *http.Request) {
+		if !post(w, r) {
+			return
+		}
+		var in struct{ Seed string }
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&in); err != nil {
+			i18n.HTTPMsg(w, r, http.StatusBadRequest, "unreadable request", "petición ilegible")
+			return
+		}
+		seed, err := newWorld(in.Seed)
+		if err != nil {
+			code := http.StatusBadRequest
+			if err == errRestarting {
+				code = http.StatusConflict
+			}
+			i18n.HTTPError(w, r, code, err)
+			return
+		}
+		serverPending.at = time.Time{}
+		jsonOut(w, map[string]any{"seed": seed, "off": Off(), "restart": currentRestart()})
+	})
 	mux.HandleFunc("/server/stop", power(stopServer, "stopping"))
 	mux.HandleFunc("/server/start", power(Start, "starting"))
 }

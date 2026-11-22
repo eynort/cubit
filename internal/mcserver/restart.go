@@ -113,7 +113,7 @@ func restartServer() error {
 	srvRestart.backAt, srvRestart.failed = time.Time{}, ""
 	srvRestart.Unlock()
 	log.Printf("[panel] reinicio el servidor de Minecraft (Docker lo vuelve a arrancar; la última vez tardó %s)", lastRestartTook().Round(time.Second))
-	go watchRestart()
+	go watchRestart(nil)
 	return nil
 }
 
@@ -125,7 +125,9 @@ func setPhase(p restartPhase) {
 	srvRestart.Unlock()
 }
 
-func watchRestart() {
+// watchRestart sigue el reinicio. onDown, si lo hay, se hace con el servidor
+// ya parado, antes de que vuelva a arrancar (el mundo nuevo: world.go).
+func watchRestart(onDown func()) {
 	time.Sleep(warnDelay)
 	setPhase(phaseStopping)
 	_, _ = rcon.Cmd("stop")
@@ -138,6 +140,9 @@ func watchRestart() {
 		case err != nil && !wentDown:
 			wentDown = true
 			setPhase(phaseStarting)
+			if onDown != nil {
+				onDown()
+			}
 		case err == nil && wentDown:
 			srvRestart.Lock()
 			took := time.Since(srvRestart.since)

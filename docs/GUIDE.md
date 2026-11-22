@@ -45,7 +45,7 @@ On **Android**, install Termux and pick the `android-arm64` file. Add `--view 4 
   - `/time set day` is a server command (if the bot is op);
   - `hello` without a slash is a message in the game chat.
   - `Tab` completes, `↑` and `↓` go through the history.
-- **Servers**: start, stop and restart the test server, see who is online, and add external servers. Each server card tells you how to join it.
+- **Servers**: start, stop and restart the test server, see who is online, and add external servers. Each server card tells you how to join it. Under *World* you can remake the test world with any seed, or a random one: the old one is kept as `world.anterior`.
 
 ## 3. Control the bot
 

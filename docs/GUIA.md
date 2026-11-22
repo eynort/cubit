@@ -45,7 +45,7 @@ En **Android**, instala Termux y usa el archivo `android-arm64`. Añade `--view 
   - `/time set day` es un comando del servidor (si el bot es op);
   - `hola`, sin barra, es un mensaje en el chat del juego.
   - `Tab` completa, y `↑` `↓` recorren el historial.
-- **Servidores**: encender, apagar y reiniciar el servidor de pruebas, ver quién está conectado y añadir servidores de fuera. La tarjeta de cada servidor te dice cómo entrar.
+- **Servidores**: encender, apagar y reiniciar el servidor de pruebas, ver quién está conectado y añadir servidores de fuera. En *Mundo* puedes rehacer el mundo de pruebas con la semilla que quieras, o una al azar: el anterior queda guardado como `world.anterior`. La tarjeta de cada servidor te dice cómo entrar.
 
 ## 3. Controlar el bot
 
