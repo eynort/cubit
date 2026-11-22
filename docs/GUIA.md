@@ -6,7 +6,7 @@
 
 ### Instalarlo (sin Docker ni clonar)
 
-- **Windows**: ejecuta `cubit-<versión>-windows-setup.exe` de [Releases](../../../releases). Instala Cubit, guarda tus datos en `%LOCALAPPDATA%\Cubit` y crea un acceso *Cubit* que abre el panel. El instalador no está firmado, así que SmartScreen puede avisarte: **Más información → Ejecutar de todas formas**. Opcionales: acceso en el escritorio, arrancar Cubit al iniciar sesión e instalar Ollama (IA local). O desde PowerShell: `irm https://github.com/eynort/cubit/releases/latest/download/install.ps1 | iex` (`-Uninstall` lo quita).
+- **Windows**: `scoop bucket add cubit https://github.com/eynort/cubit` y luego `scoop install cubit/cubit`. Añade un acceso *Cubit* en el menú Inicio que abre el panel; tus datos se quedan en la carpeta `persist\cubit\data` de Scoop al actualizar. O descarga `cubit-<versión>-windows-amd64.zip` (o `arm64`) en [Releases](../../../releases), descomprímelo y ejecuta `cubit.exe --hub :8080 --open`; una carpeta `data` junto a `cubit.exe` guarda ahí tus datos (modo portátil), si no usa la carpeta actual o `--data`. No hay instalador, y `cubit.exe` no está firmado, así que SmartScreen puede avisarte: **Más información → Ejecutar de todas formas**. winget llegará más adelante.
 - **Linux**: `curl -fsSL https://github.com/eynort/cubit/releases/latest/download/install.sh | sh` lo instala en `~/.local/bin` (comprueba el SHA256), o usa el `.deb` / `.rpm`. Abre el panel desde el menú de aplicaciones, o déjalo siempre encendido con `systemctl --user enable --now cubit`. Se quita con `sh install.sh --uninstall`. Los datos están en `~/.local/share/cubit`.
 - **macOS / Android (Termux)**: descarga el programa en Releases y ejecuta `./cubit --hub :8080 --open`.
 

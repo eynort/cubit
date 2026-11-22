@@ -1,0 +1,44 @@
+{
+    "##": "Scoop manifest. version/url/hash are placeholders until the first release; checkver + autoupdate (scoop's excavator, or 'scoop-update') keep them current.",
+    "version": "0.0.0",
+    "description": "A Minecraft bot that fights, digs and moves (web panel included)",
+    "homepage": "https://github.com/eynort/cubit",
+    "license": "MIT",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/eynort/cubit/releases/download/v0.0.0/cubit-v0.0.0-windows-amd64-scoop.zip",
+            "hash": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "arm64": {
+            "url": "https://github.com/eynort/cubit/releases/download/v0.0.0/cubit-v0.0.0-windows-arm64-scoop.zip",
+            "hash": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+    },
+    "bin": "cubit.exe",
+    "shortcuts": [
+        [
+            "cubit.exe",
+            "Cubit",
+            "--hub=:8080 --open"
+        ]
+    ],
+    "persist": "data",
+    "notes": "Your data lives in the 'data' folder (kept across updates). Start it from the Start menu ('Cubit') or run: cubit --hub :8080 --open",
+    "checkver": {
+        "github": "https://github.com/eynort/cubit"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/eynort/cubit/releases/download/v$version/cubit-v$version-windows-amd64-scoop.zip"
+            },
+            "arm64": {
+                "url": "https://github.com/eynort/cubit/releases/download/v$version/cubit-v$version-windows-arm64-scoop.zip"
+            }
+        },
+        "hash": {
+            "url": "$baseurl/SHA256SUMS",
+            "regex": "$sha256\\s+$basename"
+        }
+    }
+}

@@ -28,7 +28,7 @@ uninstall() {
 		systemctl --user disable --now cubit >/dev/null 2>&1 || true
 	fi
 	rm -f "${BIN_DIR}/cubit" "${BIN_DIR}/cubit-panel" "${UNIT_DIR}/cubit.service" \
-		"${APP_DIR}/cubit.desktop" "${ICON_DIR}/cubit.png"
+		"${APP_DIR}/cubit.desktop" "${ICON_DIR}/cubit.png" "${DATA_DIR}/install-method"
 	if have systemctl; then
 		systemctl --user daemon-reload >/dev/null 2>&1 || true
 	fi
@@ -98,6 +98,8 @@ got="$(sha "${tmp}/cubit")"
 
 mkdir -p "$BIN_DIR" "$APP_DIR" "$ICON_DIR" "$UNIT_DIR" "$DATA_DIR"
 install -m 0755 "${tmp}/cubit" "${BIN_DIR}/cubit"
+# cómo se instaló (para el actualizador) / how it was installed (for the self-updater)
+printf 'script\n' >"${DATA_DIR}/install-method"
 
 cat >"${BIN_DIR}/cubit-panel" <<'EOF'
 #!/bin/sh

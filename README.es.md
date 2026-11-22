@@ -35,11 +35,14 @@ Todos tus bots se manejan desde un **panel web**. Ahí cada bot tiene su propia 
 
 ## Empieza en un minuto
 
-**Windows**: descarga `cubit-<versión>-windows-setup.exe` en [Releases](../../releases) y ejecútalo. Crea un acceso *Cubit* que abre el panel en tu navegador. El instalador aún no está firmado, así que Windows SmartScreen puede avisarte: pulsa **Más información → Ejecutar de todas formas**. ¿Prefieres la línea de comandos? En PowerShell:
+**Windows**: con [Scoop](https://scoop.sh):
 
 ```powershell
-irm https://github.com/eynort/cubit/releases/latest/download/install.ps1 | iex
+scoop bucket add cubit https://github.com/eynort/cubit
+scoop install cubit/cubit
 ```
+
+Esto añade un acceso *Cubit* en el menú Inicio que abre el panel en tu navegador. O a mano: descarga `cubit-<versión>-windows-amd64.zip` en [Releases](../../releases), descomprímelo donde quieras y ejecuta `cubit.exe --hub :8080 --open` (crea una carpeta `data` junto a él para guardar ahí tus datos). No hay instalador: `cubit.exe` no está firmado, así que Windows SmartScreen puede avisarte la primera vez: pulsa **Más información → Ejecutar de todas formas**, o compruébalo con `SHA256SUMS`. Un paquete de `winget install` llegará más adelante, cuando el proyecto esté publicado ahí.
 
 **Linux**: un solo comando, sin root:
 

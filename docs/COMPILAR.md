@@ -35,15 +35,9 @@ CGO_ENABLED=0 GOOS=android GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o d
 
 ## Construir los instaladores en local
 
-**Instalador de Windows** (en Windows, con [Inno Setup 6.1+](https://jrsoftware.org/isinfo.php)):
+**Zip de Windows** (el que usan Scoop y la publicación): compila `cubit.exe` y comprímelo con `packaging/windows/README.txt` y `LICENSE`. El manifiesto de Scoop es `bucket/cubit.json` y las plantillas de winget están en `packaging/winget/`.
 
-```powershell
-go build -o dist\cubit.exe .
-iscc /DAppVersion=0.0.0-dev /DExePath=dist\cubit.exe packaging\windows\cubit.iss
-```
-
-Sale `dist\cubit-0.0.0-dev-windows-setup.exe`. El icono es `packaging/windows/cubit.ico`, hecho a partir de `brand/png/icon-512.png`:
-`magick brand/png/icon-512.png -background none -define icon:auto-resize=256,128,64,48,32,16 packaging/windows/cubit.ico`.
+**Método de instalación.** Las compilaciones de publicación ponen `-ldflags "-X cubit/internal/update.Method=<zip|scoop|winget|deb|rpm>"`; los binarios sueltos y `install.sh` lo dejan vacío y `install.sh` escribe `install-method` (`script`) en la carpeta de datos. Las compilaciones de desarrollo lo dejan vacío.
 
 **.deb y .rpm** (con [nfpm](https://nfpm.goreleaser.com); la publicación usa `v2.41.1`):
 
@@ -55,7 +49,7 @@ for fmt in deb rpm; do
 done
 ```
 
-`packaging/linux/install.sh` y `packaging/windows/install.ps1` son los instaladores de una línea que se publican con cada versión.
+`packaging/linux/install.sh` es el instalador de una línea que se publica con cada versión.
 
 ## Pruebas
 
@@ -74,4 +68,4 @@ go run . --gen-docs docs
 
 ## Publicar una versión
 
-Al subir una etiqueta `v*` se ejecuta `.github/workflows/release.yml`: pasa las pruebas, compila todos los binarios, el `.deb`/`.rpm`, el instalador de Windows, `install.sh`, `install.ps1` y `SHA256SUMS`, y lo adjunta todo a la versión.
+Al subir una etiqueta `v*` se ejecuta `.github/workflows/release.yml`: pasa las pruebas, compila todos los binarios, el `.deb`/`.rpm`, los zips de Windows, `install.sh` y `SHA256SUMS`, y lo adjunta todo a la versión.

@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
+PackageIdentifier: eynort.Cubit
+PackageVersion: 0.0.0
+PackageLocale: en-US
+Publisher: eynort
+PackageName: Cubit
+PackageUrl: https://github.com/eynort/cubit
+License: MIT
+ShortDescription: A Minecraft bot that fights, digs and moves, with a web panel.
+Tags:
+  - minecraft
+  - bot
+Moniker: cubit
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

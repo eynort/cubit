@@ -6,7 +6,7 @@
 
 ### Install it (no Docker, no cloning)
 
-- **Windows**: run `cubit-<version>-windows-setup.exe` from [Releases](../../../releases). It installs Cubit, keeps your data in `%LOCALAPPDATA%\Cubit`, and adds a *Cubit* shortcut that opens the panel. The installer is not signed, so SmartScreen may warn you: **More info → Run anyway**. Optional steps: a desktop shortcut, starting Cubit at login, and installing Ollama (local AI). Or from PowerShell: `irm https://github.com/eynort/cubit/releases/latest/download/install.ps1 | iex` (`-Uninstall` removes it).
+- **Windows**: `scoop bucket add cubit https://github.com/eynort/cubit` then `scoop install cubit/cubit`. It adds a *Cubit* Start-menu shortcut that opens the panel; your data stays in Scoop's `persist\cubit\data` folder across updates. Or download `cubit-<version>-windows-amd64.zip` (or `arm64`) from [Releases](../../../releases), unzip it and run `cubit.exe --hub :8080 --open`; a `data` folder next to `cubit.exe` keeps your data there (portable mode), otherwise it uses the current folder or `--data`. There is no installer, and `cubit.exe` is not signed, so SmartScreen may warn you: **More info → Run anyway**. winget will come later.
 - **Linux**: `curl -fsSL https://github.com/eynort/cubit/releases/latest/download/install.sh | sh` installs into `~/.local/bin` (it checks the SHA256), or use the `.deb` / `.rpm`. Start the panel from your app menu, or keep it always on with `systemctl --user enable --now cubit`. Remove it with `sh install.sh --uninstall`. Data lives in `~/.local/share/cubit`.
 - **macOS / Android (Termux)**: download the binary from Releases and run `./cubit --hub :8080 --open`.
 

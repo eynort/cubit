@@ -16,6 +16,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -98,6 +99,14 @@ func main() {
 			log.Fatal(err)
 		}
 		return
+	}
+	if *dataFlag == "" {
+		// modo portátil: una carpeta "data" junto al ejecutable (Scoop y el zip de Windows)
+		if exe, err := os.Executable(); err == nil {
+			if st, err := os.Stat(filepath.Join(filepath.Dir(exe), "data")); err == nil && st.IsDir() {
+				*dataFlag = filepath.Join(filepath.Dir(exe), "data")
+			}
+		}
 	}
 	if *dataFlag != "" {
 		if err := os.MkdirAll(*dataFlag, 0o755); err != nil {

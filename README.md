@@ -35,11 +35,14 @@ You run all your bots from a **web panel**. Each bot has its own command console
 
 ## Start in one minute
 
-**Windows**: download `cubit-<version>-windows-setup.exe` from [Releases](../../releases) and run it. It adds a *Cubit* shortcut that opens the panel in your browser. The installer is not code-signed yet, so Windows SmartScreen may warn you: click **More info → Run anyway**. Prefer the command line? In PowerShell:
+**Windows**: with [Scoop](https://scoop.sh):
 
 ```powershell
-irm https://github.com/eynort/cubit/releases/latest/download/install.ps1 | iex
+scoop bucket add cubit https://github.com/eynort/cubit
+scoop install cubit/cubit
 ```
+
+This adds a *Cubit* Start-menu shortcut that opens the panel in your browser. Or do it by hand: download `cubit-<version>-windows-amd64.zip` from [Releases](../../releases), unzip it anywhere and run `cubit.exe --hub :8080 --open` (create a `data` folder next to it to keep your data there). There is no installer: `cubit.exe` is not code-signed, so Windows SmartScreen may warn you the first time: click **More info → Run anyway**, or check it against `SHA256SUMS`. A `winget install` package will come later, once the project is published there.
 
 **Linux**: one command, no root:
 

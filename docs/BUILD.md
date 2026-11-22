@@ -35,15 +35,9 @@ CGO_ENABLED=0 GOOS=android GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o d
 
 ## Building the installers locally
 
-**Windows installer** (on Windows, with [Inno Setup 6.1+](https://jrsoftware.org/isinfo.php)):
+**Windows zip** (what Scoop and the release use): just build `cubit.exe` and zip it with `packaging/windows/README.txt` and `LICENSE`. The Scoop manifest is `bucket/cubit.json` and the winget templates are in `packaging/winget/`.
 
-```powershell
-go build -o dist\cubit.exe .
-iscc /DAppVersion=0.0.0-dev /DExePath=dist\cubit.exe packaging\windows\cubit.iss
-```
-
-The result is `dist\cubit-0.0.0-dev-windows-setup.exe`. The icon is `packaging/windows/cubit.ico`, made from `brand/png/icon-512.png`:
-`magick brand/png/icon-512.png -background none -define icon:auto-resize=256,128,64,48,32,16 packaging/windows/cubit.ico`.
+**Install method.** Release builds set `-ldflags "-X cubit/internal/update.Method=<zip|scoop|winget|deb|rpm>"`; the plain binaries and `install.sh` installs leave it empty and `install.sh` writes `install-method` (`script`) in the data folder. Dev builds leave it empty.
 
 **.deb and .rpm** (with [nfpm](https://nfpm.goreleaser.com); the release uses `v2.41.1`):
 
@@ -55,7 +49,7 @@ for fmt in deb rpm; do
 done
 ```
 
-`packaging/linux/install.sh` and `packaging/windows/install.ps1` are the one-line installers published with each release.
+`packaging/linux/install.sh` is the one-line installer published with each release.
 
 ## Tests
 
@@ -74,4 +68,4 @@ go run . --gen-docs docs
 
 ## Releasing
 
-Pushing a `v*` tag runs `.github/workflows/release.yml`: it tests, builds every binary, the `.deb`/`.rpm`, the Windows installer, `install.sh`, `install.ps1` and `SHA256SUMS`, and attaches them all to the release.
+Pushing a `v*` tag runs `.github/workflows/release.yml`: it tests, builds every binary, the `.deb`/`.rpm`, the Windows zips, `install.sh` and `SHA256SUMS`, and attaches them all to the release.
