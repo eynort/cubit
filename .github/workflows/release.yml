@@ -4,14 +4,23 @@ on:
   push:
     tags: ["v*"]
 
+# Dos pasos:
+#  - build: prueba y compila, sin ningún secreto y sin poder escribir en el repo.
+#  - publish: firma SHA256SUMS y publica. Va en el entorno "release": espera a
+#    que el dueño lo apruebe en GitHub, y la clave de firma (CUBIT_SIGNING_KEY)
+#    es un secreto de ese entorno, así que ningún otro workflow ni rama la ve.
+#    Además, solo los administradores pueden crear etiquetas v* (ruleset
+#    "release tags"). Así, alguien con permiso de escritura (o un token robado)
+#    no puede publicar una versión firmada que los paneles instalarían.
+
 permissions:
-  contents: write
+  contents: read
 
 env:
   NFPM_VERSION: v2.41.1
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -68,17 +77,39 @@ jobs:
           cp brand/png/icon-512.png dist/cubit-icon.png
       - name: checksums
         run: cd dist && sha256sum * > SHA256SUMS
-      # --- firma de SHA256SUMS (el actualizador del panel la comprueba; ver tools/sign) ---
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: release # (espera tu aprobación; solo para etiquetas v*)
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: dist
+          path: dist/
+      # la firma de SHA256SUMS (el actualizador del panel la comprueba; ver tools/sign).
+      # Sin clave no se publica: una versión sin firmar no se podría actualizar con un clic.
       - name: sign SHA256SUMS
         env:
           CUBIT_SIGNING_KEY: ${{ secrets.CUBIT_SIGNING_KEY }}
         run: |
           if [ -z "$CUBIT_SIGNING_KEY" ]; then
-            echo "::warning::CUBIT_SIGNING_KEY is not set: this release is NOT signed (the panel's one-click update will refuse it)"
-          else
-            go run ./tools/sign -in dist/SHA256SUMS -out dist/SHA256SUMS.sig
+            echo "::error::CUBIT_SIGNING_KEY is empty: set it as a secret of the 'release' environment"
+            exit 1
           fi
-      # --- fin de la firma ---
+          go run ./tools/sign -in dist/SHA256SUMS -out dist/SHA256SUMS.sig
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: dist/*
@@ -89,9 +120,10 @@ jobs:
   # (el primer envío se hace a mano con packaging/winget/ o con wingetcreate).
   # Para activarlo: quita `if: false` y crea el secreto WINGET_TOKEN (PAT clásico con scope public_repo).
   winget:
-    needs: release
+    needs: publish
     if: false
     runs-on: ubuntu-latest
+    environment: release # (WINGET_TOKEN, también como secreto del entorno)
     steps:
       - uses: vedantmgoyal9/winget-releaser@b7370d4d152efdce803a26cc6ca9eee58cb2ad54 # v2
         with:
