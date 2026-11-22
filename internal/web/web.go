@@ -51,6 +51,10 @@ func KeyCheck(token, en, es string) func(http.ResponseWriter, *http.Request) boo
 				lim.fail(ip)
 			}
 			w.Header().Set("WWW-Authenticate", `Bearer realm="cubit"`)
+			if t != "" { // (una clave que no es: no «falta»)
+				i18n.HTTPMsg(w, r, http.StatusUnauthorized, "wrong key"+afterColon(en), "clave incorrecta"+afterColon(es))
+				return false
+			}
 			i18n.HTTPMsg(w, r, http.StatusUnauthorized, en, es)
 			return false
 		}
@@ -59,6 +63,14 @@ func KeyCheck(token, en, es string) func(http.ResponseWriter, *http.Request) boo
 		}
 		return true
 	}
+}
+
+// afterColon: lo que sigue a los dos puntos del mensaje (": abre la URL…"), o nada.
+func afterColon(s string) string {
+	if i := strings.Index(s, ":"); i >= 0 {
+		return s[i:]
+	}
+	return ""
 }
 
 // maxFails: claves erróneas por minuto y por IP antes del 429.

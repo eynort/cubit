@@ -77,7 +77,7 @@ func (r *logRing) since(n int) ([]string, int) {
 	if n > end {
 		n = end
 	}
-	return append([]string(nil), r.lines[n-r.first:]...), end
+	return append([]string{}, r.lines[n-r.first:]...), end // ([] y no null en el JSON: nada nuevo)
 }
 
 // panelToken: la clave del panel (se crea una vez y se guarda).
