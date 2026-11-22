@@ -12,7 +12,7 @@ import (
 // La privada está en el secreto CUBIT_SIGNING_KEY de GitHub Actions (nunca en
 // el repo). Para cambiarla: `go run ./tools/sign -gen`, pegar aquí la pública y
 // cambiar el secreto. Sin clave, la actualización con un clic se niega.
-var publicKeyB64 = "M/CJN3S3ZnvFaeWMpGdUgSmKT/i1bjl8KzBZKKfUn0A="
+var publicKeyB64 = "0HwbqVwW0k2RCMfepUqqTIKetZ6dD9WRFFXxFCBiraQ="
 
 // ErrNoKey: el binario no lleva clave pública (todavía).
 var ErrNoKey = errors.New("this build has no update signing key yet; update by hand from the Releases page")
