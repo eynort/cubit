@@ -65,7 +65,27 @@ func (p Packet) ScanAll(fields ...FieldDecoder) error {
 var (
 	bufPool  = sync.Pool{New: func() any { return new(bytes.Buffer) }}
 	zlibPool = sync.Pool{New: func() any { return zlib.NewWriter(io.Discard) }}
+	// zlibReaders: the decompressors of unpackWithCompression, reused. A new
+	// zlib reader is ~40 KB (flate's window and tables): one per compressed
+	// packet was most of what a client allocates on a busy server.
+	zlibReaders sync.Pool
 )
+
+func getZlibReader(r io.Reader) (io.ReadCloser, error) {
+	if zr, ok := zlibReaders.Get().(io.ReadCloser); ok {
+		if err := zr.(zlib.Resetter).Reset(r, nil); err != nil {
+			zlibReaders.Put(zr)
+			return nil, err
+		}
+		return zr, nil
+	}
+	return zlib.NewReader(r)
+}
+
+func putZlibReader(zr io.ReadCloser) {
+	_ = zr.Close()
+	zlibReaders.Put(zr)
+}
 
 // Pack 打包一个数据包
 func (p *Packet) Pack(w io.Writer, threshold int) error {
@@ -208,11 +228,11 @@ func (p *Packet) unpackWithCompression(r io.Reader, threshold int) error {
 		if DataLength > MaxDataLength {
 			return fmt.Errorf("compressed packet error: size of %d is larger than protocol maximum of %d", DataLength, MaxDataLength)
 		}
-		zr, err := zlib.NewReader(r)
+		zr, err := getZlibReader(r)
 		if err != nil {
 			return err
 		}
-		defer zr.Close()
+		defer putZlibReader(zr)
 		r = zr
 		n3, err := PacketID.ReadFrom(r)
 		if err != nil {

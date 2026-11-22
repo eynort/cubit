@@ -15,6 +15,8 @@ import (
 	"runtime"
 	"runtime/debug"
 	"time"
+
+	"cubit/internal/memtune"
 )
 
 var (
@@ -25,14 +27,10 @@ var (
 
 var started = time.Now()
 
-// applyMemLimit pone el límite blando: al acercarse, el recolector trabaja más
-// en vez de pedirle más memoria al sistema.
-func applyMemLimit() {
-	if os.Getenv("GOMEMLIMIT") != "" || *memLimitFlag <= 0 {
-		return
-	}
-	debug.SetMemoryLimit(int64(*memLimitFlag) << 20)
-}
+// applyMemLimit pone el límite blando (al acercarse, el recolector trabaja más
+// en vez de pedirle más memoria al sistema) y un GOGC más bajo que el de Go
+// (internal/memtune; GOGC y GOMEMLIMIT del entorno mandan).
+func applyMemLimit() { memtune.Apply(*memLimitFlag) }
 
 // viewDistance es --view, dentro de lo que acepta el juego.
 func viewDistance() int { return min(max(*viewFlag, 2), 32) }

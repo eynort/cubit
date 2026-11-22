@@ -108,12 +108,18 @@ type Server struct {
 	KeepAlive time.Duration
 
 	listener *mcnet.Listener
+	login    *server.MojangLoginHandler
 
 	mu      sync.Mutex
 	first   *Player   // made with the server: the first client to join is this player
 	players []*Player // in play, in join order
 	lastID  int32     // the last entity id given
 }
+
+// SetCompression makes the server compress the packets past threshold bytes, as a vanilla server does
+// (network-compression-threshold, 256 by default); -1, as by default, sends them plain. Set it before a
+// client joins.
+func (s *Server) SetCompression(threshold int) { s.login.Threshold = threshold }
 
 // Start serves until the test ends.
 func Start(t testing.TB) *Server {
@@ -171,12 +177,13 @@ func (s *Server) Join(c *bot.Client) error {
 
 func serve(l *mcnet.Listener, addr string, dialer mcnet.MCDialer) *Server {
 	s := &Server{Addr: addr, Dialer: dialer, World: NewWorld(), listener: l, first: newPlayer()}
+	s.login = &server.MojangLoginHandler{OnlineMode: false, Threshold: -1, LoginChecker: (*roster)(s)}
 	srv := &server.Server{
 		ListPingHandler: struct {
 			*server.PingInfo
 			*roster
 		}{server.NewPingInfo("fake", version.ProtocolVersion, chat.Text("a test's server"), nil), (*roster)(s)},
-		LoginHandler:  &server.MojangLoginHandler{OnlineMode: false, Threshold: -1, LoginChecker: (*roster)(s)},
+		LoginHandler:  s.login,
 		ConfigHandler: &config{registries()},
 		GamePlay:      s,
 	}
