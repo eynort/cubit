@@ -4,6 +4,25 @@ Type them in the bot's console, in the web panel, or whisper them with `/msg <bo
 
 _Generated with `go run . --gen-docs docs`: don't edit by hand._
 
+## /afk
+
+`/afk [<x>] [<y>] [<z>]`
+
+Stay at a spot 24/7 until /stop (here, or at the coordinates: it walks there first): small random moves every 1-4 minutes so the server does not kick it for idling, back to the spot if pushed, eats when hungry, fights back mobs that come close, sleeps in a bed within 16 blocks at night or in thunderstorms, and returns to the spot after dying or reconnecting.
+
+- `<x>` (optional): the spot (~ = where the bot is), or here
+- `<y>` (optional): the spot (~ = where the bot is), or here
+- `<z>` (optional): the spot (~ = where the bot is), or here
+
+**Examples**
+
+```
+/afk               # stay where it stands, until /stop
+/afk here          # the same
+/afk 120 64 -340   # walk to that block and stay there
+/afk ~ ~ ~         # the block it stands on now
+```
+
 ## /chop
 
 `/chop <woods> <x> <y> <z>`

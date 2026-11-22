@@ -167,6 +167,12 @@ func init() {
 				withDesc(xyz(false), text{"the point to chop around (~ = where the bot is)", "el punto alrededor del que talar (~ = donde está el bot)"})...),
 			run: cmdChop,
 		},
+		"afk": {
+			desc: text{"stay at a spot 24/7 until /stop (here, or at the coordinates: it walks there first): small random moves every 1-4 minutes so the server does not kick it for idling, back to the spot if pushed, eats when hungry, fights back mobs that come close, sleeps in a bed within 16 blocks at night or in thunderstorms, and returns to the spot after dying or reconnecting",
+				"quedarse en un sitio las 24 horas hasta /stop (aquí, o en las coordenadas: primero va andando): pequeños gestos al azar cada 1-4 minutos para que el servidor no lo eche por inactivo, vuelve al sitio si lo empujan, come con hambre, se defiende de los mobs que se acercan, duerme en una cama a menos de 16 bloques de noche o con tormenta, y vuelve al sitio tras morir o reconectar"},
+			args: withDesc(xyz(true, "here"), text{"the spot (~ = where the bot is), or here", "el sitio (~ = donde está el bot), o here"}),
+			run:  cmdAfk,
+		},
 		"inventory": {desc: text{"what the bot carries: equipment, hotbar slot by slot and the inventory; grid: like the game screen",
 			"lo que lleva el bot: el equipo, la barra casilla a casilla y el inventario; grid: como la pantalla del juego"},
 			args: []arg{{name: "view", kind: argChoice, opt: true, choices: []string{"grid"},

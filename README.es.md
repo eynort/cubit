@@ -116,6 +116,12 @@ Escribe las órdenes en la **consola del bot en el panel**. En el juego, mándas
 /chop crimson,warped ~ ~ ~       → tallos del Nether
 ```
 
+**`/afk [here | <x> <y> <z>]`**: se queda en un sitio las 24 horas hasta `/stop` (donde está, o primero va andando a las coordenadas). Cada 1-4 minutos hace algo pequeño (mirar alrededor, saltar, dar un paso y volver) para que el servidor no lo eche por inactivo, y vuelve al sitio si lo empujan. Come con hambre, se defiende de los mobs que se acercan, duerme en una cama a menos de 16 bloques de noche o con tormenta, y tras morir o reconectar vuelve andando al sitio.
+```
+/afk                          → quedarse aquí mismo
+/afk 120 64 -340              → ir allí y quedarse
+```
+
 **`/inventory [grid]`**: enseña lo que lleva: armadura, barra e inventario.
 ```
 /inventory

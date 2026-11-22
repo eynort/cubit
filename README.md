@@ -116,6 +116,12 @@ Type commands in the bot's **console in the panel**. In game, whisper them as an
 /chop crimson,warped ~ ~ ~       → Nether stems
 ```
 
+**`/afk [here | <x> <y> <z>]`**: stays at a spot around the clock until `/stop` (where it stands, or it walks to the coordinates first). Every 1-4 minutes it does something small (looks around, jumps, steps aside and back) so the server does not kick it for idling, and it returns to the spot if pushed. It eats when hungry, fights back mobs that come close, sleeps in a bed within 16 blocks at night or in a thunderstorm, and after dying or reconnecting it walks back to the spot.
+```
+/afk                          → stay right here
+/afk 120 64 -340              → walk there and stay
+```
+
 **`/inventory [grid]`**: shows what it carries: armor, hotbar and inventory.
 ```
 /inventory

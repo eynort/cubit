@@ -72,6 +72,7 @@ La lista completa está en [ORDENES.md](ORDENES.md). También la ves con `/help`
 ## 4. Bueno saberlo
 
 - **Dueños**: solo los dueños pueden darle órdenes desde el juego. Se ponen con `--owner A,B`, o en los ajustes del bot en el panel.
+- **Inicio de sesión del servidor (AuthMe / nLogin)**: si el servidor pide `/login` o `/register`, pon la contraseña en los ajustes del bot en el panel ("Contraseña de acceso al servidor"); el bot contesta solo, con avisos en inglés o en español. Se guarda solo en `bot.json` y no se vuelve a mostrar ni se escribe en el log.
 - **Servidores premium**: añade `--microsoft`. La primera vez te da un código para entrar con tu cuenta de Microsoft.
 - **Memoria**: unos 70 MB por bot. `--view` (distancia de visión en chunks) y `--memlimit` (en MB) la bajan para móviles.
 - **Versión**: solo Minecraft Java **26.2** (protocolo 776) y servidores vanilla: no usa comandos de plugins.

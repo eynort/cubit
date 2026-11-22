@@ -4,6 +4,25 @@ Se escriben en la consola del bot, en el panel web o por `/msg <bot> <orden>` (s
 
 _Generado con `go run . --gen-docs docs`: no lo edites a mano._
 
+## /afk
+
+`/afk [<x>] [<y>] [<z>]`
+
+Quedarse en un sitio las 24 horas hasta /stop (aquí, o en las coordenadas: primero va andando): pequeños gestos al azar cada 1-4 minutos para que el servidor no lo eche por inactivo, vuelve al sitio si lo empujan, come con hambre, se defiende de los mobs que se acercan, duerme en una cama a menos de 16 bloques de noche o con tormenta, y vuelve al sitio tras morir o reconectar.
+
+- `<x>` (opcional): el sitio (~ = donde está el bot), o here
+- `<y>` (opcional): el sitio (~ = donde está el bot), o here
+- `<z>` (opcional): el sitio (~ = donde está el bot), o here
+
+**Ejemplos**
+
+```
+/afk               # quedarse donde está, hasta /stop
+/afk here          # lo mismo
+/afk 120 64 -340   # ir a ese bloque y quedarse
+/afk ~ ~ ~         # el bloque donde está ahora
+```
+
 ## /chop
 
 `/chop <woods> <x> <y> <z>`

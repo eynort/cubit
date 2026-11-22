@@ -29,12 +29,17 @@ type panelSettings struct {
 	Owners []string `json:"owners"`
 	Lang   string   `json:"lang"` // el idioma del bot: su ayuda y las sugerencias (en, es)
 	RCON   bool     `json:"rcon"` // (solo lectura) hay consola del servidor
+	// La contraseña de inicio de sesión del servidor (AuthMe / nLogin): solo
+	// entra (vacía = no cambiar); nunca sale: se ve si hay una (HasLoginPassword).
+	LoginPassword      string `json:"loginPassword,omitempty"`
+	ClearLoginPassword bool   `json:"clearLoginPassword,omitempty"`
+	HasLoginPassword   bool   `json:"hasLoginPassword"`
 }
 
 func currentSettings() panelSettings {
 	cfgMu.Lock()
 	defer cfgMu.Unlock()
-	return panelSettings{Server: cfg.Server, Name: cfg.Name, Owners: append([]string{}, cfg.Owners...), RCON: rcon.Addr() != "", Lang: lang()}
+	return panelSettings{Server: cfg.Server, Name: cfg.Name, Owners: append([]string{}, cfg.Owners...), RCON: rcon.Addr() != "", Lang: lang(), HasLoginPassword: cfg.LoginPassword != ""}
 }
 
 // applySettings guarda los ajustes; restart: hace falta reiniciar.
@@ -60,6 +65,9 @@ func applySettings(s panelSettings) (restart bool, err error) {
 			owners = append(owners, o)
 		}
 	}
+	if err := validLoginPassword(s.LoginPassword); err != nil {
+		return false, err
+	}
 	if s.Lang != "" && languages[s.Lang] == "" {
 		return false, i18n.Errorf("language %q: en or es", "idioma %q: en o es", s.Lang)
 	}
@@ -68,6 +76,12 @@ func applySettings(s panelSettings) (restart bool, err error) {
 	restart = !strings.EqualFold(s.Server, cfg.Server) || s.Name != cfg.Name
 	newOwners := !slices.Equal(owners, cfg.Owners)
 	cfg.Server, cfg.Name, cfg.Owners = s.Server, s.Name, owners
+	switch {
+	case s.ClearLoginPassword:
+		cfg.LoginPassword = ""
+	case s.LoginPassword != "":
+		cfg.LoginPassword = s.LoginPassword
+	}
 	remoteOwners = owners
 	err = saveConfigLocked()
 	cfgMu.Unlock()
@@ -82,6 +96,17 @@ func applySettings(s panelSettings) (restart bool, err error) {
 		rcon.OpOwners(owners)
 	}
 	return restart, nil
+}
+
+// validLoginPassword: sin espacios ni caracteres de control (iría partida en el comando).
+func validLoginPassword(pw string) error {
+	if pw == "" {
+		return nil
+	}
+	if len(pw) > 100 || strings.ContainsFunc(pw, func(r rune) bool { return r <= ' ' || r == 0x7f }) {
+		return i18n.Errorf("the server password cannot have spaces and is at most 100 characters", "la contraseña del servidor no puede llevar espacios y tiene como mucho 100 caracteres")
+	}
+	return nil
 }
 
 // restartRequested: al salir, main vuelve a arrancar el programa.

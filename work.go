@@ -94,6 +94,7 @@ var taskNames = map[string]text{
 	"talar":   {"the chopping", "talar"},
 	"minar":   {"the mining", "minar"},
 	"recoger": {"picking stuff up", "recoger cosas"},
+	"afk":     {"staying put", "quedarme quieto"},
 }
 
 func taskName(name string) string {

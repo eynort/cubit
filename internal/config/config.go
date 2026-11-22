@@ -8,5 +8,7 @@ type Bot struct {
 	Name       string   `json:"name"`   // el último
 	Owners     []string `json:"owners"`
 	PanelToken string   `json:"panel_token,omitempty"` // la clave del panel web (panel.go)
-	Seeded     bool     `json:"seeded,omitempty"`      // ya se usaron los flags una vez (--defaults)
+	// LoginPassword: la contraseña de AuthMe / nLogin del servidor (solo la lee el bot: nunca sale por la API)
+	LoginPassword string `json:"login_password,omitempty"`
+	Seeded        bool   `json:"seeded,omitempty"` // ya se usaron los flags una vez (--defaults)
 }
