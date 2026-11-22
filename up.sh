@@ -5,6 +5,7 @@
 #   ./up.sh [tu_nombre]    # lo levanta todo y te da la URL del panel / starts everything, prints the panel URL
 #   ./up.sh down           # lo para todo / stops everything
 #   ./up.sh logs           # lo que pasa / what is going on
+#   ./up.sh update         # actualiza Cubit (git pull + reconstruye solo el bot) / updates Cubit (pull + rebuild the bot only)
 #
 # Solo hace falta Docker (con compose). La configuración, en .env. / Only Docker (with compose) is needed.
 set -euo pipefail
@@ -17,6 +18,16 @@ sedi() { sed -i.bak "$@" && rm -f "${@: -1}.bak"; }
 case "${1:-}" in
 down) dc down; exit ;;
 logs) dc logs -f --tail 50 bot minecraft; exit ;;
+update)
+  # Solo el servicio "bot" (el hub y sus bots): el servidor de Minecraft y su mundo (mc-data) no se tocan.
+  # Only the "bot" service (hub + bots): the Minecraft server and its world (mc-data) are left alone.
+  echo "Actualizando Cubit… los bots se desconectan unos segundos y vuelven solos."
+  echo "Updating Cubit… the bots disconnect for a few seconds and reconnect by themselves."
+  git pull --ff-only
+  dc build bot
+  dc up -d --no-deps bot
+  echo "Hecho / Done. ./up.sh logs"
+  exit ;;
 esac
 
 if [ ! -f .env ]; then

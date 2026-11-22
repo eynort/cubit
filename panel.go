@@ -198,6 +198,12 @@ func startMonitor(ctx context.Context) {
 		_ = json.NewEncoder(w).Encode(out)
 	})
 	settingsRoutes(mux, ok)
+	mux.HandleFunc("/saveresume", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && ok(w, r) {
+			saveResume() // (el hub va a reiniciarse al actualizar: que retome el trabajo)
+			w.WriteHeader(http.StatusNoContent)
+		}
+	})
 	mux.HandleFunc("/reconnect", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost && ok(w, r) {
 			reconnectSoon() // (el hub: el servidor de pruebas acaba de encenderse)

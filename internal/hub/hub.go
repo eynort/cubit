@@ -57,11 +57,13 @@ const (
 
 // hubConfig es hub.json.
 type hubConfig struct {
-	Token   string      `json:"token"`
-	Bots    []string    `json:"bots"`              // los ids, en orden
-	Run     []string    `json:"run"`               // los que estaban en marcha (se arrancan al empezar)
-	Last    string      `json:"last,omitempty"`    // el último que se abrió en el panel
-	Servers []hubServer `json:"servers,omitempty"` // los externos (servers.go)
+	Schema        int         `json:"schema"` // el formato (config.HubSchema)
+	Token         string      `json:"token"`
+	Bots          []string    `json:"bots"`                      // los ids, en orden
+	Run           []string    `json:"run"`                       // los que estaban en marcha (se arrancan al empezar)
+	Last          string      `json:"last,omitempty"`            // el último que se abrió en el panel
+	Servers       []hubServer `json:"servers,omitempty"`         // los externos (servers.go)
+	NoUpdateCheck bool        `json:"no_update_check,omitempty"` // no mirar si hay versión nueva (por defecto sí)
 }
 
 type hubBot struct {
@@ -84,11 +86,13 @@ type hub struct {
 	bots map[string]*hubBot
 	ctx  context.Context
 	opts Options
+	up   *updater // las actualizaciones (update.go)
 }
 
 // Options: lo que el hub toma del programa que lo arranca.
 type Options struct {
 	DefaultOwner string // el dueño que propone el asistente (--owner)
+	Version      string // la versión de Cubit en marcha (vacío o "dev": compilación de desarrollo)
 }
 
 func (h *hub) save() {
@@ -102,12 +106,18 @@ func (h *hub) save() {
 // Run: el modo hub, con el panel en addr (no vuelve hasta Ctrl-C).
 func Run(addr string, opts Options) {
 	h := &hub{bots: map[string]*hubBot{}, opts: opts}
+	h.initUpdates()
+	if h.rollbackAtStart() {
+		return // (solo vuelve si no se pudo ejecutar el binario de antes)
+	}
+	h.migrateConfigs()
 	if b, err := os.ReadFile(hubFile); err == nil {
 		if err := json.Unmarshal(b, &h.cfg); err != nil {
 			log.Fatalf("%s: %v", hubFile, err)
 		}
 	}
 	h.migrate()
+	h.cfg.Schema = config.HubSchema
 	if h.cfg.Token == "" {
 		b := make([]byte, 12)
 		_, _ = rand.Read(b)
@@ -145,7 +155,7 @@ func Run(addr string, opts Options) {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	h.ctx = ctx
+	h.ctx, h.up.stop = ctx, stop
 	for _, id := range h.cfg.Run {
 		if b := h.bots[id]; b != nil {
 			_ = h.start(b)
@@ -158,6 +168,8 @@ func Run(addr string, opts Options) {
 	log.Printf("hub: panel en http://%s/?t=%s (%d bots)", host, h.cfg.Token, len(h.cfg.Bots))
 	srv := &http.Server{Handler: h.routes(), ReadHeaderTimeout: 5 * time.Second}
 	go func() { _ = srv.Serve(ln) }()
+	go h.up.chk.Loop(ctx)
+	go h.confirmUpdate(ln.Addr().String())
 	<-ctx.Done()
 	log.Print("hub: paro los bots")
 	h.mu.Lock()
@@ -185,6 +197,7 @@ func Run(addr string, opts Options) {
 	}
 	wg.Wait()
 	_ = srv.Close()
+	h.up.exit(h.opts.Version) // (si se pidió: vuelve a arrancar, ya con el binario nuevo)
 }
 
 // migrate: un bot.json suelto (de antes del hub) pasa a bots/<nombre>/, con
@@ -476,8 +489,9 @@ type State struct {
 		Addr      string `json:"addr,omitempty"`
 		Power     string `json:"power,omitempty"` // on, off, stopping, starting
 	} `json:"test_server"`
-	Setup    bool     `json:"setup"` // nada en marcha (o ningún bot): el asistente
-	Defaults struct { // para el asistente
+	Update   *UpdateView `json:"update,omitempty"` // versión nueva (update.go)
+	Setup    bool        `json:"setup"`            // nada en marcha (o ningún bot): el asistente
+	Defaults struct {    // para el asistente
 		Owner string `json:"owner"`
 	} `json:"defaults"`
 }
@@ -524,6 +538,13 @@ func (h *hub) state() State {
 	st.Setup = len(st.Bots) == 0 // (sin bots: el asistente; con bots, la lista aunque estén apagados)
 	_ = anyRunning
 	st.Defaults.Owner = h.opts.DefaultOwner
+	busy := 0
+	for _, b := range st.Bots {
+		if b.Running && b.Task != "" {
+			busy++
+		}
+	}
+	st.Update = h.updateView(busy)
 	return st
 }
 
@@ -592,7 +613,7 @@ func (h *hub) create(r newBotReq) (string, error) {
 			owners = append(owners, o)
 		}
 	}
-	c := config.Bot{Server: r.Server, Name: r.Name, Owners: owners, Seeded: true}
+	c := config.Bot{Schema: config.BotSchema, Server: r.Server, Name: r.Name, Owners: owners, Seeded: true}
 	h.mu.Lock()
 	id := h.newID(r.Name)
 	h.mu.Unlock()
@@ -785,5 +806,6 @@ func (h *hub) routes() http.Handler {
 	})
 	mcserver.Routes(mux, ok)
 	h.serverRoutesAPI(mux, ok)
+	h.updateRoutes(mux, ok, jsonOut)
 	return mux
 }

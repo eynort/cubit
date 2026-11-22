@@ -56,6 +56,8 @@ Al terminar, te escribe el enlace de tu panel:
 
 También puedes usar el programa suelto, sin Docker: descárgalo en [Releases](../../releases). Todo lo demás está en la **[Guía](docs/GUIA.md)**: cómo controlar el bot, el panel, los servidores y los móviles.
 
+**Actualizar:** el panel avisa cuando hay versión nueva y, según cómo lo instalaste, la pone con un clic o te dice qué comando ejecutar (`./up.sh update` con Docker). Mira [Actualizar](docs/GUIA.md#5-actualizar).
+
 ## Instrucciones para usar el bot
 
 Escribe las órdenes en la **consola del bot en el panel**. En el juego, mándaselas por privado siendo su dueño: `/msg MiBot follow Steve`. `~` es "donde está el bot", como en Minecraft.

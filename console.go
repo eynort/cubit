@@ -218,6 +218,7 @@ func (b *Bot) run(line string) error {
 
 // runCommand ejecuta una orden del bot con sus argumentos (la consola, los /msg).
 func (b *Bot) runCommand(c command, name string, args []string) error {
+	noteOrderLine("/" + name + " " + strings.Join(args, " "))
 	if err := c.run(b, args); err != nil {
 		return fmt.Errorf("/%s: %w", name, err)
 	}

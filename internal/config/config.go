@@ -4,6 +4,7 @@ package config
 
 // Bot es bot.json.
 type Bot struct {
+	Schema     int      `json:"schema"` // el formato (migrate.go)
 	Server     string   `json:"server"` // el último
 	Name       string   `json:"name"`   // el último
 	Owners     []string `json:"owners"`
