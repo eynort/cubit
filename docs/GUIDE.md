@@ -65,9 +65,12 @@ The orders you will use most:
 | `/excavate <x1> <y1> <z1> <x2> <y2> <z2>` | dig out that box |
 | `/excavate chests <x> <y> <z>` | where it stores the loot and finds pickaxes |
 | `/inventory` · `/drop` | what it carries; give it to you |
-| `/stop` | stop whatever it is doing |
+| `/queue <command>` · `a ; b` | a to-do list: tasks that run one after another |
+| `/stop` | stop whatever it is doing (and pause the queue) |
 
 The full list is in [COMMANDS.md](COMMANDS.md). `/help` in the console shows it too.
+
+To control the bots from scripts or other programs (list them, send commands, follow chat and tasks live), see the [HTTP API](API.md).
 
 ## 4. Good to know
 

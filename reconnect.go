@@ -119,7 +119,8 @@ type carryOver struct {
 	running bool // la tarea estaba en marcha (o volviendo a ella)
 }
 
-// inherit recoge la cola y el trabajo de la conexión anterior.
+// inherit recoge el trabajo de la conexión anterior (la cola de /queue es del
+// proceso, workQueue: pasa sola de una conexión a otra).
 func (b *Bot) inherit(prev *Bot) {
 	if prev == nil || prev.Tasks == nil {
 		return

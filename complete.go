@@ -210,8 +210,13 @@ func completeArg(c command, name string, args []arg, i int, parts []string, cur,
 		if start >= len(parts) {
 			start = len(parts) - 1
 		}
-		inner := suggestions("/" + strings.Join(parts[start:], " "))
-		head := "/" + strings.Join(parts[:start], " ") + " "
+		rest := append([]string(nil), parts[start:]...)
+		slash := "" // (/queue /chop … y /queue chop … valen las dos)
+		if strings.HasPrefix(rest[0], "/") {
+			slash, rest[0] = "/", strings.TrimPrefix(rest[0], "/")
+		}
+		inner := suggestions("/" + strings.Join(rest, " "))
+		head := "/" + strings.Join(parts[:start], " ") + " " + slash
 		for _, s := range inner {
 			if s.value != "" {
 				s.value = head + strings.TrimPrefix(s.value, "/")

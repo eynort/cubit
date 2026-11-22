@@ -224,6 +224,30 @@ Minar minerales como un jugador de verdad (strip mining, sin xray): desde donde 
 /mine ancient_debris 104 103 -224       # en el Nether: escombros ancestrales en y=15
 ```
 
+## /queue
+
+`/queue <command> | list | clear | remove <n> | resume | pause`
+
+Cola de tareas: apunta una orden para cuando acabe la tarea actual (/queue /chop oak ~ ~ ~), o encadena órdenes con ' ; ' en cualquier línea (la primera va ya, el resto espera). Si una tarea falla, la cola se pausa; /stop también la pausa.
+
+- `<command>`: la orden a encolar (chop, mine, excavate o goto x y z)
+- `list`: ver lo que espera
+- `clear`: olvidar todo lo que espera
+- `remove <n>`: olvidar uno por su número (mira list)
+- `resume`: seguir tras una pausa
+- `pause`: retener la cola (la tarea actual sigue)
+
+**Ejemplos**
+
+```
+/queue /chop oak ~ ~ ~                  # talar cuando acabe la tarea actual
+/queue list                             # lo que espera, numerado
+/queue remove 2                         # olvidar la segunda
+/queue clear                            # olvidarlas todas
+/queue resume                           # seguir tras un fallo o un /stop
+/mine iron ~ ~ ~ ; /chop oak 10 64 10   # lo mismo en cadena: la primera va ya, el resto espera
+```
+
 ## /quit
 
 `/quit`
