@@ -1,6 +1,7 @@
 # Paquetes .deb y .rpm de Cubit, con nfpm (https://nfpm.goreleaser.com).
 #
-#   VERSION=1.2.3 GOARCH=amd64 CUBIT_BIN=dist/cubit-linux-amd64 \
+#   (antes, compilar el binario en pkgtmp/cubit)
+#   VERSION=1.2.3 GOARCH=amd64 \
 #     nfpm package -f packaging/linux/nfpm.yaml -p deb -t dist/
 #
 # (ejecutar desde la raíz del repositorio)
@@ -19,7 +20,8 @@ license: MIT
 recommends:
   - xdg-utils
 contents:
-  - src: ${CUBIT_BIN}
+  # nfpm no sustituye variables en src: el binario va siempre aquí
+  - src: pkgtmp/cubit
     dst: /usr/bin/cubit
     file_info:
       mode: 0755

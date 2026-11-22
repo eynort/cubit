@@ -57,8 +57,8 @@ jobs:
           for arch in amd64 arm64; do
             for fmt in deb rpm; do
               CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath \
-                -ldflags "-s -w -X main.version=${GITHUB_REF_NAME} -X cubit/internal/update.Method=$fmt" -o "pkgtmp/cubit-$fmt-$arch" .
-              VERSION="${GITHUB_REF_NAME#v}" GOARCH="$arch" CUBIT_BIN="pkgtmp/cubit-$fmt-$arch" \
+                -ldflags "-s -w -X main.version=${GITHUB_REF_NAME} -X cubit/internal/update.Method=$fmt" -o pkgtmp/cubit .
+              VERSION="${GITHUB_REF_NAME#v}" GOARCH="$arch" \
                 nfpm package -f packaging/linux/nfpm.yaml -p "$fmt" -t dist/
             done
           done
