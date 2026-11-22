@@ -473,14 +473,14 @@ func (h *hub) dcBots() []dcBot {
 func (h *hub) runCommand(id, line string) error {
 	b := h.bot(id)
 	if b == nil {
-		return i18n.Errorf("no hay ningún bot %s", "there is no bot %s", id)
+		return i18n.Errorf("there is no bot %s", "no hay ningún bot %s", id)
 	}
 	b.mu.Lock()
 	port := b.port
 	on := b.cmd != nil
 	b.mu.Unlock()
 	if !on {
-		return i18n.Errorf("el bot está apagado", "the bot is off")
+		return i18n.Errorf("the bot is off", "el bot está apagado")
 	}
 	body, _ := json.Marshal(map[string]string{"line": line})
 	c := http.Client{Timeout: 5 * time.Second}

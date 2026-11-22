@@ -16,12 +16,12 @@ type guarded struct {
 func (f *Fighter) SetGuard(id uuid.UUID, name string) {
 	if id == uuid.Nil {
 		if g := f.guard.Swap(nil); g != nil {
-			f.logf("ya no protejo a %s", g.name)
+			f.logT("no longer guarding %s", "ya no protejo a %s", g.name)
 		}
 		return
 	}
 	f.guard.Store(&guarded{id: id, name: name})
-	f.logf("protegiendo a %s: quien le pegue, se las ve conmigo", name)
+	f.logT("guarding %s: whoever hits them deals with me", "protegiendo a %s: quien le pegue, se las ve conmigo", name)
 }
 
 // Guarding es a quién protege ("" si a nadie).

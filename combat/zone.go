@@ -52,7 +52,7 @@ func (z Zone) String() string {
 func (f *Fighter) SetZone(z *Zone) {
 	f.zone.Store(z)
 	if z != nil {
-		f.logf("zona de pelea: %s", z)
+		f.logT("fight zone: %s", "zona de pelea: %s", z)
 	}
 }
 
@@ -102,13 +102,13 @@ func (f *Fighter) scanZone() {
 		}
 		f.mu.Unlock()
 		if !known {
-			f.logf("%s está en la zona: a por él", a.name)
+			f.logT("%s is in the zone: going after them", "%s está en la zona: a por él", a.name)
 		}
 	}
 	f.mu.Lock()
 	for id, a := range f.aggressors {
 		if a.fromZone && !inside[id] && a.hits == 0 {
-			f.logf("%s salió de la zona", a.name)
+			f.logT("%s left the zone", "%s salió de la zona", a.name)
 			delete(f.aggressors, id)
 		}
 	}

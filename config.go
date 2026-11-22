@@ -107,7 +107,7 @@ func loadConfig() error {
 	}
 	remoteOwners = cfg.Owners
 	if len(remoteOwners) == 0 {
-		log.Print("sin dueños: nadie puede darle órdenes por /msg (--owner <jugador>)")
+		log.Print(tr("no owners: nobody can give orders by /msg (--owner <player>)", "sin dueños: nadie puede darle órdenes por /msg (--owner <jugador>)"))
 	}
 
 	cfg.Server, cfg.Name = serverAddr, botName

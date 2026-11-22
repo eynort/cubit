@@ -21,6 +21,7 @@ import (
 
 	"cubit/automation"
 	"cubit/combat"
+	"cubit/pathing"
 )
 
 // argKind es qué tipo de valor lleva un argumento: decide el autocompletado.
@@ -201,7 +202,7 @@ func init() {
 //	texto         un mensaje al chat
 func (b *Bot) exec(line string) {
 	if err := b.run(line); err != nil {
-		log.Print(err)
+		log.Print(errText(err))
 	}
 }
 
@@ -247,7 +248,7 @@ func (b *Bot) runCommand(c command, name string, args []string) error {
 // console lee órdenes línea a línea: la consola simple, para cuando la
 // salida no es una terminal (si lo es, se usa la interfaz de tui.go).
 func console(ctx context.Context) {
-	log.Print(`consola lista: escribe "/help" para ver las órdenes`)
+	log.Print(tr(`console ready: type "/help" to see the commands`, `consola lista: escribe "/help" para ver las órdenes`))
 	in := bufio.NewScanner(os.Stdin)
 	for in.Scan() {
 		if ctx.Err() != nil {
@@ -262,7 +263,7 @@ func execLine(line string) {
 	if b := current.Load(); b != nil {
 		b.exec(line)
 	} else {
-		log.Print("aún no estoy conectado")
+		log.Print(tr("not connected yet", "aún no estoy conectado"))
 	}
 }
 
@@ -378,7 +379,7 @@ func cmdStop(b *Bot, _ []string) error {
 	b.Tasks.Stop()
 	b.Combat.Reset()
 	b.Walker.Stop()
-	log.Print("parado")
+	log.Print(tr("stopped", "parado"))
 	return nil
 }
 
@@ -391,12 +392,12 @@ func cmdSay(b *Bot, args []string) error {
 
 func cmdStatus(b *Bot, _ []string) error {
 	st, p := b.Player.Status(), b.Player.Position()
-	log.Printf("vida %.1f, comida %d, bloques de construir %d, en %.1f %.1f %.1f, %s", st.Health, st.Food, b.Walker.BuildBlocks(), p.X, p.Y, p.Z, b.Combat.Status())
+	log.Printf(tr("health %.1f, food %d, building blocks %d, at %.1f %.1f %.1f, %s", "vida %.1f, comida %d, bloques de construir %d, en %.1f %.1f %.1f, %s"), st.Health, st.Food, b.Walker.BuildBlocks(), p.X, p.Y, p.Z, b.Combat.Status())
 	if t := b.Tasks.Status(); t != "" {
-		log.Printf("tarea: %s", t)
+		log.Printf(tr("task: %s", "tarea: %s"), t)
 	}
 	if q := queueSummary(); q != "" {
-		log.Printf("cola: %s", q)
+		log.Printf(tr("queue: %s", "cola: %s"), q)
 	}
 	return nil
 }
@@ -420,7 +421,7 @@ func cmdFollow(b *Bot, args []string) error {
 	}
 	ctx, _ := b.startMove(b.ctx)
 	setMoveKind("follow")
-	log.Printf("siguiendo a %s (\"stop\" para parar)", name)
+	log.Printf(tr("following %s (\"stop\" to stop)", "siguiendo a %s (\"stop\" para parar)"), name)
 	go b.follow(ctx, name, uid)
 	return nil
 }
@@ -448,7 +449,7 @@ func (b *Bot) follow(ctx context.Context, name string, uid uuid.UUID) {
 		e, ok := b.Entities.ByUUID(uid)
 		if ok {
 			if lost {
-				log.Printf("follow: vuelvo a ver a %s", name)
+				log.Printf(tr("follow: I can see %s again", "follow: vuelvo a ver a %s"), name)
 				lost = false
 			}
 			last = world.BlockPos{X: int(math.Floor(e.X)), Y: int(math.Floor(e.Y + 1e-6)), Z: int(math.Floor(e.Z))}
@@ -468,9 +469,9 @@ func (b *Bot) follow(ctx context.Context, name string, uid uuid.UUID) {
 		if !lost {
 			lost = true
 			if known {
-				log.Printf("follow: perdí de vista a %s, voy a donde lo vi (%v)", name, last)
+				log.Printf(tr("follow: lost sight of %s, going to where I last saw them (%v)", "follow: perdí de vista a %s, voy a donde lo vi (%v)"), name, last)
 			} else {
-				log.Printf("follow: no veo a %s, espero a que aparezca", name)
+				log.Printf(tr("follow: can't see %s, waiting for them to show up", "follow: no veo a %s, espero a que aparezca"), name)
 			}
 		}
 		if !known {
@@ -480,7 +481,7 @@ func (b *Bot) follow(ctx context.Context, name string, uid uuid.UUID) {
 		case walking && st == "walking":
 		case walking && (st == "arrived" || strings.HasPrefix(st, "failed")):
 			known, walking = false, false // allí ya no está: esperar a verlo
-			log.Printf("follow: %s no está donde lo vi; espero a que aparezca", name)
+			log.Printf(tr("follow: %s isn't where I saw them; waiting for them to show up", "follow: %s no está donde lo vi; espero a que aparezca"), name)
 		default:
 			b.Walker.SetSprint(true)
 			b.Walker.Goto(last)
@@ -716,7 +717,7 @@ func cmdGuard(b *Bot, args []string) error {
 	gen := setMoveKind("guard")
 	go b.follow(ctx, name, uid) // a su lado; durante una pelea se aparta y luego vuelve
 	if minutes > 0 {
-		log.Printf("protejo a %s durante %.0f min", name, minutes)
+		log.Printf(tr("guarding %s for %.0f min", "protejo a %s durante %.0f min"), name, minutes)
 		go func() {
 			select {
 			case <-ctx.Done():
@@ -724,7 +725,7 @@ func cmdGuard(b *Bot, args []string) error {
 			case <-time.After(time.Duration(minutes * float64(time.Minute))):
 			}
 			if currentMove() == "guard" && b.Combat.Guarding() == name {
-				log.Printf("guard: pasaron los %.0f min: dejo de proteger a %s", minutes, name)
+				log.Printf(tr("guard: %.0f min are up: no longer guarding %s", "guard: pasaron los %.0f min: dejo de proteger a %s"), minutes, name)
 				b.Combat.SetGuard(uuid.Nil, "")
 				clearMove(gen)
 				cancel()
@@ -753,13 +754,13 @@ func cmdGotoCoords(b *Bot, args []string) error {
 	}
 	ctx, cancel := b.startMove(b.ctx)
 	gen := setMoveKind("goto")
-	log.Printf("yendo a %.0f %.0f %.0f (a %.0f bloques)", x, y, z, math.Hypot(x-p.X, z-p.Z))
+	log.Printf(tr("going to %.0f %.0f %.0f (%.0f blocks away)", "yendo a %.0f %.0f %.0f (a %.0f bloques)"), x, y, z, math.Hypot(x-p.X, z-p.Z))
 	go func() {
 		defer cancel()
 		defer clearMove(gen)
 		ok := b.gotoCell(ctx, x, y, z, nil)
 		if ok {
-			log.Printf("goto: llegué a %.0f %.0f %.0f", x, y, z)
+			log.Printf(tr("goto: arrived at %.0f %.0f %.0f", "goto: llegué a %.0f %.0f %.0f"), x, y, z)
 		}
 		if ctx.Err() == nil {
 			b.moveEnded(ok)
@@ -782,11 +783,11 @@ func (b *Bot) gotoCell(ctx context.Context, x, y, z float64, stop func() bool) b
 	cx, cy, cz := int(math.Floor(x)), int(math.Floor(y)), int(math.Floor(z))
 	cell, ok := b.Walker.Ground(cx, cz, cy)
 	if !ok {
-		log.Printf("goto: no hay dónde pisar en la columna %d %d cerca de y=%d (±24)", cx, cz, cy)
+		log.Printf(tr("goto: nowhere to stand in column %d %d near y=%d (±24)", "goto: no hay dónde pisar en la columna %d %d cerca de y=%d (±24)"), cx, cz, cy)
 		return false
 	}
 	if cell.Y != cy {
-		log.Printf("goto: en %d %d %d no se puede estar de pie; voy al suelo más cercano: y=%d", cx, cy, cz, cell.Y)
+		log.Printf(tr("goto: can't stand at %d %d %d; going to the nearest ground: y=%d", "goto: en %d %d %d no se puede estar de pie; voy al suelo más cercano: y=%d"), cx, cy, cz, cell.Y)
 	}
 	defer b.Walker.Stop()
 	for fails := 0; fails <= 3; {
@@ -814,7 +815,7 @@ func (b *Bot) gotoCell(ctx context.Context, x, y, z float64, stop func() bool) b
 			if st != "walking" {
 				fails++
 				if strings.HasPrefix(st, "failed") {
-					log.Printf("goto: no llego a %d %d %d (%s)", cell.X, cell.Y, cell.Z, st)
+					log.Printf(tr("goto: can't reach %d %d %d (%s)", "goto: no llego a %d %d %d (%s)"), cell.X, cell.Y, cell.Z, pathing.StatusText(st))
 				}
 				break
 			}
@@ -855,7 +856,7 @@ func (b *Bot) gotoCoordsY(ctx context.Context, x, y, z float64, stop func() bool
 		}
 		goal, ok := b.segment(p, x, z, d, fails, nearY)
 		if !ok {
-			log.Printf("goto: no encuentro por dónde seguir hacia %.0f %.0f (a %.0f bloques)", x, z, d)
+			log.Printf(tr("goto: no path onward to %.0f %.0f (%.0f blocks away)", "goto: no encuentro por dónde seguir hacia %.0f %.0f (a %.0f bloques)"), x, z, d)
 			return false
 		}
 		b.Walker.SetSprint(true)
@@ -881,7 +882,7 @@ func (b *Bot) gotoCoordsY(ctx context.Context, x, y, z float64, stop func() bool
 			if st := b.Walker.Status(); st != "walking" {
 				if strings.HasPrefix(st, "failed") {
 					if fails++; fails > 6 {
-						log.Printf("goto: me rindo a %.0f bloques de %.0f %.0f (%s)", d, x, z, st)
+						log.Printf(tr("goto: giving up %.0f blocks from %.0f %.0f (%s)", "goto: me rindo a %.0f bloques de %.0f %.0f (%s)"), d, x, z, pathing.StatusText(st))
 						return false
 					}
 				} else {

@@ -50,6 +50,14 @@ func (s stance) String() string {
 	return [...]string{"igualado", "le gano", "me supera", "no le gano"}[s]
 }
 
+// label: la postura en inglés o en español (para /status; String, la de los logs).
+func (s stance) label(es bool) string {
+	if es {
+		return s.String()
+	}
+	return [...]string{"even", "I'm stronger", "they're stronger", "can't win"}[s]
+}
+
 // loadout es lo que lleva un luchador, en lo que cuenta para el intercambio.
 type loadout struct {
 	weapon  string  // el arma ("" el puño)

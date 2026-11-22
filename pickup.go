@@ -175,14 +175,14 @@ func (b *Bot) makeRoomForItem(name string) bool {
 	}
 	s.Unlock()
 	if junkSlot < 0 {
-		log.Printf("me tiran %s y no me cabe: no llevo basura que tirar", name)
+		log.Printf(tr("someone threw me %s and my inventory is full: no junk to drop", "me tiran %s y no me cabe: no llevo basura que tirar"), name)
 		return false
 	}
 	if err := s.Click(0, junkSlot, 1, types.ContainerInputThrow); err != nil {
 		log.Printf("hacer sitio: %v", err)
 		return false
 	}
-	log.Printf("me tiran %s y no me cabe: tiro %d de %s para hacerle sitio", name, junkCount, junkName)
+	log.Printf(tr("someone threw me %s and my inventory is full: dropping %d %s to make room", "me tiran %s y no me cabe: tiro %d de %s para hacerle sitio"), name, junkCount, junkName)
 	return true
 }
 

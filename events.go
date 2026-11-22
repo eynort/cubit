@@ -26,7 +26,7 @@ import (
 
 // onJoin se llama cuando el bot ya está dentro del mundo.
 func (b *Bot) onJoin() error {
-	log.Print("dentro del servidor")
+	log.Print(tr("joined the server", "dentro del servidor"))
 	return nil
 }
 
@@ -44,7 +44,7 @@ func (b *Bot) onHealthChange(health float32, food int32, saturation float32) err
 func (b *Bot) onDeath() error {
 	p := b.Player.Position()
 	dim := string(b.Player.Spawn.Dimension)
-	log.Printf("he muerto en %.0f %.0f %.0f, reapareciendo", p.X, p.Y, p.Z)
+	log.Printf(tr("died at %.0f %.0f %.0f, respawning", "he muerto en %.0f %.0f %.0f, reapareciendo"), p.X, p.Y, p.Z)
 	_ = dim
 	if b.carriedSomething() {
 		// solo si llevaba algo (una muerte con el inventario vacío no tira
@@ -55,9 +55,9 @@ func (b *Bot) onDeath() error {
 	working := b.workAtDeath()
 	if b.Tasks != nil && b.Tasks.Status() != "" {
 		if working {
-			log.Print("tarea parada: he muerto (la retomo al volver)")
+			log.Print(tr("task stopped: I died (resuming it after respawn)", "tarea parada: he muerto (la retomo al volver)"))
 		} else {
-			log.Print("tarea parada: he muerto")
+			log.Print(tr("task stopped: I died", "tarea parada: he muerto"))
 		}
 		go b.Tasks.Stop() // espera a que acabe: no aquí, que esto es la lectura del servidor
 	}
@@ -125,7 +125,7 @@ func (b *Bot) onSystemChat(m chat.Message, overlay bool) error {
 	}
 	text := m.ClearString()
 	b.checkLoginPrompt(text)
-	log.Print("[sistema] ", text)
+	log.Print(tr("[system] ", "[sistema] "), text)
 	emitEvent(apiEvent{Type: "system", Text: text})
 	return nil
 }
@@ -167,23 +167,23 @@ func (b *Bot) backToDeath(d deathSpot) {
 	}
 	time.Sleep(2 * time.Second)
 	if time.Since(d.at) > 4*time.Minute {
-		log.Print("lo que tiré al morir ya habrá desaparecido (5 minutos): no vuelvo")
+		log.Print(tr("my dropped items have despawned by now (5 minutes): not going back", "lo que tiré al morir ya habrá desaparecido (5 minutos): no vuelvo"))
 		b.lastDeath.Store(nil)
 		return
 	}
 	if string(b.Player.Spawn.Dimension) != dim {
-		log.Printf("morí en otra dimensión (%s): no puedo volver andando a por mis cosas", dim)
+		log.Printf(tr("died in another dimension (%s): can't walk back for my items", "morí en otra dimensión (%s): no puedo volver andando a por mis cosas"), dim)
 		return
 	}
 	p := b.Player.Position()
 	// lo tirado dura 5 minutos: corriendo (5,6 bloques/s) son unos 1700 bloques,
 	// y por el camino se tarda más. Más lejos (en los logs: a 28 000 bloques) no se llega
 	if far := math.Hypot(x-p.X, z-p.Z); far > 1000 {
-		log.Printf("morí a %.0f bloques de aquí: mis cosas desaparecen antes de que llegue, no vuelvo", far)
+		log.Printf(tr("died %.0f blocks from here: my items would despawn before I get there, not going back", "morí a %.0f bloques de aquí: mis cosas desaparecen antes de que llegue, no vuelvo"), far)
 		b.lastDeath.Store(nil)
 		return
 	}
-	log.Printf("vuelvo a donde morí (%.0f %.0f %.0f, a %.0f bloques) a recoger mis cosas", x, y, z, math.Hypot(x-p.X, z-p.Z))
+	log.Printf(tr("going back to where I died (%.0f %.0f %.0f, %.0f blocks away) to pick up my items", "vuelvo a donde morí (%.0f %.0f %.0f, a %.0f bloques) a recoger mis cosas"), x, y, z, math.Hypot(x-p.X, z-p.Z))
 	ctx, cancel := b.startMove(b.ctx)
 	gen := setMoveKind("goto")
 	defer cancel()
@@ -191,17 +191,17 @@ func (b *Bot) backToDeath(d deathSpot) {
 	stop := func() bool { return time.Since(d.at) > 5*time.Minute }
 	if !b.gotoCoords(ctx, x, z, stop) {
 		if stop() {
-			log.Print("ya pasaron 5 minutos desde que morí: lo que tiré ya no está")
+			log.Print(tr("5 minutes since I died: my items are gone", "ya pasaron 5 minutos desde que morí: lo que tiré ya no está"))
 			b.lastDeath.Store(nil)
 			return
 		}
 		if ctx.Err() == nil {
-			log.Print("no consigo volver a donde morí")
+			log.Print(tr("can't get back to where I died", "no consigo volver a donde morí"))
 		}
 		return
 	}
 	clearMove(gen)
-	log.Print("en el sitio donde morí: recojo lo que haya")
+	log.Print(tr("at my death spot: picking up whatever is there", "en el sitio donde morí: recojo lo que haya"))
 	b.lastDeath.Store(nil)
 	b.Tasks.Start(b.ctx, "recoger", automation.PickUp(12))
 }

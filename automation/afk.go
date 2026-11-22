@@ -2,7 +2,6 @@ package automation
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"math/rand"
 	"strings"
@@ -13,6 +12,8 @@ import (
 	"github.com/mj41/go-mc26-kit/bot/world"
 	"github.com/mj41/go-mc26/data/packetid"
 	pk "github.com/mj41/go-mc26/net/packet"
+
+	"cubit/internal/i18n"
 )
 
 // /afk: el bot se queda en un sitio (todo el tiempo que haga falta) sin que
@@ -68,14 +69,14 @@ func (j *Job) afk(o AfkOptions, run int) error {
 		seed = rand.Int63()
 	}
 	rng := rand.New(rand.NewSource(seed))
-	j.Status("quieto en %d %d %d", o.Spot.X, o.Spot.Y, o.Spot.Z)
+	j.StatusT("staying at %d %d %d", "quieto en %d %d %d", o.Spot.X, o.Spot.Y, o.Spot.Z)
 
 	if err := j.afkBack(o); err != nil {
 		if j.ctx.Err() != nil {
 			return j.ctx.Err()
 		}
 		if run == 1 {
-			return fmt.Errorf("no llego a %d %d %d: %v", o.Spot.X, o.Spot.Y, o.Spot.Z, err)
+			return i18n.Errorf("can't reach %d %d %d: %v", "no llego a %d %d %d: %v", o.Spot.X, o.Spot.Y, o.Spot.Z, err)
 		}
 		j.sayf("I can't get back to my spot, I'll keep trying", "no consigo volver a mi sitio, lo sigo intentando")
 	} else if run == 1 {
@@ -184,7 +185,7 @@ func (j *Job) afkBack(o AfkOptions) error {
 			if err := j.ctx.Err(); err != nil {
 				return err
 			}
-			return fmt.Errorf("no encuentro el camino")
+			return i18n.Errorf("can't find a path", "no encuentro el camino")
 		}
 	}
 	return j.GoTo(o.Spot)
@@ -380,7 +381,7 @@ func (j *Job) afkSleep(o AfkOptions, toldFail *bool) (bool, error) {
 		}
 		return false, j.afkBack(o)
 	}
-	j.Logf("afk: durmiendo en %v", bed)
+	j.LogT("sleeping in %v", "afk: durmiendo en %v", bed)
 	for t := 0; t < afkSleepMax; t += 20 {
 		if err := j.afkWait(20, &bad); err != nil {
 			return false, err

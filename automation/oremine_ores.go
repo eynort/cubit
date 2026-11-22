@@ -5,6 +5,8 @@ import (
 	"slices"
 	"sort"
 	"strings"
+
+	"cubit/internal/i18n"
 )
 
 // /mine: minar minerales como un jugador (strip mining). Aquí, qué minerales
@@ -109,11 +111,11 @@ func ParseOres(list string) ([]OreSpec, error) {
 			}
 		}
 		if !found {
-			return nil, fmt.Errorf("mineral desconocido %q (hay: %s)", w, strings.Join(OreKeys(), ", "))
+			return nil, i18n.Errorf("unknown ore %q (options: %s)", "mineral desconocido %q (hay: %s)", w, strings.Join(OreKeys(), ", "))
 		}
 	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("no hay ningún mineral (hay: %s)", strings.Join(OreKeys(), ", "))
+		return nil, i18n.Errorf("no ore given (options: %s)", "no hay ningún mineral (hay: %s)", strings.Join(OreKeys(), ", "))
 	}
 	return out, nil
 }
@@ -138,13 +140,14 @@ func (o OreSpec) density(y int) float64 {
 // separado. why explica la elección.
 func ChooseLayer(os []OreSpec, surface int) (y int, why string, err error) {
 	if len(os) == 0 {
-		return 0, "", fmt.Errorf("sin minerales")
+		return 0, "", i18n.Errorf("no ores", "sin minerales")
 	}
 	lo, hi := -1<<30, 1<<30
 	eff := make([]OreSpec, len(os))
 	for i, o := range os {
 		if o.Dim != os[0].Dim {
-			return 0, "", fmt.Errorf("%s es de %s y %s de %s: no se minan juntos", os[0].Key, dimName(os[0].Dim), o.Key, dimName(o.Dim))
+			return 0, "", &i18n.Error{EN: fmt.Sprintf("%s is from %s and %s from %s: they can't be mined together", os[0].Key, dimNameEN(os[0].Dim), o.Key, dimNameEN(o.Dim)),
+				ES: fmt.Sprintf("%s es de %s y %s de %s: no se minan juntos", os[0].Key, dimName(os[0].Dim), o.Key, dimName(o.Dim))}
 		}
 		if o.Cap && o.Hi > surface-surfaceG { // la capa ideal queda en el aire: la mejor bajo la superficie
 			o.Hi = max(surface-surfaceG, o.Lo)
@@ -158,7 +161,7 @@ func ChooseLayer(os []OreSpec, surface int) (y int, why string, err error) {
 		for _, o := range eff {
 			parts = append(parts, fmt.Sprintf("%s y %d..%d", o.Key, o.Lo, o.Hi))
 		}
-		return 0, "", fmt.Errorf("no comparten capa (%s): mínalos por separado", strings.Join(parts, ", "))
+		return 0, "", i18n.Errorf("they share no layer (%s): mine them separately", "no comparten capa (%s): mínalos por separado", strings.Join(parts, ", "))
 	}
 	if os[0].Dim == overworld {
 		lo = max(lo, -59) // (por debajo, el lecho de roca)

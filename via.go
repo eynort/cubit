@@ -20,6 +20,8 @@ import (
 	"cubit/internal/mc"
 	"cubit/internal/mcserver"
 	"cubit/internal/viaproxy"
+
+	"cubit/internal/i18n"
 )
 
 var viaFlag = flag.String("viaproxy", "", "ViaProxy para servidores de otra versión de Minecraft: host:puerto de uno ya en marcha, o (solo con --hub) la ruta a ViaProxy-<versión>.jar para que el hub lo lance. También MCBOT_VIAPROXY")
@@ -48,13 +50,13 @@ func route(ctx context.Context, addr string) (string, bot.JoinOptions, error) {
 	}
 	st, err := mc.Ping(ctx, addr, 6*time.Second)
 	if err != nil {
-		log.Printf("no pude preguntar la versión de %s (%v): entro directo", addr, err)
+		log.Printf(tr("couldn't ask %s for its version (%v): connecting directly", "no pude preguntar la versión de %s (%v): entro directo"), addr, err)
 		return addr, opts, nil
 	}
 	d := viaproxy.Decide(bot.ProtocolVersion, st, viaAddr())
 	switch d.Mode {
 	case viaproxy.Unavailable:
-		return addr, opts, fmt.Errorf("el servidor %s es de Minecraft %s (protocolo %d) y el bot habla %s: hace falta ViaProxy (--viaproxy host:puerto o MCBOT_VIAPROXY; ver docs/GUIA.md, «Otras versiones de Minecraft»)",
+		return addr, opts, i18n.Errorf("the server %s runs Minecraft %s (protocol %d) and the bot speaks %s: ViaProxy is needed (--viaproxy host:port or MCBOT_VIAPROXY; see docs/GUIA.md, \"Other Minecraft versions\")", "el servidor %s es de Minecraft %s (protocolo %d) y el bot habla %s: hace falta ViaProxy (--viaproxy host:puerto o MCBOT_VIAPROXY; ver docs/GUIA.md, «Otras versiones de Minecraft»)",
 			addr, firstNonEmpty(st.Name, "?"), st.Protocol, versionName())
 	case viaproxy.Via:
 		host, p := mc.SplitAddr(addr)
@@ -63,9 +65,9 @@ func route(ctx context.Context, addr string) (string, bot.JoinOptions, error) {
 			return addr, opts, err
 		}
 		viaActive = true
-		log.Printf("el servidor es de Minecraft %s: entro por ViaProxy (%s)", firstNonEmpty(d.Version, st.Name), viaAddr())
+		log.Printf(tr("the server runs Minecraft %s: connecting via ViaProxy (%s)", "el servidor es de Minecraft %s: entro por ViaProxy (%s)"), firstNonEmpty(d.Version, st.Name), viaAddr())
 		if *microsoftFlag {
-			log.Print("ojo: por ViaProxy entra la cuenta que tenga ViaProxy, no la de Microsoft del bot")
+			log.Print(tr("note: through ViaProxy the account logged into ViaProxy joins, not the bot's Microsoft account", "ojo: por ViaProxy entra la cuenta que tenga ViaProxy, no la de Microsoft del bot"))
 		}
 		opts.MCDialer = viaproxy.Dialer{Via: viaAddr()}
 		return viaproxy.ConnectAddr(host, port, d.Version), opts, nil

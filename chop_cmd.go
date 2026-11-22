@@ -34,7 +34,7 @@ func cmdChop(b *Bot, args []string) error {
 		v[i] = int(math.Floor(n))
 	}
 	center := world.BlockPos{X: v[0], Y: v[1], Z: v[2]}
-	log.Printf("talar %v alrededor de %v (radio %d; /stop para parar)", kinds, center, automation.ChopRadius)
+	log.Printf(tr("chop: %v around %v (radius %d; /stop to stop)", "talar %v alrededor de %v (radio %d; /stop para parar)"), kinds, center, automation.ChopRadius)
 	b.startWork("talar", automation.Chop(kinds, center))
 	return nil
 }

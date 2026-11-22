@@ -65,7 +65,7 @@ func saveResume() {
 		log.Printf("resume: no se guardó: %v", err)
 		return
 	}
-	log.Printf("resume: apunto %s para retomarlo al reiniciar", line)
+	log.Printf(tr("resume: saved %s to resume it after a restart", "resume: apunto %s para retomarlo al reiniciar"), line)
 }
 
 var resumeOnce sync.Once
@@ -87,7 +87,7 @@ func (b *Bot) resumeAfterRestart() {
 		if b.ctx.Err() != nil || b.Tasks.Status() != "" {
 			return
 		}
-		log.Printf("resume: retomo %s tras reiniciar", d.Line)
+		log.Printf(tr("resume: resuming %s after the restart", "resume: retomo %s tras reiniciar"), d.Line)
 		b.exec(d.Line)
 	})
 }

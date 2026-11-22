@@ -41,7 +41,7 @@ var finalKick = regexp.MustCompile(`(?i)(banned|baneado|ban(ned)? (permanente|te
 
 // runForever: conexión tras conexión mientras haga falta.
 func runForever(ctx context.Context, quit func()) error {
-	log.Printf("Minecraft %s · servidor %s · %s", versionName(), serverAddr, botName)
+	log.Printf(tr("Minecraft %s · server %s · %s", "Minecraft %s · servidor %s · %s"), versionName(), serverAddr, botName)
 	ui := startUI()
 	defer ui.Stop()
 	startMonitor(ctx)
@@ -66,7 +66,7 @@ func runForever(ctx context.Context, quit func()) error {
 		if !b.connectedAt.IsZero() && time.Since(b.connectedAt) > 3*time.Minute {
 			wait = 5 * time.Second // (estuvo un rato dentro: no es un fallo seguido)
 		}
-		log.Printf("vuelvo a entrar en %s (Ctrl+C para salir)", wait.Round(time.Second))
+		log.Printf(tr("reconnecting in %s (Ctrl+C to quit)", "vuelvo a entrar en %s (Ctrl+C para salir)"), wait.Round(time.Second))
 		select {
 		case <-ctx.Done():
 			return nil
@@ -99,7 +99,7 @@ func (b *Bot) setAuth(ctx context.Context) error {
 		return err
 	}
 	if !strings.EqualFold(acc.Profile.Name, botName) {
-		log.Printf("microsoft: la cuenta se llama %s (no %s): uso ese nombre", acc.Profile.Name, botName)
+		log.Printf(tr("microsoft: the account is called %s (not %s): using that name", "microsoft: la cuenta se llama %s (no %s): uso ese nombre"), acc.Profile.Name, botName)
 		botName = acc.Profile.Name
 	}
 	id := acc.Profile.ID
@@ -154,7 +154,7 @@ func (b *Bot) resumeAfterReconnect() {
 		if b.ctx.Err() != nil {
 			return
 		}
-		log.Printf("reconexión: retomo /%s", c.name)
+		log.Printf(tr("reconnect: resuming /%s", "reconexión: retomo /%s"), c.name)
 		b.resumeWork(nil)
 	}
 }

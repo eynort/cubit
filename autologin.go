@@ -106,9 +106,9 @@ func (b *Bot) checkLoginPrompt(text string) {
 	n := b.login.sent[kind]
 	b.login.mu.Unlock()
 	if n == maxLoginAnswers {
-		log.Print("[login] ya van varios intentos: si sigue pidiéndolo, la contraseña de los ajustes no vale")
+		log.Print(tr("[login] several attempts already: if it keeps asking, the password in the settings is wrong", "[login] ya van varios intentos: si sigue pidiéndolo, la contraseña de los ajustes no vale"))
 	}
-	log.Printf("[login] el servidor pide /%s: contesto con la contraseña de los ajustes", kind)
+	log.Printf(tr("[login] the server asks for /%s: answering with the password from the settings", "[login] el servidor pide /%s: contesto con la contraseña de los ajustes"), kind)
 	go func() {
 		select {
 		case <-time.After(loginDelay):

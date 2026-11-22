@@ -374,7 +374,7 @@ var msLoginLine = regexp.MustCompile(`CUENTA DE MICROSOFT: abre (\S+) y escribe 
 // loginFrom: el último código pedido en la salida del bot, si aún no entró.
 func loginFrom(tail []string) *msLogin {
 	for i := len(tail) - 1; i >= 0; i-- {
-		if strings.Contains(tail[i], "login correcto") || strings.Contains(tail[i], "microsoft: la cuenta") {
+		if strings.Contains(tail[i], "login correcto") || strings.Contains(tail[i], "login ok") || strings.Contains(tail[i], "microsoft: la cuenta") || strings.Contains(tail[i], "microsoft: the account") {
 			return nil
 		}
 		if m := msLoginLine.FindStringSubmatch(tail[i]); m != nil {

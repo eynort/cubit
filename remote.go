@@ -39,7 +39,7 @@ func (b *Bot) onWhisper(from, text string) {
 		return // la respuesta a "¿dónde estás?" de /goto (ya anotada), no una orden
 	}
 	if !allowedRemote(from) {
-		log.Printf("ignoro la orden por /msg de %s (no está en remoteOwners): %s", from, text)
+		log.Printf(tr("ignoring /msg order from %s (not an owner): %s", "ignoro la orden por /msg de %s (no está en remoteOwners): %s"), from, text)
 		return
 	}
 	if llmHandles(text) { // lenguaje natural: lo atiende el modelo local (llm.go)
@@ -47,11 +47,11 @@ func (b *Bot) onWhisper(from, text string) {
 		return
 	}
 	line := remoteLine(text, from)
-	log.Printf("[orden de %s por /msg] %s", from, line)
+	log.Printf(tr("[order from %s by /msg] %s", "[orden de %s por /msg] %s"), from, line)
 	reply := tr("on it", "voy")
 	if err := asOrderFrom(from, func() error { return b.run(line) }); err != nil {
 		reply = tr("can't: ", "no puedo: ") + errText(err)
-		log.Print(err)
+		log.Print(errText(err))
 	}
 	b.whisper(from, reply)
 }

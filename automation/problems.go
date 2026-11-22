@@ -60,7 +60,7 @@ func (j *Job) snapshot(msg string) {
 	problemSeq.Unlock()
 	j.problemIDs = append(j.problemIDs, n)
 	j.r.mu.Lock()
-	name, status := j.r.name, j.r.status
+	name, status := j.r.name, j.r.statusNow()
 	j.r.mu.Unlock()
 	if j.r.d.Trace != nil {
 		j.r.d.Trace("PROBLEMA #%d [%s] %s\n%s", n, name, msg, j.describe(status))
@@ -82,7 +82,7 @@ func (j *Job) ProblemSummary() string {
 	if len(ids) > 1 {
 		which = fmt.Sprintf("#%d-#%d", ids[0], ids[len(ids)-1])
 	}
-	return fmt.Sprintf(" — %d problemas (PROBLEMA %s en el log de la sesión)", len(ids), which)
+	return fmt.Sprintf(j.tr(" — %d problems (PROBLEMA %s in the session log)", " — %d problemas (PROBLEMA %s en el log de la sesión)"), len(ids), which)
 }
 
 // describe es la ficha: el estado del bot y lo que tiene alrededor.

@@ -62,7 +62,7 @@ func TestProblemSnapshot(t *testing.T) {
 				t.Errorf("la ficha no tiene %q", want)
 			}
 		}
-		if !strings.Contains(summary, "6 problemas") {
+		if !strings.Contains(summary, "6 problems") {
 			t.Errorf("resumen: %q", summary)
 		}
 	})

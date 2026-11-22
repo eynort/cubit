@@ -62,7 +62,7 @@ func startExcavate(b *Bot, box automation.Box) error {
 	if n := len(b.Tasks.Store.ExcavateChestList()); n > 0 {
 		where = fmt.Sprintf("la basura la tiro y lo valioso lo guardo en los cofres (%d)", n)
 	}
-	log.Printf("excavar %s (%d bloques como mucho): %s (/stop para parar)", box, box.Volume(), where)
+	log.Printf(tr("excavate: %s (%d blocks at most): %s (/stop to stop)", "excavar %s (%d bloques como mucho): %s (/stop para parar)"), box, box.Volume(), where)
 	b.startWork("excavar", automation.Excavate(box))
 	return nil
 }

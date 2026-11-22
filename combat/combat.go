@@ -31,6 +31,8 @@ import (
 	"github.com/mj41/go-mc26/data/packetid"
 	pk "github.com/mj41/go-mc26/net/packet"
 	"github.com/mj41/go-mc26/protocol/play"
+
+	"cubit/internal/i18n"
 )
 
 // Ajustes del combate.
@@ -111,6 +113,14 @@ const (
 
 func (m mode) String() string {
 	return [...]string{"tranquilo", "peleando", "retirándose", "comiendo", "en guardia", "en el búnker", "maniobrando"}[m]
+}
+
+// label: el modo en inglés o en español (para /status y el panel; String, el de los logs).
+func (m mode) label(es bool) string {
+	if es {
+		return m.String()
+	}
+	return [...]string{"idle", "fighting", "retreating", "eating", "on guard", "in the bunker", "maneuvering"}[m]
 }
 
 // plan es lo que la goroutine de decisiones le dice a Think (cada tick).
@@ -273,8 +283,11 @@ func (f *Fighter) logf(format string, args ...any) {
 		f.Log(format, args...)
 		return
 	}
-	log.Printf("[pelea] "+format, args...)
+	log.Printf(i18n.T("[fight] ", "[pelea] ")+format, args...)
 }
+
+// logT es logf en el idioma del bot (en, es: los dos con los mismos %v).
+func (f *Fighter) logT(en, es string, args ...any) { f.logf(i18n.T(en, es), args...) }
 
 // Fighting dice si está en combate (peleando, retirándose o comiendo en pelea).
 func (f *Fighter) Fighting() bool { return f.plan.Load().mode != idle }
@@ -307,11 +320,22 @@ func (f *Fighter) Engage(id int32, name string) {
 	}
 	a.lastHit = time.Now()
 	f.mu.Unlock()
-	f.logf("a por %s", name)
+	f.logT("going after %s", "a por %s", name)
 }
 
-// Status resume el estado del combate para la consola.
-func (f *Fighter) Status() string {
+// Status resume el estado del combate para la consola, en el idioma del bot.
+func (f *Fighter) Status() string { return f.status(i18n.Lang() == "es") }
+
+// StatusEN es Status en inglés (el estado que se le da a la IA).
+func (f *Fighter) StatusEN() string { return f.status(false) }
+
+func (f *Fighter) status(es bool) string {
+	t := func(en, sp string) string {
+		if es {
+			return sp
+		}
+		return en
+	}
 	f.mu.Lock()
 	var names []string
 	for _, a := range f.aggressors {
@@ -319,18 +343,18 @@ func (f *Fighter) Status() string {
 	}
 	f.mu.Unlock()
 	pl := f.plan.Load()
-	st := pl.mode.String()
+	st := pl.mode.label(es)
 	if len(names) > 0 {
-		st = fmt.Sprintf("%s contra %v", pl.mode, names)
+		st = fmt.Sprintf(t("%s against %v", "%s contra %v"), st, names)
 	}
 	if z := f.zone.Load(); z != nil {
-		st += " (zona " + z.String() + ")"
+		st += t(" (zone ", " (zona ") + z.String() + ")"
 	}
 	if g := f.guard.Load(); g != nil {
-		st += " (protegiendo a " + g.name + ")"
+		st += t(" (protecting ", " (protegiendo a ") + g.name + ")"
 	}
 	if pl.target != 0 && pl.mode != idle && pl.stance != stanceEven {
-		st += " [" + pl.stance.String() + "]"
+		st += " [" + pl.stance.label(es) + "]"
 	}
 	return st
 }
@@ -341,7 +365,7 @@ func (f *Fighter) nameOf(id uuid.UUID, eid int32) string {
 			return n
 		}
 	}
-	return fmt.Sprintf("jugador#%d", eid)
+	return i18n.Tf("player#%d", "jugador#%d", eid)
 }
 
 // onDamage anota quién le hizo daño (ClientboundDamageEvent).
@@ -532,7 +556,7 @@ func (f *Fighter) step(ctx context.Context) {
 	if len(foes) == 0 {
 		if cur.mode != idle {
 			if time.Since(f.lastEndLog) > 5*time.Second { // (huyendo, entra y sale de la pelea a cada paso)
-				f.logf("pelea terminada (vida %.1f, comida %d)", st.Health, st.Food)
+				f.logT("fight over (health %.1f, food %d)", "pelea terminada (vida %.1f, comida %d)", st.Health, st.Food)
 				f.lastEndLog = time.Now()
 			}
 			f.stopMoving()
@@ -652,7 +676,7 @@ func (f *Fighter) step(ctx context.Context) {
 		case edge:
 			// (sin comer: a pelear, y el borde lo lleva thinkFight)
 		case !coming:
-			f.logf("como una dorada (vida %.1f)", st.Health)
+			f.logT("eating a golden apple (health %.1f)", "como una dorada (vida %.1f)", st.Health)
 			f.eat(ctx, gap, cx, cz)
 			return
 		case f.wantBunker(target) && time.Now().After(f.standUntil):
@@ -670,12 +694,12 @@ func (f *Fighter) step(ctx context.Context) {
 		recovered := st.Health >= low+6 || (!hasFood && !hasGap && st.Food >= 18 && st.Health >= low+2) ||
 			safe && st.Health > low
 		if cornered && time.Now().After(f.standUntil) {
-			f.logf("acorralado (vida %.1f): sigo peleando", st.Health)
+			f.logT("cornered (health %.1f): still fighting", "acorralado (vida %.1f): sigo peleando", st.Health)
 			f.standUntil = time.Now().Add(8 * time.Second)
 		} else if safe && !recovered {
 			// lejos de ellos pero sin vida: quieto, comiendo si puede, a que se cure
 			if near > safeFrom(foes)+8 && time.Since(time.UnixMilli(f.lastHurt.Load())) > 5*time.Second {
-				f.logf("a salvo de los mobs (vida %.1f): dejo la pelea", st.Health)
+				f.logT("safe from the mobs (health %.1f): leaving the fight", "a salvo de los mobs (vida %.1f): dejo la pelea", st.Health)
 				f.ForgetFights()
 				f.stopMoving()
 				f.setPlan(plan{})
@@ -704,13 +728,13 @@ func (f *Fighter) step(ctx context.Context) {
 		} else if recovered && mobsOnly && st.Health < low+2 && near > safeFrom(foes)+8 && time.Since(time.UnixMilli(f.lastHurt.Load())) > 5*time.Second {
 			// los mobs se quedaron atrás pero sigo sin vida: no se vuelve a por
 			// ellos (si vienen, que vengan: entonces es otra pelea)
-			f.logf("a salvo de los mobs (vida %.1f): dejo la pelea", st.Health)
+			f.logT("safe from the mobs (health %.1f): leaving the fight", "a salvo de los mobs (vida %.1f): dejo la pelea", st.Health)
 			f.ForgetFights()
 			f.stopMoving()
 			f.setPlan(plan{})
 			return
 		} else if recovered {
-			f.logf("recuperado (vida %.1f): vuelvo a pelear", st.Health)
+			f.logT("recovered (health %.1f): back to fighting", "recuperado (vida %.1f): vuelvo a pelear", st.Health)
 		}
 	default:
 		mustEat := st.Food <= 6 && hasFood // sin comida no puede correr
@@ -736,7 +760,7 @@ func (f *Fighter) step(ctx context.Context) {
 			tooLow, mustEat = false, false
 		}
 		if (mustEat || tooLow) && time.Now().After(f.standUntil) {
-			f.logf("vida %.1f, comida %d, %d enemigos cerca: me retiro a comer", st.Health, st.Food, close8)
+			f.logT("health %.1f, food %d, %d enemies near: retreating to eat", "vida %.1f, comida %d, %d enemigos cerca: me retiro a comer", st.Health, st.Food, close8)
 			f.retreatSince = time.Now()
 			f.stopMoving()
 			f.setPlan(plan{mode: retreating, fleeX: cx, fleeZ: cz})
@@ -818,12 +842,12 @@ func (f *Fighter) foes() []foe {
 	for id, a := range f.aggressors {
 		e, ok := f.d.Entities.Get(id)
 		if !ok {
-			f.logf("%s ya no está (muerto o fuera de vista)", a.name)
+			f.logT("%s is gone (dead or out of sight)", "%s ya no está (muerto o fuera de vista)", a.name)
 			delete(f.aggressors, id)
 			continue
 		}
 		if dead(e) { // un jugador muerto sigue ahí hasta que reaparece (en los logs: 3 min "peleando" con él)
-			f.logf("%s está muerto", a.name)
+			f.logT("%s is dead", "%s está muerto", a.name)
 			delete(f.aggressors, id)
 			continue
 		}
@@ -835,7 +859,7 @@ func (f *Fighter) foes() []foe {
 			limit *= 2 // se fue con una perla (y el bot va detrás): no es alejarse
 		}
 		if !a.fromZone && (d > limit || (time.Since(a.lastHit) > forgetIdle && d > 16)) {
-			f.logf("%s se alejó: lo dejo", a.name)
+			f.logT("%s got away: letting them go", "%s se alejó: lo dejo", a.name)
 			delete(f.aggressors, id)
 			continue
 		}
@@ -945,7 +969,7 @@ func (f *Fighter) gear(ctx context.Context, near float64) bool {
 		return false // alguien cerca: ponerse armadura son clicks y ticks sin pelear; luego
 	}
 	if f.geared {
-		f.logf("tengo equipo mejor en el inventario: me lo pongo")
+		f.logT("I have better gear in my inventory: putting it on", "tengo equipo mejor en el inventario: me lo pongo")
 	}
 	f.equipArmor(ctx)
 	f.geared, f.gearPrint = true, f.fingerprint()
@@ -955,7 +979,7 @@ func (f *Fighter) gear(ctx context.Context, near float64) bool {
 func (f *Fighter) fight(ctx context.Context, t *foe, w weapon, slot int, shield bool) {
 	cur := *f.plan.Load()
 	if cur.target != t.id {
-		f.logf("objetivo: %s (vida ~%.0f, a %.1f bloques)", t.name, health(t.e), t.dist)
+		f.logT("target: %s (health ~%.0f, %.1f blocks away)", "objetivo: %s (vida ~%.0f, a %.1f bloques)", t.name, health(t.e), t.dist)
 	}
 	slot, w = f.preferSpear(t, slot, w)
 	lunge := f.lungeOn() || f.wantLunge(t)
@@ -1008,7 +1032,7 @@ func (f *Fighter) fight(ctx context.Context, t *foe, w weapon, slot int, shield 
 	} else if t.dist < 6 && f.steps-f.chaseAt > 30 && f.breakThrough(ctx, t) {
 		return // (un muro entre los dos, él al otro lado: se rompe; defense.go)
 	} else if f.steps-f.chaseAt > 160 {
-		f.logf("no llego a %s (a %.1f bloques, 8 s sin acercarme): lo dejo", t.name, t.dist)
+		f.logT("can't reach %s (%.1f blocks away, 8 s without getting closer): letting them go", "no llego a %s (a %.1f bloques, 8 s sin acercarme): lo dejo", t.name, t.dist)
 		f.giveUp(t.id)
 		return
 	}
@@ -1183,7 +1207,7 @@ func (f *Fighter) retreat(ctx context.Context, st basic.Status, foods []food, ne
 func (f *Fighter) standFirm(t *foe, st basic.Status) {
 	f.standUntil = time.Now().Add(8 * time.Second)
 	if time.Since(f.lastStandLog) > 5*time.Second && t != nil {
-		f.logf("vida %.1f contra %s y sin búnker: no huyo, peleo", st.Health, t.name)
+		f.logT("health %.1f against %s and no bunker: not fleeing, fighting", "vida %.1f contra %s y sin búnker: no huyo, peleo", st.Health, t.name)
 		f.lastStandLog = time.Now()
 	}
 }
@@ -1231,7 +1255,7 @@ func (f *Fighter) eat(ctx context.Context, fd food, cx, cz float64) {
 		if u.Err != nil {
 			f.logf("comer %s: %v", name, u.Err)
 		} else {
-			f.logf("comí %s (vida %.1f)", name, f.d.Player.Status().Health)
+			f.logT("ate %s (health %.1f)", "comí %s (vida %.1f)", name, f.d.Player.Status().Health)
 		}
 	case <-time.After(5 * time.Second):
 	case <-ctx.Done():

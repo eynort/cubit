@@ -236,7 +236,7 @@ func (f *Fighter) beWary(ctx context.Context, st basic.Status) bool {
 		return false
 	}
 	if cur.mode != wary || cur.target != threat.ID {
-		f.logf("%s viene armado hacia mí: en guardia", f.label(*threat))
+		f.logT("%s is coming at me armed: on guard", "%s viene armado hacia mí: en guardia", f.label(*threat))
 		f.waryFrom = f.steps
 	}
 	// 10 s en guardia y no ataca: no viene a por el bot (está por aquí, de
@@ -246,7 +246,7 @@ func (f *Fighter) beWary(ctx context.Context, st basic.Status) bool {
 			f.waryIgnore = map[int32]uint64{}
 		}
 		f.waryIgnore[threat.ID] = f.steps + 1200
-		f.logf("%s lleva 10 s cerca sin atacar: dejo la guardia", f.label(*threat))
+		f.logT("%s has been near for 10 s without attacking: standing down", "%s lleva 10 s cerca sin atacar: dejo la guardia", f.label(*threat))
 		f.setPlan(plan{})
 		return false
 	}

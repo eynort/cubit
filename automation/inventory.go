@@ -1,7 +1,6 @@
 package automation
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/mj41/go-mc26-kit/bot/act"
@@ -9,6 +8,8 @@ import (
 	"github.com/mj41/go-mc26/data/tags"
 	"github.com/mj41/go-mc26/level/component"
 	"github.com/mj41/go-mc26/protocol/types"
+
+	"cubit/internal/i18n"
 )
 
 // Los objetos se nombran sin "minecraft:" ("oak_log").
@@ -111,7 +112,7 @@ func (j *Job) Holding() string {
 func (j *Job) Hold(item string) error {
 	i := j.slotOf(item)
 	if i < 0 {
-		return fmt.Errorf("no llevo %s", item)
+		return i18n.Errorf("I don't have %s", "no llevo %s", item)
 	}
 	j.CloseScreen()
 	if i < hotbar { // del inventario a la barra, al último hueco (el 8)

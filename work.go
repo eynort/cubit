@@ -219,7 +219,7 @@ func (b *Bot) resumeWork(death *deathSpot) {
 	}
 	if tooMany {
 		workQueue.setPaused(true) // (no sigue con lo siguiente tras algo que no ha acabado)
-		log.Printf("trabajo: he muerto %d veces en %s: dejo /%s (algo me mata una y otra vez)", maxWorkDeaths+1, workDeathWindow, name)
+		log.Printf(tr("work: died %d times in %s: dropping /%s (something keeps killing me)", "trabajo: he muerto %d veces en %s: dejo /%s (algo me mata una y otra vez)"), maxWorkDeaths+1, workDeathWindow, name)
 		b.work.mu.Lock()
 		b.work.resuming = false
 		b.work.mu.Unlock()
@@ -232,7 +232,7 @@ func (b *Bot) resumeWork(death *deathSpot) {
 	defer cancel()
 	defer clearMove(gen)
 	if hasPos {
-		log.Printf("trabajo: vuelvo andando a donde trabajaba (%v)", pos)
+		log.Printf(tr("work: walking back to where I was working (%v)", "trabajo: vuelvo andando a donde trabajaba (%v)"), pos)
 		b.gotoCoords(ctx, float64(pos.X)+0.5, float64(pos.Z)+0.5, nil)
 	}
 	if ctx.Err() != nil {
@@ -244,7 +244,7 @@ func (b *Bot) resumeWork(death *deathSpot) {
 		p := b.Player.Position()
 		if d := math.Hypot(death.x-p.X, death.z-p.Z); d < 96 && b.gotoCoords(ctx, death.x, death.z, nil) {
 			b.lastDeath.Store(nil)
-			log.Print("trabajo: recojo lo que tiré al morir")
+			log.Print(tr("work: picking up what I dropped when I died", "trabajo: recojo lo que tiré al morir"))
 			b.runAndWait("recoger", automation.PickUp(12))
 		}
 	}
@@ -256,7 +256,7 @@ func (b *Bot) resumeWork(death *deathSpot) {
 	b.work.mu.Lock()
 	b.work.resuming = false
 	b.work.mu.Unlock()
-	log.Printf("trabajo: retomo /%s", name)
+	log.Printf(tr("work: resuming /%s", "trabajo: retomo /%s"), name)
 	b.Tasks.Start(b.ctx, name, task)
 }
 
