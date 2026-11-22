@@ -37,7 +37,38 @@ You run all your bots from a **web panel**. Each bot has its own command console
 
 ## Start in one minute
 
-You need [Docker](https://docs.docker.com/get-docker/).
+**Windows**: with [Scoop](https://scoop.sh):
+
+```powershell
+scoop bucket add cubit https://github.com/eynort/cubit
+scoop install cubit/cubit
+```
+
+This adds a *Cubit* Start-menu shortcut that opens the panel in your browser. Or do it by hand: download `cubit-<version>-windows-amd64.zip` from [Releases](../../releases), unzip it anywhere and run `cubit.exe --hub :8080 --open` (create a `data` folder next to it to keep your data there). There is no installer: `cubit.exe` is not code-signed, so Windows SmartScreen may warn you the first time: click **More info → Run anyway**, or check it against `SHA256SUMS`. A `winget install` package will come later, once the project is published there.
+
+**Linux**: one command, no root:
+
+```sh
+curl -fsSL https://github.com/eynort/cubit/releases/latest/download/install.sh | sh
+```
+
+Or install the `.deb` / `.rpm` from [Releases](../../releases) (`sudo apt install ./cubit_*.deb`, `sudo dnf install ./cubit-*.rpm`). To keep the panel always on: `systemctl --user enable --now cubit`.
+
+**macOS** and **Android (Termux)**: download the binary for your system from [Releases](../../releases) and run `./cubit --hub :8080 --open`.
+
+Then:
+
+1. **Open the panel**: *Cubit* in your app menu opens it in the browser. The link has an access key (`?t=…`); keep the whole link.
+2. **Create your bot**: the panel walks you through it (name, server, owner, language).
+3. **Play with it**: the panel offers to set up a test server for you the first time you run it. In **Minecraft Java 26.2**, go to *Multiplayer → Direct Connection* and enter `localhost:25565`.
+
+Want to build it yourself? See **[Compile it yourself](docs/BUILD.md)**. The **[Guide](docs/GUIDE.md)** covers everything else: controlling the bot, the panel, servers and phones. To control bots from your own scripts, there is an **[HTTP API](docs/API.md)**.
+
+The bot speaks Minecraft Java 26.2; servers on **other versions** are joined transparently through [ViaProxy](docs/GUIDE.md#6-other-minecraft-versions).
+
+### Advanced: Docker
+
+If you prefer containers (this also runs the test server and Ollama for you), you need [Docker](https://docs.docker.com/get-docker/):
 
 ```sh
 git clone https://github.com/eynort/cubit.git
@@ -45,20 +76,7 @@ cd cubit
 ./up.sh YourMinecraftName
 ```
 
-When it finishes, it prints your panel link:
-
-```
-  Panel:      http://localhost:8080/?t=…
-  Minecraft:  localhost:25565
-```
-
-1. **Open the panel**: paste the `Panel` link into your browser. The `?t=…` part is your access key, so keep the whole link.
-2. **Create your bot**: the panel walks you through it (name, server, owner, language).
-3. **Play with it**: in **Minecraft Java 26.2**, go to *Multiplayer → Direct Connection* and enter `localhost:25565`.
-
-You can also skip Docker and run the binary on its own: download it from [Releases](../../releases). The **[Guide](docs/GUIDE.md)** covers everything else: controlling the bot, the panel, servers and phones. To control bots from your own scripts, there is an **[HTTP API](docs/API.md)**.
-
-The bot speaks Minecraft Java 26.2; servers on **other versions** are joined transparently through [ViaProxy](docs/GUIDE.md#6-other-minecraft-versions).
+When it finishes, it prints your panel link (`http://localhost:8080/?t=…`) and the Minecraft address (`localhost:25565`).
 
 ## How to use the bot
 

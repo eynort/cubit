@@ -1,0 +1,12 @@
+[Unit]
+Description=Cubit (Minecraft bot panel)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/cubit --hub :8080 --data %h/.local/share/cubit
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

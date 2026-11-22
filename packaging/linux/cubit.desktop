@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Cubit
+GenericName=Minecraft bot
+Comment=A Minecraft bot that fights, digs and moves: opens the panel
+Exec=cubit-panel
+Icon=cubit
+Terminal=false
+Categories=Game;Utility;
+Keywords=minecraft;bot;

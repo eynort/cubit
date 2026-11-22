@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.6.0.schema.json
+# Plantilla del manifiesto de winget (versión). Para enviarlo a microsoft/winget-pkgs cuando el repositorio sea público:
+# cambia la versión y los hashes (SHA256SUMS de la release), y copia los tres archivos a
+# manifests/e/eynort/Cubit/<versión>/. / Template: bump the version and hashes, then submit.
+PackageIdentifier: eynort.Cubit
+PackageVersion: 0.0.0
+DefaultLocale: en-US
+ManifestType: version
+ManifestVersion: 1.6.0

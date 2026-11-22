@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
+PackageIdentifier: eynort.Cubit
+PackageVersion: 0.0.0
+InstallerType: zip
+NestedInstallerType: portable
+NestedInstallerFiles:
+  - RelativeFilePath: cubit.exe
+    PortableCommandAlias: cubit
+ReleaseDate: 2026-01-01
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/eynort/cubit/releases/download/v0.0.0/cubit-v0.0.0-windows-amd64-winget.zip
+    InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000
+  - Architecture: arm64
+    InstallerUrl: https://github.com/eynort/cubit/releases/download/v0.0.0/cubit-v0.0.0-windows-arm64-winget.zip
+    InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000
+ManifestType: installer
+ManifestVersion: 1.6.0

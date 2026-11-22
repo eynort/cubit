@@ -1,0 +1,49 @@
+# Paquetes .deb y .rpm de Cubit, con nfpm (https://nfpm.goreleaser.com).
+#
+#   VERSION=1.2.3 GOARCH=amd64 CUBIT_BIN=dist/cubit-linux-amd64 \
+#     nfpm package -f packaging/linux/nfpm.yaml -p deb -t dist/
+#
+# (ejecutar desde la raíz del repositorio)
+name: cubit
+arch: "${GOARCH}"
+platform: linux
+version: "${VERSION}"
+section: games
+priority: optional
+maintainer: eynort <noreply@github.com>
+description: |
+  Cubit: a Minecraft bot that fights, digs and moves.
+  One small binary plus a web panel to run all your bots.
+homepage: https://github.com/eynort/cubit
+license: MIT
+recommends:
+  - xdg-utils
+contents:
+  - src: ${CUBIT_BIN}
+    dst: /usr/bin/cubit
+    file_info:
+      mode: 0755
+  - src: packaging/linux/cubit-panel
+    dst: /usr/bin/cubit-panel
+    file_info:
+      mode: 0755
+  - src: packaging/linux/cubit.desktop
+    dst: /usr/share/applications/cubit.desktop
+    file_info:
+      mode: 0644
+  - src: brand/png/icon-512.png
+    dst: /usr/share/icons/hicolor/512x512/apps/cubit.png
+    file_info:
+      mode: 0644
+  - src: brand/png/icon-32.png
+    dst: /usr/share/icons/hicolor/32x32/apps/cubit.png
+    file_info:
+      mode: 0644
+  - src: packaging/linux/cubit.service
+    dst: /usr/lib/systemd/user/cubit.service
+    file_info:
+      mode: 0644
+  - src: LICENSE
+    dst: /usr/share/doc/cubit/LICENSE
+    file_info:
+      mode: 0644

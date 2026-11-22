@@ -4,7 +4,17 @@
 
 ## 1. Run it
 
-### With Docker: the panel and a test server
+### Install it (no Docker, no cloning)
+
+- **Windows**: `scoop bucket add cubit https://github.com/eynort/cubit` then `scoop install cubit/cubit`. It adds a *Cubit* Start-menu shortcut that opens the panel; your data stays in Scoop's `persist\cubit\data` folder across updates. Or download `cubit-<version>-windows-amd64.zip` (or `arm64`) from [Releases](../../../releases), unzip it and run `cubit.exe --hub :8080 --open`; a `data` folder next to `cubit.exe` keeps your data there (portable mode), otherwise it uses the current folder or `--data`. There is no installer, and `cubit.exe` is not signed, so SmartScreen may warn you: **More info → Run anyway**. winget will come later.
+- **Linux**: `curl -fsSL https://github.com/eynort/cubit/releases/latest/download/install.sh | sh` installs into `~/.local/bin` (it checks the SHA256), or use the `.deb` / `.rpm`. Start the panel from your app menu, or keep it always on with `systemctl --user enable --now cubit`. Remove it with `sh install.sh --uninstall`. Data lives in `~/.local/share/cubit`.
+- **macOS / Android (Termux)**: download the binary from Releases and run `./cubit --hub :8080 --open`.
+
+The panel offers to set up a test server (and the local AI) the first time you run it. To choose where the data goes, use `--data <folder>` (or `CUBIT_DATA`); `--open` opens the panel in your browser, or just opens it if a hub is already running.
+
+To build it yourself, see [BUILD.md](BUILD.md).
+
+### Advanced: Docker, the panel and a test server
 
 ```sh
 git clone https://github.com/eynort/cubit.git

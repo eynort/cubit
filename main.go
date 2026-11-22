@@ -16,6 +16,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -47,6 +48,11 @@ import (
 )
 
 var hubFlag = flag.String("hub", "", "modo hub: el panel en esta dirección (ej: :8080), siempre encendido, para varios bots (cada uno en bots/<id>/); los bots se crean y se arrancan desde el panel")
+
+var (
+	dataFlag = flag.String("data", os.Getenv("CUBIT_DATA"), "carpeta de datos (hub.json, bots/…, ajustes): se crea si no existe y el programa trabaja en ella; por defecto, la carpeta actual (también CUBIT_DATA)")
+	openFlag = flag.Bool("open", false, "con --hub: abre el panel en el navegador; si ya hay un hub en esa dirección, solo lo abre")
+)
 
 // Bot agrupa todo lo que los eventos necesitan para actuar.
 type Bot struct {
@@ -96,9 +102,25 @@ func main() {
 		}
 		return
 	}
+	if *dataFlag == "" {
+		// modo portátil: una carpeta "data" junto al ejecutable (Scoop y el zip de Windows)
+		if exe, err := os.Executable(); err == nil {
+			if st, err := os.Stat(filepath.Join(filepath.Dir(exe), "data")); err == nil && st.IsDir() {
+				*dataFlag = filepath.Join(filepath.Dir(exe), "data")
+			}
+		}
+	}
+	if *dataFlag != "" {
+		if err := os.MkdirAll(*dataFlag, 0o755); err != nil {
+			log.Fatal("--data: ", err)
+		}
+		if err := os.Chdir(*dataFlag); err != nil { // (todo lo demás usa rutas relativas a la carpeta de datos)
+			log.Fatal("--data: ", err)
+		}
+	}
 	if *hubFlag != "" {
 		hub.ViaProxy = *viaFlag
-		hub.Run(*hubFlag, hub.Options{DefaultOwner: *ownerFlag}) // (el panel para varios bots; no vuelve hasta Ctrl-C)
+		hub.Run(*hubFlag, hub.Options{DefaultOwner: *ownerFlag, Open: *openFlag}) // (el panel para varios bots; no vuelve hasta Ctrl-C)
 		return
 	}
 	if *demoFlag {

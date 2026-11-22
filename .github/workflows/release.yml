@@ -7,8 +7,11 @@ on:
 permissions:
   contents: write
 
+env:
+  NFPM_VERSION: v2.41.1
+
 jobs:
-  build:
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,18 +23,67 @@ jobs:
       - name: build
         run: |
           mkdir -p dist
-          build() { # os arch [suffix]
-            out="dist/cubit-${GITHUB_REF_NAME}-$1-$2$3"
-            CGO_ENABLED=0 GOOS=$1 GOARCH=$2 go build -trimpath -ldflags "-s -w" -o "$out" .
+          # build <os> <arch> <out> [method]: method = how it gets installed (cubit/internal/update.Method)
+          build() {
+            CGO_ENABLED=0 GOOS=$1 GOARCH=$2 go build -trimpath \
+              -ldflags "-s -w -X cubit/internal/update.Method=${4:-}" -o "$3" .
           }
-          build linux amd64
-          build linux arm64
-          build windows amd64 .exe
-          build darwin amd64
-          build darwin arm64
-          build android arm64   # Termux
-          cd dist && sha256sum * > SHA256SUMS
+          # the plain binaries (Method empty; install.sh marks its own installs with a file)
+          build linux amd64 "dist/cubit-${GITHUB_REF_NAME}-linux-amd64"
+          build linux arm64 "dist/cubit-${GITHUB_REF_NAME}-linux-arm64"
+          build windows amd64 "dist/cubit-${GITHUB_REF_NAME}-windows-amd64.exe"
+          build windows arm64 "dist/cubit-${GITHUB_REF_NAME}-windows-arm64.exe"
+          build darwin amd64 "dist/cubit-${GITHUB_REF_NAME}-darwin-amd64"
+          build darwin arm64 "dist/cubit-${GITHUB_REF_NAME}-darwin-arm64"
+          build android arm64 "dist/cubit-${GITHUB_REF_NAME}-android-arm64"   # Termux
+      - name: windows zips (zip, scoop, winget)
+        run: |
+          for arch in amd64 arm64; do
+            for method in zip scoop winget; do
+              stage="$(mktemp -d)"
+              CGO_ENABLED=0 GOOS=windows GOARCH=$arch go build -trimpath \
+                -ldflags "-s -w -X cubit/internal/update.Method=$method" -o "$stage/cubit.exe" .
+              cp packaging/windows/README.txt LICENSE "$stage/"
+              name="cubit-${GITHUB_REF_NAME}-windows-${arch}"
+              [ "$method" = zip ] || name="${name}-${method}"
+              (cd "$stage" && zip -q -9 "$GITHUB_WORKSPACE/dist/${name}.zip" cubit.exe README.txt LICENSE)
+              rm -rf "$stage"
+            done
+          done
+      - name: linux packages (.deb, .rpm)
+        run: |
+          go install "github.com/goreleaser/nfpm/v2/cmd/nfpm@${NFPM_VERSION}"
+          mkdir -p pkgtmp
+          for arch in amd64 arm64; do
+            for fmt in deb rpm; do
+              CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath \
+                -ldflags "-s -w -X cubit/internal/update.Method=$fmt" -o "pkgtmp/cubit-$fmt-$arch" .
+              VERSION="${GITHUB_REF_NAME#v}" GOARCH="$arch" CUBIT_BIN="pkgtmp/cubit-$fmt-$arch" \
+                nfpm package -f packaging/linux/nfpm.yaml -p "$fmt" -t dist/
+            done
+          done
+      - name: install script and icon
+        run: |
+          cp packaging/linux/install.sh dist/install.sh
+          cp brand/png/icon-512.png dist/cubit-icon.png
+      - name: checksums
+        run: cd dist && sha256sum * > SHA256SUMS
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
           generate_release_notes: true
+
+  # winget: abre el PR a microsoft/winget-pkgs con la versión nueva.
+  # Desactivado hasta que el repositorio sea público y exista el paquete eynort.Cubit
+  # (el primer envío se hace a mano con packaging/winget/ o con wingetcreate).
+  # Para activarlo: quita `if: false` y crea el secreto WINGET_TOKEN (PAT clásico con scope public_repo).
+  winget:
+    needs: release
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: vedantmgoyal9/winget-releaser@v2
+        with:
+          identifier: eynort.Cubit
+          installers-regex: '-windows-(amd64|arm64)-winget\.zip$'
+          token: ${{ secrets.WINGET_TOKEN }}

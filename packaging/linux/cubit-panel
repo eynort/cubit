@@ -1,0 +1,6 @@
+#!/bin/sh
+# Abre el panel de Cubit en el navegador (arrancando el hub si no está en marcha).
+# Opens the Cubit panel in the browser (starting the hub if it isn't running).
+CUBIT_DATA="${CUBIT_DATA:-${XDG_DATA_HOME:-$HOME/.local/share}/cubit}"
+export CUBIT_DATA
+exec cubit --hub :8080 --open "$@"
