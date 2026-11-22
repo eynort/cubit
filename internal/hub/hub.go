@@ -89,6 +89,7 @@ type hub struct {
 // Options: lo que el hub toma del programa que lo arranca.
 type Options struct {
 	DefaultOwner string // el dueño que propone el asistente (--owner)
+	Open         bool   // abrir el panel en el navegador (--open); si ya hay un hub, solo lo abre y sale
 }
 
 func (h *hub) save() {
@@ -101,6 +102,10 @@ func (h *hub) save() {
 
 // Run: el modo hub, con el panel en addr (no vuelve hasta Ctrl-C).
 func Run(addr string, opts Options) {
+	if opts.Open && openRunning(addr) {
+		log.Print("hub: ya había uno en marcha: abro el panel en el navegador")
+		return
+	}
 	h := &hub{bots: map[string]*hubBot{}, opts: opts}
 	if b, err := os.ReadFile(hubFile); err == nil {
 		if err := json.Unmarshal(b, &h.cfg); err != nil {
@@ -156,6 +161,9 @@ func Run(addr string, opts Options) {
 		host = net.JoinHostPort(web.LocalIP(), port)
 	}
 	log.Printf("hub: panel en http://%s/?t=%s (%d bots)", host, h.cfg.Token, len(h.cfg.Bots))
+	if opts.Open {
+		openBrowser(localURL(addr, h.cfg.Token))
+	}
 	srv := &http.Server{Handler: h.routes(), ReadHeaderTimeout: 5 * time.Second}
 	go func() { _ = srv.Serve(ln) }()
 	<-ctx.Done()

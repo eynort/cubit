@@ -7,6 +7,9 @@ on:
 permissions:
   contents: write
 
+env:
+  NFPM_VERSION: v2.41.1
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -27,10 +30,72 @@ jobs:
           build linux amd64
           build linux arm64
           build windows amd64 .exe
+          build windows arm64 .exe
           build darwin amd64
           build darwin arm64
           build android arm64   # Termux
-          cd dist && sha256sum * > SHA256SUMS
+      - name: linux packages (.deb, .rpm)
+        run: |
+          go install "github.com/goreleaser/nfpm/v2/cmd/nfpm@${NFPM_VERSION}"
+          mkdir -p dist/pkg
+          for arch in amd64 arm64; do
+            for fmt in deb rpm; do
+              VERSION="${GITHUB_REF_NAME#v}" GOARCH="$arch" CUBIT_BIN="dist/cubit-${GITHUB_REF_NAME}-linux-${arch}" \
+                nfpm package -f packaging/linux/nfpm.yaml -p "$fmt" -t dist/pkg/
+            done
+          done
+          mv dist/pkg/* dist/
+          rmdir dist/pkg
+      - name: install script and icon
+        run: |
+          cp packaging/linux/install.sh dist/install.sh
+          cp packaging/windows/install.ps1 dist/install.ps1
+          cp brand/png/icon-512.png dist/cubit-icon.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-linux
+          path: dist/*
+          if-no-files-found: error
+
+  windows-installer:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-linux
+          path: dist
+      - name: Inno Setup
+        shell: pwsh
+        run: |
+          # windows-latest ya trae Inno Setup 6; si no, se instala con choco
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+          }
+          if (-not (Test-Path $iscc)) { throw "ISCC.exe not found" }
+          $ver = "${env:GITHUB_REF_NAME}".TrimStart("v")
+          $exe = Join-Path $PWD "dist\cubit-${env:GITHUB_REF_NAME}-windows-amd64.exe"
+          & $iscc "/DAppVersion=$ver" "/DExePath=$exe" packaging\windows\cubit.iss
+          if ($LASTEXITCODE -ne 0) { throw "iscc failed" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-windows
+          path: dist/*-windows-setup.exe
+          if-no-files-found: error
+
+  release:
+    needs: [build, windows-installer]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+      - name: checksums
+        run: cd dist && sha256sum * > SHA256SUMS
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*

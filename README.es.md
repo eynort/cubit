@@ -35,7 +35,33 @@ Todos tus bots se manejan desde un **panel web**. Ahí cada bot tiene su propia 
 
 ## Empieza en un minuto
 
-Necesitas [Docker](https://docs.docker.com/get-docker/).
+**Windows**: descarga `cubit-<versión>-windows-setup.exe` en [Releases](../../releases) y ejecútalo. Crea un acceso *Cubit* que abre el panel en tu navegador. El instalador aún no está firmado, así que Windows SmartScreen puede avisarte: pulsa **Más información → Ejecutar de todas formas**. ¿Prefieres la línea de comandos? En PowerShell:
+
+```powershell
+irm https://github.com/eynort/cubit/releases/latest/download/install.ps1 | iex
+```
+
+**Linux**: un solo comando, sin root:
+
+```sh
+curl -fsSL https://github.com/eynort/cubit/releases/latest/download/install.sh | sh
+```
+
+O instala el `.deb` / `.rpm` de [Releases](../../releases) (`sudo apt install ./cubit_*.deb`, `sudo dnf install ./cubit-*.rpm`). Para dejar el panel siempre encendido: `systemctl --user enable --now cubit`.
+
+**macOS** y **Android (Termux)**: descarga el programa de tu sistema en [Releases](../../releases) y ejecuta `./cubit --hub :8080 --open`.
+
+Después:
+
+1. **Entra al panel**: *Cubit* en el menú de aplicaciones lo abre en el navegador. El enlace lleva una clave de acceso (`?t=…`): copia el enlace entero.
+2. **Crea tu bot**: el panel te guía paso a paso (nombre, servidor, dueño, idioma).
+3. **Juega con él**: la primera vez, el panel te ofrece preparar un servidor de pruebas. En **Minecraft Java 26.2**, ve a *Multijugador → Conexión directa* y pon `localhost:25565`.
+
+¿Quieres compilarlo? Mira **[Compílalo tú mismo](docs/COMPILAR.md)**. Todo lo demás está en la **[Guía](docs/GUIA.md)**: cómo controlar el bot, el panel, los servidores y los móviles.
+
+### Avanzado: Docker
+
+Si prefieres contenedores (así también se encienden el servidor de pruebas y Ollama), necesitas [Docker](https://docs.docker.com/get-docker/):
 
 ```sh
 git clone https://github.com/eynort/cubit.git
@@ -43,18 +69,7 @@ cd cubit
 ./up.sh TuNombreDeMinecraft
 ```
 
-Al terminar, te escribe el enlace de tu panel:
-
-```
-  Panel:      http://localhost:8080/?t=…
-  Minecraft:  localhost:25565
-```
-
-1. **Entra al panel**: pega el enlace `Panel` en tu navegador. La parte `?t=…` es tu clave de acceso, así que copia el enlace entero.
-2. **Crea tu bot**: el panel te guía paso a paso (nombre, servidor, dueño, idioma).
-3. **Juega con él**: en **Minecraft Java 26.2**, ve a *Multijugador → Conexión directa* y pon `localhost:25565`.
-
-También puedes usar el programa suelto, sin Docker: descárgalo en [Releases](../../releases). Todo lo demás está en la **[Guía](docs/GUIA.md)**: cómo controlar el bot, el panel, los servidores y los móviles.
+Al terminar, te escribe el enlace de tu panel (`http://localhost:8080/?t=…`) y la dirección de Minecraft (`localhost:25565`).
 
 ## Instrucciones para usar el bot
 

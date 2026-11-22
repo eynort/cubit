@@ -4,7 +4,17 @@
 
 ## 1. Run it
 
-### With Docker: the panel and a test server
+### Install it (no Docker, no cloning)
+
+- **Windows**: run `cubit-<version>-windows-setup.exe` from [Releases](../../../releases). It installs Cubit, keeps your data in `%LOCALAPPDATA%\Cubit`, and adds a *Cubit* shortcut that opens the panel. The installer is not signed, so SmartScreen may warn you: **More info → Run anyway**. Optional steps: a desktop shortcut, starting Cubit at login, and installing Ollama (local AI). Or from PowerShell: `irm https://github.com/eynort/cubit/releases/latest/download/install.ps1 | iex` (`-Uninstall` removes it).
+- **Linux**: `curl -fsSL https://github.com/eynort/cubit/releases/latest/download/install.sh | sh` installs into `~/.local/bin` (it checks the SHA256), or use the `.deb` / `.rpm`. Start the panel from your app menu, or keep it always on with `systemctl --user enable --now cubit`. Remove it with `sh install.sh --uninstall`. Data lives in `~/.local/share/cubit`.
+- **macOS / Android (Termux)**: download the binary from Releases and run `./cubit --hub :8080 --open`.
+
+The panel offers to set up a test server (and the local AI) the first time you run it. To choose where the data goes, use `--data <folder>` (or `CUBIT_DATA`); `--open` opens the panel in your browser, or just opens it if a hub is already running.
+
+To build it yourself, see [BUILD.md](BUILD.md).
+
+### Advanced: Docker, the panel and a test server
 
 ```sh
 git clone https://github.com/eynort/cubit.git

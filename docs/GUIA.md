@@ -4,7 +4,17 @@
 
 ## 1. Ponerlo en marcha
 
-### Con Docker: el panel y un servidor de pruebas
+### Instalarlo (sin Docker ni clonar)
+
+- **Windows**: ejecuta `cubit-<versión>-windows-setup.exe` de [Releases](../../../releases). Instala Cubit, guarda tus datos en `%LOCALAPPDATA%\Cubit` y crea un acceso *Cubit* que abre el panel. El instalador no está firmado, así que SmartScreen puede avisarte: **Más información → Ejecutar de todas formas**. Opcionales: acceso en el escritorio, arrancar Cubit al iniciar sesión e instalar Ollama (IA local). O desde PowerShell: `irm https://github.com/eynort/cubit/releases/latest/download/install.ps1 | iex` (`-Uninstall` lo quita).
+- **Linux**: `curl -fsSL https://github.com/eynort/cubit/releases/latest/download/install.sh | sh` lo instala en `~/.local/bin` (comprueba el SHA256), o usa el `.deb` / `.rpm`. Abre el panel desde el menú de aplicaciones, o déjalo siempre encendido con `systemctl --user enable --now cubit`. Se quita con `sh install.sh --uninstall`. Los datos están en `~/.local/share/cubit`.
+- **macOS / Android (Termux)**: descarga el programa en Releases y ejecuta `./cubit --hub :8080 --open`.
+
+La primera vez, el panel te ofrece preparar un servidor de pruebas (y la IA local). Para elegir dónde van los datos, usa `--data <carpeta>` (o `CUBIT_DATA`); `--open` abre el panel en el navegador, o solo lo abre si ya hay un hub en marcha.
+
+Para compilarlo tú mismo, mira [COMPILAR.md](COMPILAR.md).
+
+### Avanzado: Docker, el panel y un servidor de pruebas
 
 ```sh
 git clone https://github.com/eynort/cubit.git
