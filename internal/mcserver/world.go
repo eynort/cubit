@@ -98,6 +98,9 @@ func swapWorld(seed string) error {
 // azar) y devuelve la que usa. Apagado, lo deja hecho y apagado; encendido,
 // avisa, lo para, lo cambia y lo vuelve a arrancar.
 func newWorld(seed string) (string, error) {
+	if err := needsSetup(); err != nil {
+		return "", err
+	}
 	if serverDir() == "" {
 		return "", i18n.Errorf("only the test server (the local Docker one) can get a new world", "solo el servidor de pruebas (el local de Docker) puede tener un mundo nuevo")
 	}
