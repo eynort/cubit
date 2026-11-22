@@ -313,6 +313,9 @@ func defaultProps(seed string) string {
 		"#Minecraft server properties (Cubit)",
 		"online-mode=false",
 		"enforce-secure-profile=false",
+		// solo desde este equipo: sin premium, cualquiera de tu red podría entrar
+		// con el nombre de un dueño (y es op). Para abrirlo, quita esta línea.
+		"server-ip=127.0.0.1",
 		"motd=Cubit test server",
 		"difficulty=easy",
 		"gamemode=survival",

@@ -24,7 +24,7 @@ func TestRemoteAllowed(t *testing.T) {
 	old := remoteOwners
 	defer func() { remoteOwners = old }()
 	remoteOwners = []string{"Alex"}
-	if !allowedRemote("alex") || allowedRemote("Malo") {
+	if !allowedRemote("Alex") || allowedRemote("alex") || allowedRemote("Malo") { // (con las mayúsculas exactas: remote_sec_test.go)
 		t.Error("lista de autorizados")
 	}
 	remoteOwners = []string{"*"}

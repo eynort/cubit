@@ -105,14 +105,17 @@ func applySettings(s panelSettings) (restart bool, err error) {
 	if s.AIURL != nil {
 		cfg.LLM.URL = aiURL
 	}
+	if cfg.LoginPassword != "" && cfg.LoginServer == "" {
+		cfg.LoginServer = cfg.Server // (la contraseña era de este servidor, no del nuevo)
+	}
 	restart = !strings.EqualFold(s.Server, cfg.Server) || s.Name != cfg.Name
 	newOwners := !slices.Equal(owners, cfg.Owners)
 	cfg.Server, cfg.Name, cfg.Owners = s.Server, s.Name, owners
 	switch {
 	case s.ClearLoginPassword:
-		cfg.LoginPassword = ""
+		cfg.LoginPassword, cfg.LoginServer = "", ""
 	case s.LoginPassword != "":
-		cfg.LoginPassword = s.LoginPassword
+		cfg.LoginPassword, cfg.LoginServer = s.LoginPassword, s.Server
 	}
 	remoteOwners = owners
 	err = saveConfigLocked()

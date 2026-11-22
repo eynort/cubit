@@ -11,6 +11,9 @@ type Bot struct {
 	PanelToken string   `json:"panel_token,omitempty"` // la clave del panel web (panel.go)
 	// LoginPassword: la contraseña de AuthMe / nLogin del servidor (solo la lee el bot: nunca sale por la API)
 	LoginPassword string `json:"login_password,omitempty"`
+	// LoginServer: el servidor de esa contraseña; en otro no se manda nunca (podría
+	// pedir "/login" solo para quedársela)
+	LoginServer string `json:"login_server,omitempty"`
 	Seeded        bool   `json:"seeded,omitempty"` // ya se usaron los flags una vez (--defaults)
 	LLM           LLM    `json:"llm,omitempty"`    // el control por lenguaje natural (llm.go)
 }

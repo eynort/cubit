@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/mj41/go-mc26-kit/bot"
 	"github.com/mj41/go-mc26-kit/bot/msg"
 	"github.com/mj41/go-mc26/chat"
@@ -27,6 +28,9 @@ import (
 // onJoin se llama cuando el bot ya está dentro del mundo.
 func (b *Bot) onJoin() error {
 	log.Print(tr("joined the server", "dentro del servidor"))
+	b.login.mu.Lock()
+	b.login.since = time.Now() // (el inicio de sesión se contesta solo durante un rato: autologin.go)
+	b.login.mu.Unlock()
 	return nil
 }
 
@@ -125,7 +129,7 @@ func (b *Bot) onSystemChat(m chat.Message, overlay bool) error {
 	}
 	text := m.ClearString()
 	b.checkLoginPrompt(text)
-	log.Print(tr("[system] ", "[sistema] "), text)
+	log.Print(tr("[system] ", "[sistema] "), cleanLog(text))
 	emitEvent(apiEvent{Type: "system", Text: text})
 	return nil
 }
@@ -135,16 +139,21 @@ func (b *Bot) onPlayerChat(m msg.PlayerChat) error {
 	if m.Sender == b.Client.UUID {
 		return nil // ignora sus propios mensajes
 	}
-	log.Printf("<%s> %s", m.Name, m.Content)
 	kind := "chat"
 	if m.Type == "minecraft:msg_command_incoming" {
 		kind = "whisper"
+		log.Printf("[msg] <%s> %s", cleanLog(m.Name), cleanLog(m.Content)) // (con [msg]: los privados no van al puente de Discord)
+	} else {
+		log.Printf("<%s> %s", cleanLog(m.Name), cleanLog(m.Content))
 	}
 	emitEvent(apiEvent{Type: kind, From: m.Name, Text: m.Content})
 	if b.Tasks != nil && (m.Type == "minecraft:msg_command_incoming" || toBot(m.Content)) {
 		b.Tasks.NoteChat() // una respuesta a lo que preguntó el bot (storageStuck)
 	}
-	noteCoords(m.Sender, m.Content)                 // por si son coordenadas (para /goto)
+	noteCoords(m.Sender, m.Content) // por si son coordenadas (para /goto)
+	if m.Disguised || m.Sender == uuid.Nil {
+		return nil // (sin jugador detrás: un bloque de comandos o un NPC con el nombre de otro; nunca una orden)
+	}
 	if m.Type == "minecraft:msg_command_incoming" { // un /msg al bot: una orden
 		go b.onWhisper(m.Name, m.Content)
 	} else if toBot(m.Content) {
@@ -229,4 +238,16 @@ func (b *Bot) carrying() bool {
 		}
 	}
 	return false
+}
+
+// cleanLog quita los caracteres de control de un texto del servidor antes de
+// escribirlo: un servidor malo podría mandar secuencias de escape a la terminal
+// (cambiar el título, escribir en el portapapeles) o partir la línea en dos.
+func cleanLog(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f || (r >= 0x80 && r < 0xa0) {
+			return ' '
+		}
+		return r
+	}, s)
 }

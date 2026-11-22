@@ -187,6 +187,9 @@ func llmLine(a llmAction) (string, error) {
 		return "", fmt.Errorf("not allowed")
 	}
 	for _, v := range args {
+		if strings.ContainsAny(v, ";\r\n") { // (" ; " encadena órdenes: /stop ; /op alguien)
+			return "", fmt.Errorf("not allowed")
+		}
 		w := strings.ToLower(strings.TrimLeft(strings.Fields(v)[0], "/"))
 		if w == "cmd" || w == "quit" {
 			return "", fmt.Errorf("not allowed")

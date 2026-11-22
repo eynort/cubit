@@ -321,3 +321,18 @@ func TestLLMSettingsRoundTrip(t *testing.T) {
 		t.Errorf("resolución: %s %s", llmModelName(), llmURL())
 	}
 }
+
+// TestLLMLineNoChains: la IA no puede colar otra orden con " ; " (se ejecutaría
+// aparte, y lo que no es del bot va al servidor como comando).
+func TestLLMLineNoChains(t *testing.T) {
+	for _, a := range []llmAction{
+		{"stop", []string{";", "/op", "Evil"}},
+		{"goto", []string{"1", "64", "2 ; /quit"}},
+		{"queue", []string{"chop oak ; /cmd op Evil"}},
+		{"goto", []string{"1", "64", "2\n/quit"}},
+	} {
+		if l, err := llmLine(a); err == nil {
+			t.Errorf("%+v aceptada: %q", a, l)
+		}
+	}
+}

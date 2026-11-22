@@ -11,20 +11,31 @@ import (
 	"log"
 	"regexp"
 	"strings"
+	"sync"
 	"unicode/utf8"
 
 	pk "github.com/mj41/go-mc26/net/packet"
 	"github.com/mj41/go-mc26/protocol/play"
 )
 
+// allowedRemote: si name es un dueño. Con las mayúsculas exactas: en un
+// servidor sin premium "oWNER" es otra cuenta distinta de "Owner", y
+// cualquiera podría entrar con ella.
 func allowedRemote(name string) bool {
 	for _, o := range remoteOwners {
-		if o == "*" || strings.EqualFold(o, name) {
+		if o == "*" || o == name {
 			return true
+		}
+		if strings.EqualFold(o, name) {
+			caseWarn.Do(func() {
+				log.Printf(tr("%s is not an owner: the owner is written %s (capitals count); fix it in the settings if it's you", "%s no es dueño: el dueño se escribe %s (cuentan las mayúsculas); corrígelo en los ajustes si eres tú"), name, o)
+			})
 		}
 	}
 	return false
 }
+
+var caseWarn sync.Once
 
 // onWhisper ejecuta un privado como orden de consola, si quien lo manda puede.
 func (b *Bot) onWhisper(from, text string) {

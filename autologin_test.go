@@ -43,11 +43,12 @@ func TestLoginPasswordMasked(t *testing.T) {
 	cfgMu.Unlock()
 	defer func() { cfgMu.Lock(); cfg, cfgPath, remoteOwners = oldCfg, oldPath, oldOwners; cfgMu.Unlock() }()
 
+	pwNow := func() string { p, _ := loginPassword(); return p }
 	const pw = "s3cretoRaro"
 	if _, err := applySettings(panelSettings{Name: "Viejo_Bot", LoginPassword: pw}); err != nil {
 		t.Fatal(err)
 	}
-	if loginPassword() != pw {
+	if pwNow() != pw {
 		t.Fatal("no se guardó la contraseña")
 	}
 	b, _ := json.Marshal(currentSettings())
@@ -55,7 +56,7 @@ func TestLoginPasswordMasked(t *testing.T) {
 		t.Fatalf("los ajustes enseñan la contraseña o no dicen que hay: %s", b)
 	}
 	// sin tocar la contraseña (vacía = no cambiar)
-	if _, err := applySettings(panelSettings{Name: "Viejo_Bot"}); err != nil || loginPassword() != pw {
+	if _, err := applySettings(panelSettings{Name: "Viejo_Bot"}); err != nil || pwNow() != pw {
 		t.Fatalf("otro ajuste cambió la contraseña: %v", err)
 	}
 	for _, bad := range []string{"con espacio", "tab\tx", strings.Repeat("a", 101)} {
@@ -63,7 +64,40 @@ func TestLoginPasswordMasked(t *testing.T) {
 			t.Errorf("contraseña %q aceptada", bad)
 		}
 	}
-	if _, err := applySettings(panelSettings{Name: "Viejo_Bot", ClearLoginPassword: true}); err != nil || loginPassword() != "" {
+	if _, err := applySettings(panelSettings{Name: "Viejo_Bot", ClearLoginPassword: true}); err != nil || pwNow() != "" {
 		t.Fatalf("no se quitó: %v", err)
+	}
+}
+
+// TestLoginPasswordOtherServer: la contraseña es del servidor donde se puso; si
+// el bot pasa a otro, ese otro no la recibe aunque pida "/login".
+func TestLoginPasswordOtherServer(t *testing.T) {
+	cfgMu.Lock()
+	oldCfg, oldPath, oldOwners := cfg, cfgPath, remoteOwners
+	cfg, cfgPath = config.Bot{Server: "a.example", Name: "Bot"}, ""
+	cfgMu.Unlock()
+	defer func() { cfgMu.Lock(); cfg, cfgPath, remoteOwners = oldCfg, oldPath, oldOwners; cfgMu.Unlock() }()
+
+	if _, err := applySettings(panelSettings{Server: "a.example", Name: "Bot", LoginPassword: "pw1"}); err != nil {
+		t.Fatal(err)
+	}
+	if p, _ := loginPassword(); p != "pw1" {
+		t.Fatalf("en su servidor: %q", p)
+	}
+	if _, err := applySettings(panelSettings{Server: "evil.example", Name: "Bot"}); err != nil {
+		t.Fatal(err)
+	}
+	if p, other := loginPassword(); p != "" || !other {
+		t.Fatalf("en otro servidor: %q %v", p, other)
+	}
+	// un bot.json de antes (sin login_server): la contraseña queda atada al de ahora
+	cfgMu.Lock()
+	cfg = config.Bot{Server: "old.example", Name: "Bot", LoginPassword: "pw2"}
+	cfgMu.Unlock()
+	if _, err := applySettings(panelSettings{Server: "new.example", Name: "Bot"}); err != nil {
+		t.Fatal(err)
+	}
+	if p, _ := loginPassword(); p != "" {
+		t.Fatalf("bot.json de antes, servidor nuevo: %q", p)
 	}
 }
