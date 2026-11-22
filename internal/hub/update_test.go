@@ -55,6 +55,7 @@ func TestUpdateRoutes(t *testing.T) {
 	}
 	// script con la carpeta escribible, pero sin clave de firma en este binario: se niega
 	update.Method = "script"
+	defer update.SetPublicKeyForTest("")()
 	h.up.wrOnce.Do(func() {})
 	h.up.writable = true
 	if w, _ := do("/api/update/apply"); w.Code != http.StatusConflict || !strings.Contains(w.Body.String(), "signing") && !strings.Contains(w.Body.String(), "clave") {

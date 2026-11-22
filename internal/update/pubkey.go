@@ -9,11 +9,10 @@ import (
 // publicKeyB64 es la clave pública ed25519 (base64) con la que se comprueba la
 // firma de SHA256SUMS de cada versión.
 //
-// TODO(release): aún no hay clave. Genera el par con `go run ./tools/sign -gen`,
-// pega aquí la pública y guarda la privada en el secreto CUBIT_SIGNING_KEY de
-// GitHub Actions. Mientras esté vacía, la actualización con un clic se
-// niega (nunca se instala nada sin firma comprobada).
-const publicKeyB64 = ""
+// La privada está en el secreto CUBIT_SIGNING_KEY de GitHub Actions (nunca en
+// el repo). Para cambiarla: `go run ./tools/sign -gen`, pegar aquí la pública y
+// cambiar el secreto. Sin clave, la actualización con un clic se niega.
+var publicKeyB64 = "M/CJN3S3ZnvFaeWMpGdUgSmKT/i1bjl8KzBZKKfUn0A="
 
 // ErrNoKey: el binario no lleva clave pública (todavía).
 var ErrNoKey = errors.New("this build has no update signing key yet; update by hand from the Releases page")
@@ -28,4 +27,12 @@ func PublicKey() (ed25519.PublicKey, error) {
 		return nil, errors.New("embedded update public key is malformed")
 	}
 	return ed25519.PublicKey(b), nil
+}
+
+// SetPublicKeyForTest cambia la clave pública (solo para tests) y devuelve cómo
+// dejarla como estaba.
+func SetPublicKeyForTest(b64 string) (restore func()) {
+	old := publicKeyB64
+	publicKeyB64 = b64
+	return func() { publicKeyB64 = old }
 }

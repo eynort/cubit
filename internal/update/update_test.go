@@ -150,8 +150,13 @@ func TestSignatureAndChecksum(t *testing.T) {
 	if VerifyChecksum(table, "other", SumHex([]byte("hello"))) == nil {
 		t.Error("unknown file must fail")
 	}
+	if _, err := PublicKey(); err != nil {
+		t.Errorf("embedded key: %v", err)
+	}
+	restore := SetPublicKeyForTest("")
+	defer restore()
 	if _, err := PublicKey(); !errors.Is(err, ErrNoKey) {
-		t.Errorf("placeholder key should report ErrNoKey, got %v", err)
+		t.Errorf("empty key should report ErrNoKey, got %v", err)
 	}
 }
 
