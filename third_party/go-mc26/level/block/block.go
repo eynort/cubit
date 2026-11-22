@@ -76,23 +76,19 @@ func (u UnknownBlockErr) Error() string {
 }
 
 func init() {
-	var states []State
 	// decompress
 	z, err := gzip.NewReader(bytes.NewReader(blockStates))
 	if err != nil {
 		panic(err)
 	}
-	// decode all states
-	if _, err = nbt.NewDecoder(z).Decode(&states); err != nil {
+	// decode all states (decodeStates: without the reflective NBT decoder)
+	blocks, err := decodeStates(z)
+	if err != nil {
 		panic(err)
 	}
-	ToStateID = make(map[Block]StateID, len(states))
-	StateList = make([]Block, 0, len(states))
-	for _, state := range states {
-		block, err := state.Block()
-		if err != nil {
-			panic(err)
-		}
+	ToStateID = make(map[Block]StateID, len(blocks))
+	StateList = make([]Block, 0, len(blocks))
+	for _, block := range blocks {
 		if _, ok := ToStateID[block]; ok {
 			panic(fmt.Errorf("state %#v already exists", block))
 		}
