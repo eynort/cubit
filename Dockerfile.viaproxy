@@ -1,0 +1,13 @@
+# ViaProxy (https://github.com/ViaVersion/ViaProxy): deja que los bots entren en
+# servidores de otras versiones de Minecraft. Un solo proceso para todos los
+# servidores: el destino y la versión los dice el bot en el handshake
+# (--wildcard-domain-handling public). Versión fijada abajo.
+FROM eclipse-temurin:21.0.5_11-jre-jammy
+ARG VIAPROXY_VERSION=3.4.14
+ADD https://github.com/ViaVersion/ViaProxy/releases/download/v${VIAPROXY_VERSION}/ViaProxy-${VIAPROXY_VERSION}.jar /app/ViaProxy.jar
+WORKDIR /app/run
+# VIAPROXY_AUTH: none (servidores sin premium) o account (con la cuenta de
+# Microsoft que se añade una vez: "account add microsoft" en la consola)
+ENV VIAPROXY_AUTH=none
+EXPOSE 25568
+ENTRYPOINT ["/bin/sh", "-c", "exec java -Xmx192m -jar /app/ViaProxy.jar cli --bind-address 0.0.0.0:25568 --wildcard-domain-handling public --auth-method ${VIAPROXY_AUTH}"]

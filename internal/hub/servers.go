@@ -55,6 +55,10 @@ type ServerView struct {
 	JoinPort int      `json:"join_port,omitempty"`
 	Version  string   `json:"version"` // la de Minecraft que hace falta (la del bot)
 	Bots     []string `json:"bots"`    // los ids de los bots asignados
+	// la versión que dice tener el servidor externo (Server List Ping) y si el
+	// bot entra directo (""), por ViaProxy ("ok") o no puede ("unavailable")
+	Detected string `json:"detected,omitempty"`
+	Via      string `json:"via,omitempty"`
 }
 
 // sameAddr: dos direcciones son el mismo servidor (host sin mayúsculas, puerto 25565 por defecto).
@@ -172,7 +176,8 @@ func (h *hub) servers() []ServerView {
 	ext := slices.Clone(h.cfg.Servers)
 	h.mu.Unlock()
 	for _, s := range ext {
-		out = append(out, ServerView{ID: s.ID, Name: s.Name, Addr: s.Addr, Kind: "external", Premium: s.Premium, Bots: h.botsOn(s.ID), Version: version.Name})
+		det, via := serverVersion(s.Addr)
+		out = append(out, ServerView{ID: s.ID, Name: s.Name, Addr: s.Addr, Kind: "external", Premium: s.Premium, Bots: h.botsOn(s.ID), Version: version.Name, Detected: det, Via: via})
 	}
 	if out == nil {
 		out = []ServerView{}
@@ -319,7 +324,8 @@ func (h *hub) serverRoutesAPI(mux *http.ServeMux, ok func(http.ResponseWriter, *
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{"id": ns.ID})
+		det, via := probeNow(r.Context(), ns.Addr) // (otra versión: avisa si falta ViaProxy)
+		_ = json.NewEncoder(w).Encode(map[string]string{"id": ns.ID, "detected": det, "via": via})
 	})
 	mux.HandleFunc("/api/servers/", func(w http.ResponseWriter, r *http.Request) {
 		id, action, _ := strings.Cut(strings.TrimPrefix(r.URL.Path, "/api/servers/"), "/")

@@ -83,7 +83,7 @@ func runForever(ctx context.Context, quit func()) error {
 // servidor); premium (--microsoft), la de Microsoft, que se recuerda en la
 // caché del sistema (solo la primera vez pide abrir el navegador).
 func (b *Bot) setAuth(ctx context.Context) error {
-	if !*microsoftFlag {
+	if !*microsoftFlag || viaActive { // (por ViaProxy: entra offline; la cuenta premium la pone ViaProxy)
 		b.Client.Auth = bot.Auth{Name: botName} // modo offline: solo hace falta el nombre
 		return nil
 	}

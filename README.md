@@ -3,7 +3,7 @@
 <h3 align="center">A Minecraft bot that fights, digs and moves.<br>Featherweight: <b>~70 MB of RAM per bot</b>.</h3>
 
 <p align="center">
-  <img alt="Minecraft Java 26.2" src="https://img.shields.io/badge/Minecraft%20Java-26.2-6b8f71?style=flat-square">
+  <img alt="Minecraft Java 26.2, other versions via ViaProxy" src="https://img.shields.io/badge/Minecraft%20Java-26.2%20%2B%20ViaProxy-6b8f71?style=flat-square">
   <img alt="RAM per bot" src="https://img.shields.io/badge/RAM-~70%20MB%20per%20bot-4a5a6a?style=flat-square">
   <img alt="Binary" src="https://img.shields.io/badge/binary-17%20MB-5a6470?style=flat-square">
   <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-8a7f6a?style=flat-square">
@@ -55,6 +55,8 @@ When it finishes, it prints your panel link:
 3. **Play with it**: in **Minecraft Java 26.2**, go to *Multiplayer → Direct Connection* and enter `localhost:25565`.
 
 You can also skip Docker and run the binary on its own: download it from [Releases](../../releases). The **[Guide](docs/GUIDE.md)** covers everything else: controlling the bot, the panel, servers and phones.
+
+The bot speaks Minecraft Java 26.2; servers on **other versions** are joined transparently through [ViaProxy](docs/GUIDE.md#5-other-minecraft-versions).
 
 ## How to use the bot
 

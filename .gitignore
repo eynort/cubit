@@ -16,6 +16,7 @@ logs/
 /dist/
 testserver/
 bot-data/
+viaproxy-data/
 mc-data/
 .env
 /fakesrv
