@@ -28,6 +28,7 @@ It runs anywhere: Linux, macOS, Windows, a Raspberry Pi, a $5 VPS, or an old And
 - **Mine.** Strip mining like a real player: down a staircase to the best layer for each ore, no x-ray.
 - **Chop.** Whole trees of the woods you name, 2×2 and Nether ones included.
 - **Move.** It finds its own way with A*, building towers and bridges when it needs them.
+- **Discord (optional).** Give orders with `/bot`, `/bots` and `/status`, and read what your bots say in a channel. See the [guide](docs/GUIDE.md#discord-optional).
 
 You run all your bots from a **web panel**. Each bot has its own command console there, and the panel includes a test server you can play on right away.
 

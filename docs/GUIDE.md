@@ -47,6 +47,26 @@ On **Android**, install Termux and pick the `android-arm64` file. Add `--view 4 
   - `Tab` completes, `↑` and `↓` go through the history.
 - **Servers**: start, stop and restart the test server, see who is online, and add external servers. Each server card tells you how to join it. Under *World* you can remake the test world with any seed, or a random one: the old one is kept as `world.anterior`.
 
+## Discord (optional)
+
+Off by default. When you turn it on, the hub connects a Discord bot of yours so you can run your Cubit bots from Discord and watch what they say. Everything runs inside the hub; nothing is sent anywhere else.
+
+1. Go to <https://discord.com/developers/applications> and click **New Application**.
+2. Open **Bot**, click **Reset Token** and copy it. Treat it like a password.
+3. You do not need any *Privileged Gateway Intents*: leave them all off. The bot only uses slash commands.
+4. Open **OAuth2 → URL Generator**, tick the scopes `bot` and `applications.commands`, and under *Bot permissions* tick **View Channels** and **Send Messages**. Open the generated URL and add the bot to your server.
+5. In Discord, turn on *Settings → Advanced → Developer Mode*. Then right-click the channel you want as the bridge and choose **Copy Channel ID**, and right-click each person who may give orders and choose **Copy User ID**.
+6. In the panel, open **Servers**, find the **Discord** card and click **Set up**. Paste the token, the channel ID and the user IDs (comma separated), switch it on and save.
+
+The card shows the connection state (connecting, connected, no connection); if it drops, it retries by itself with a growing wait.
+
+- `/bot <name> <command>` runs a console command on that bot, e.g. `/bot Rocky /goto 100 64 200`.
+- `/bots` lists your bots and what each is doing. `/status <name>` shows one.
+- Only the user IDs you listed can use them; anyone else gets a polite refusal only they can see.
+- The bridge posts what the bots say in the game chat (task done, stuck, needs a pickaxe, died...) and what players say to them, prefixed with the bot name, in batches of at most one message per second.
+
+The token is stored only in `hub.json` on the machine running the hub (it is git-ignored). The panel shows just its last four characters and it never appears in logs.
+
 ## 3. Control the bot
 
 You can give it orders in two ways:

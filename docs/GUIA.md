@@ -47,6 +47,26 @@ En **Android**, instala Termux y usa el archivo `android-arm64`. Añade `--view 
   - `Tab` completa, y `↑` `↓` recorren el historial.
 - **Servidores**: encender, apagar y reiniciar el servidor de pruebas, ver quién está conectado y añadir servidores de fuera. En *Mundo* puedes rehacer el mundo de pruebas con la semilla que quieras, o una al azar: el anterior queda guardado como `world.anterior`. La tarjeta de cada servidor te dice cómo entrar.
 
+## Discord (opcional)
+
+Viene apagado. Al activarlo, el hub conecta un bot de Discord tuyo para que puedas dar órdenes a tus bots de Cubit desde Discord y ver lo que dicen. Todo corre dentro del hub; no se envía nada a ningún otro sitio.
+
+1. Entra en <https://discord.com/developers/applications> y pulsa **New Application**.
+2. Abre **Bot**, pulsa **Reset Token** y cópialo. Trátalo como una contraseña.
+3. No hace falta ningún *Privileged Gateway Intent*: déjalos todos desactivados. El bot solo usa órdenes con barra.
+4. Abre **OAuth2 → URL Generator**, marca los ámbitos `bot` y `applications.commands`, y en *Bot permissions* marca **View Channels** y **Send Messages**. Abre la URL que sale y añade el bot a tu servidor.
+5. En Discord activa *Ajustes → Avanzado → Modo desarrollador*. Luego haz clic derecho en el canal que quieras como puente y elige **Copiar ID del canal**, y clic derecho en cada persona que pueda dar órdenes y elige **Copiar ID de usuario**.
+6. En el panel abre **Servidores**, busca la tarjeta **Discord** y pulsa **Configurar**. Pega el token, el ID del canal y los IDs de usuario (separados por comas), actívalo y guarda.
+
+La tarjeta muestra el estado de la conexión (conectando, conectado, sin conexión); si se cae, reintenta sola con una espera cada vez mayor.
+
+- `/bot <nombre> <orden>` ejecuta una orden de la consola en ese bot, p. ej. `/bot Rocky /goto 100 64 200`.
+- `/bots` lista tus bots y qué hace cada uno. `/status <nombre>` enseña uno.
+- Solo pueden usarlas los IDs de usuario que pusiste; a los demás les sale una negativa amable que solo ven ellos.
+- El puente publica lo que los bots dicen en el chat del juego (tarea acabada, atascado, falta un pico, ha muerto...) y lo que les dicen los jugadores, con el nombre del bot delante, en lotes de un mensaje por segundo como mucho.
+
+El token solo se guarda en `hub.json` del equipo que ejecuta el hub (está fuera de git). El panel solo enseña sus 4 últimas letras y no sale nunca en los logs.
+
 ## 3. Controlar el bot
 
 Puedes darle órdenes de dos formas:

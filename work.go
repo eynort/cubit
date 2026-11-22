@@ -61,6 +61,7 @@ func asOrderFrom(who string, f func() error) error {
 // mandó por /msg, o en el chat si vino de la consola (lo ve quien lo vigila).
 func (b *Bot) reportWork(format string, args ...any) {
 	text := fmt.Sprintf(format, args...)
+	log.Printf("chat: %s", text) // (el puente de Discord del hub lo lee del log)
 	b.work.mu.Lock()
 	by := b.work.by
 	b.work.mu.Unlock()
