@@ -21,7 +21,13 @@ curl -fsSL https://github.com/eynort/cubit/releases/latest/download/install.sh |
 ~/.local/bin/cubit-panel                                                              # abrir el panel
 ```
 
-El panel se abre en el navegador y te guía para crear tu primer bot. Windows, macOS, Android y Docker están en [Empieza en un minuto](#empieza-en-un-minuto).
+Después:
+
+1. **Crea tu bot.** El panel se abre en el navegador y te pide un nombre, un servidor, un dueño (tu nombre de Minecraft) y un idioma.
+2. **Entra con él al juego.** Si no tienes servidor, acepta el servidor de pruebas que te ofrece el panel y, en Minecraft Java 26.2, ve a *Multijugador → Conexión directa* y escribe `localhost:25565`.
+3. **Dale una orden.** Escribe `/follow TuNombre` en la consola del bot en el panel y empezará a seguirte. `/stop` lo detiene; el resto está en [Instrucciones para usar el bot](#instrucciones-para-usar-el-bot).
+
+Windows, macOS, Android y Docker están en [Empieza en un minuto](#empieza-en-un-minuto).
 
 ---
 
