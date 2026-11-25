@@ -14,6 +14,15 @@
 
 <p align="center"><a href="README.es.md">Español</a> · <a href="docs/GUIDE.md"><b>Guide</b></a> · <a href="docs/COMMANDS.md">Commands</a> · <a href="docs/API.md">API</a></p>
 
+## Quick start
+
+```sh
+curl -fsSL https://github.com/eynort/cubit/releases/latest/download/install.sh | sh   # install (Linux, no root)
+~/.local/bin/cubit-panel                                                              # open the panel
+```
+
+The panel opens in your browser and walks you through creating your first bot. Windows, macOS, Android and Docker are in [Start in one minute](#start-in-one-minute).
+
 ---
 
 ## Why Cubit
