@@ -7,8 +7,8 @@
 <p align="center">They fight, mine, chop and stay online 24/7, controlled from a web panel in your browser.<br>One ~20 MB binary. No coding, no cloud, no API keys.</p>
 
 <p align="center">
-  <a href="https://github.com/eynort/cubit/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/eynort/cubit/ci.yml?branch=main&style=flat-square&label=CI"></a>
-  <a href="https://github.com/eynort/cubit/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/eynort/cubit?style=flat-square"></a>
+  <a href="https://github.com/bl4tcz/cubit/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/eynort/cubit/ci.yml?branch=main&style=flat-square&label=CI"></a>
+  <a href="https://github.com/bl4tcz/cubit/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/eynort/cubit?style=flat-square"></a>
   <img alt="Go version" src="https://img.shields.io/github/go-mod/go-version/eynort/cubit?style=flat-square">
   <a href="LICENSE"><img alt="License MIT" src="https://img.shields.io/badge/license-MIT-8a7f6a?style=flat-square"></a>
   <img alt="Minecraft Java 26.2, other versions via ViaProxy" src="https://img.shields.io/badge/Minecraft%20Java-26.2%20%2B%20ViaProxy-6b8f71?style=flat-square">
@@ -73,14 +73,14 @@ Most Minecraft bot projects are libraries: you write the bot yourself. **Cubit i
 
 ## Quick start
 
-Prebuilt binaries and packages are on the [Releases page](https://github.com/eynort/cubit/releases/latest).
+Prebuilt binaries and packages are on the [Releases page](https://github.com/bl4tcz/cubit/releases/latest).
 
 ### Linux
 
 One command, no root. It installs into `~/.local/bin` and verifies the SHA-256 checksum:
 
 ```sh
-curl -fsSL https://github.com/eynort/cubit/releases/latest/download/install.sh | sh
+curl -fsSL https://github.com/bl4tcz/cubit/releases/latest/download/install.sh | sh
 ~/.local/bin/cubit-panel        # opens the panel in your browser
 ```
 
@@ -88,7 +88,7 @@ Alternatively, install the `.deb` or `.rpm` from Releases (`sudo apt install ./c
 
 ### Windows
 
-Download `cubit-<version>-windows-amd64.zip` (or `arm64`) from [Releases](https://github.com/eynort/cubit/releases/latest), unzip it and run:
+Download `cubit-<version>-windows-amd64.zip` (or `arm64`) from [Releases](https://github.com/bl4tcz/cubit/releases/latest), unzip it and run:
 
 ```powershell
 cubit.exe --hub :8080 --open
@@ -98,7 +98,7 @@ There is no installer on purpose. The binary is not code-signed, so SmartScreen 
 
 ### macOS and Android (Termux)
 
-Download the binary for your system from [Releases](https://github.com/eynort/cubit/releases/latest), then:
+Download the binary for your system from [Releases](https://github.com/bl4tcz/cubit/releases/latest), then:
 
 ```sh
 chmod +x cubit-*
@@ -112,7 +112,7 @@ On Android, pick the `android-arm64` file. Add `--view 4 --memlimit 120` to keep
 This also runs the test server and Ollama for you. You need [Docker](https://docs.docker.com/get-docker/):
 
 ```sh
-git clone https://github.com/eynort/cubit.git
+git clone https://github.com/bl4tcz/cubit.git
 cd cubit
 ./up.sh YourMinecraftName
 ```
@@ -124,7 +124,7 @@ It prints your panel link (`http://localhost:8080/?t=…`) and the Minecraft add
 Requires Go (the version in [`go.mod`](go.mod)) and git. No C compiler needed.
 
 ```sh
-git clone https://github.com/eynort/cubit.git
+git clone https://github.com/bl4tcz/cubit.git
 cd cubit
 go build -o cubit .
 ./cubit --hub :8080 --open
