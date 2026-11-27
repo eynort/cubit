@@ -7,9 +7,9 @@
 <p align="center">They fight, mine, chop and stay online 24/7, controlled from a web panel in your browser.<br>One ~20 MB binary. No coding, no cloud, no API keys.</p>
 
 <p align="center">
-  <a href="https://github.com/bl4tcz/cubit/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/eynort/cubit/ci.yml?branch=main&style=flat-square&label=CI"></a>
-  <a href="https://github.com/bl4tcz/cubit/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/eynort/cubit?style=flat-square"></a>
-  <img alt="Go version" src="https://img.shields.io/github/go-mod/go-version/eynort/cubit?style=flat-square">
+  <a href="https://github.com/bl4tcz/cubit/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/bl4tcz/cubit/ci.yml?branch=main&style=flat-square&label=CI"></a>
+  <a href="https://github.com/bl4tcz/cubit/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/bl4tcz/cubit?style=flat-square"></a>
+  <img alt="Go version" src="https://img.shields.io/github/go-mod/go-version/bl4tcz/cubit?style=flat-square">
   <a href="LICENSE"><img alt="License MIT" src="https://img.shields.io/badge/license-MIT-8a7f6a?style=flat-square"></a>
   <img alt="Minecraft Java 26.2, other versions via ViaProxy" src="https://img.shields.io/badge/Minecraft%20Java-26.2%20%2B%20ViaProxy-6b8f71?style=flat-square">
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows%20%7C%20Android-5a6470?style=flat-square">
